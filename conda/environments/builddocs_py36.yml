@@ -1,0 +1,14 @@
+name: builddocs_py36
+channels:
+- nvidia
+dependencies:
+- python=3.6.*
+- nvstrings
+- ipython
+- numpydoc
+- sphinx
+- sphinx_rtd_theme
+- sphinxcontrib-websupport
+- pip:
+  - recommonmark
+  - sphinx-markdown-tables

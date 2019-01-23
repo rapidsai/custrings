@@ -1,0 +1,10 @@
+name: dev37
+channels:
+- numba
+- conda-forge
+- defaults
+dependencies:
+- python=3.7
+- cudatoolkit=9.2=0
+- cmake=3.12
+- numba>=0.40
