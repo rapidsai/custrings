@@ -63,3 +63,12 @@ cat = nvcategory.from_strings(strs)
 print(cat.size(),cat.keys())
 print("len(.values()):",len(cat.values()))
 print(".value(Wood):",cat.value('Wood'))
+
+# merging categories
+print("-------------------------")
+cat1 = nvcategory.from_strings(strs1)
+cat2 = nvcategory.from_strings(strs2)
+print("cat1", cat1.keys(), cat1.values())
+print("cat2", cat2.keys(), cat2.values())
+ncat = cat1.merge_category(cat2)
+print("cat1.merge_category(cat2)\n", ncat.keys(), ncat.values())

@@ -9,6 +9,7 @@
 #include <thrust/unique.h>
 #include <thrust/count.h>
 #include <thrust/remove.h>
+#include <thrust/gather.h>
 #include <locale.h>
 #include "NVCategory.h"
 #include "NVStrings.h"
@@ -19,6 +20,18 @@
 typedef custring_view** custring_view_array;
 
 #define ALIGN_SIZE(v)  (((v+7)/8)*8)
+
+//static void printDeviceInts( const char* title, int* d_ints, int count )
+//{
+//    thrust::host_vector<int> ints(count);
+//    int* h_ints = ints.data();
+//    cudaMemcpy( h_ints, d_ints, count * sizeof(int), cudaMemcpyDeviceToHost);
+//    if( title )
+//        printf("%s:\n",title);
+//    for( int i=0; i < count; ++i )
+//        printf(" %d",h_ints[i]);
+//    printf("\n");
+//}
 
 //
 class NVCategoryImpl
@@ -226,7 +239,7 @@ void NVCategoryImpl_init(NVCategoryImpl* pImpl, std::pair<const char*,size_t>* p
         cudaMalloc(&d_pairs,sizeof(thrust::pair<const char*,size_t>)*count);
         cudaMemcpy(d_pairs,pairs,sizeof(thrust::pair<const char*,size_t>)*count,cudaMemcpyHostToDevice);
     }
-        
+
     //
     // example strings used in comments                                e,a,d,b,c,c,c,e,a
     //
@@ -618,6 +631,162 @@ NVCategory* NVCategory::add_strings(NVStrings& strs)
     strs.create_index((std::pair<const char*,size_t>*)d_indexes+count1,count2);
     // build the category from this new set
     return create_from_index((std::pair<const char*,size_t>*)d_indexes,count);
+}
+
+//
+NVCategory* NVCategory::merge_category(NVCategory& cat2)
+{
+    unsigned int count1 = keys_size();
+    unsigned int mcount1 = size();
+    unsigned int count2 = cat2.keys_size();
+    unsigned int mcount2 = cat2.size();
+    NVCategory* rtn = new NVCategory();
+    if( (count1==0) && (count2==0) )
+        return rtn;
+    unsigned int count12 = count1 + count2;
+    unsigned int mcount = mcount1 + mcount2;
+    // if either category is empty, just copy the non-empty one
+    // copying category probably should be a utility
+    if( (count1==0) || (count2==0) )
+    {
+        unsigned int ucount = count12;
+        thrust::device_vector<custring_view*>* pNewList = new thrust::device_vector<custring_view*>(ucount,nullptr);
+        thrust::device_vector<int>* pNewMap = new thrust::device_vector<int>(mcount,0);
+        NVCategory* dcat = ((count1==0) ? &cat2 : this);
+        // copy map values from non-empty category instance
+        cudaMemcpy( pNewMap->data().get(), dcat->pImpl->pMap->data().get(), mcount*sizeof(int), cudaMemcpyDeviceToDevice );
+        rtn->pImpl->pMap = pNewMap;
+        // copy key strings buffer
+        char* d_buffer = (char*)dcat->pImpl->memoryBuffer;
+        size_t bufsize = dcat->pImpl->bufferSize;
+        char* d_newbuffer = 0;
+        cudaMalloc(&d_newbuffer,bufsize);
+        cudaMemcpy(d_newbuffer,d_buffer,bufsize,cudaMemcpyDeviceToDevice);
+        // need to set custring_view ptrs
+        custring_view_array d_strings = dcat->pImpl->getStringsPtr();
+        custring_view_array d_results = pNewList->data().get();
+        thrust::for_each_n(thrust::device, thrust::make_counting_iterator<size_t>(0), ucount,
+            [d_strings, d_buffer, d_newbuffer, d_results] __device__ (size_t idx) {
+                custring_view* dstr = d_strings[idx];
+                char* buffer = d_newbuffer + (size_t)dstr - (size_t)d_buffer;
+                if( dstr )
+                    d_results[idx] = (custring_view*)buffer;
+            });
+        rtn->pImpl->pList = pNewList;
+        rtn->pImpl->addMemoryBuffer( d_newbuffer, bufsize );
+        return rtn;
+    }
+    // both this cat and cat2 are non-empty
+    // init working vars
+    custring_view_array d_keys1 = pImpl->getStringsPtr();
+    int* d_map1 = pImpl->pMap->data().get();
+    custring_view_array d_keys2 = cat2.pImpl->getStringsPtr();
+    int* d_map2 = cat2.pImpl->pMap->data().get();
+    // create some vectors we can sort
+    thrust::device_vector<custring_view*> wstrs(count12); // w = key2 + keys1
+    custring_view_array d_w = wstrs.data().get();
+    cudaMemcpy(d_w, d_keys2, count2*sizeof(custring_view*),cudaMemcpyDeviceToDevice);
+    cudaMemcpy(d_w+count2, d_keys1, count1*sizeof(custring_view*),cudaMemcpyDeviceToDevice);
+    thrust::device_vector<int> x(count12);  // 0,1,....count2,-1,...,-count1
+    int* d_x = x.data().get();
+    // sequence and for-each-n could be combined into for-each-n logic
+    thrust::sequence( thrust::device, d_x, d_x+count2 );   // first half is 0...count2
+    thrust::for_each_n(thrust::device, thrust::make_counting_iterator<int>(0), count1,
+        [d_x, count2] __device__ (int idx) { d_x[idx+count2]= -idx-1; }); // 2nd half is -1...-count1
+    thrust::stable_sort_by_key( thrust::device, d_w, d_w + count12, d_x,  // preserves order for
+        [] __device__ (custring_view*& lhs, custring_view*& rhs) {        // strings that match
+            return ((lhs && rhs) ? (lhs->compare(*rhs)<0) : (lhs==0));
+        });
+    thrust::device_vector<int> y(count12,0); // y-vector will identify overlapped keys
+    int* d_y = y.data().get();
+    thrust::for_each_n( thrust::device, thrust::make_counting_iterator<int>(0), (count12-1),
+        [d_y, d_w] __device__ (int idx) {
+            custring_view* lhs = d_w[idx];
+            custring_view* rhs = d_w[idx+1];
+            if( lhs && rhs )
+                d_y[idx] = (int)(lhs->compare(*rhs)==0);
+            else
+                d_y[idx] = (int)(lhs==rhs);
+        });
+    int matched = thrust::reduce( thrust::device, d_y, d_y + count12 ); // how many keys matched
+    unsigned int ncount = count2 - (unsigned int)matched; // new keys count
+    unsigned int ucount = count1 + ncount; // total unique keys count
+    thrust::device_vector<custring_view*>* pNewList = new thrust::device_vector<custring_view*>(ucount,nullptr);
+    custring_view_array d_keys = pNewList->data().get(); // this will hold the merged keyset
+    thrust::device_vector<int> nidxs(ucount); // needed for various gather methods below
+    int* d_nidxs = nidxs.data().get(); // indexes of 'new' keys from key2 not in key1
+    {
+        thrust::counting_iterator<int> citr(0);
+        thrust::copy_if( thrust::device, citr, citr + (count12), d_nidxs,
+            [d_x, d_y] __device__ (const int& idx) { return (d_x[idx]>=0) && (d_y[idx]==0); });
+    }
+    // first half of merged keyset is direct copy of key1
+    cudaMemcpy( d_keys, d_keys1, count1*sizeof(custring_view*), cudaMemcpyDeviceToDevice);
+    // append the 'new' keys from key2: extract them from w as identified by nidxs
+    thrust::gather( thrust::device, d_nidxs, d_nidxs + ncount, d_w, d_keys + count1 );
+    int* d_ubl = d_x; // reuse d_x for unique-bias-left values
+    thrust::unique_by_key( thrust::device, d_w, d_w + count12, d_ubl,
+         [] __device__ (custring_view* lhs, custring_view* rhs) {
+            return ((lhs && rhs) ? (lhs->compare(*rhs)==0) : (lhs==rhs));
+         });  // ubl now contains new index values for key2
+    int* d_sws = d_y; // reuse d_y for sort-with-seq values
+    thrust::sequence( thrust::device, d_sws, d_sws + ucount); // need to assign new index values
+    thrust::device_vector<custring_view*> keySort(ucount);    // for all the original key2 values
+    cudaMemcpy( keySort.data().get(), d_keys, ucount * sizeof(custring_view*), cudaMemcpyDeviceToDevice);
+    thrust::sort_by_key( thrust::device, keySort.begin(), keySort.end(), d_sws,
+        [] __device__ (custring_view*& lhs, custring_view*& rhs ) {
+            return ((lhs && rhs) ? (lhs->compare(*rhs)<0) : (lhs==0));
+        }); // sws is now key index values for the new keyset
+    //printDeviceInts("d_sws",d_sws,ucount);
+    {
+        thrust::counting_iterator<int> citr(0); // generate subset of just the key2 values
+        thrust::copy_if( thrust::device, citr, citr + ucount, d_nidxs, [d_ubl] __device__ (const int& idx) { return d_ubl[idx]>=0; });
+    }
+    // nidxs has the indexes to the key2 values in the new keyset but they are sorted when key2 may not have been
+    thrust::device_vector<int> remap2(count2); // need to remap the indexes to the original positions
+    int* d_remap2 = remap2.data().get();       // do this by de-sorting the key2 values from the full keyset
+    thrust::gather( thrust::device, d_nidxs, d_nidxs + count2, d_sws, d_remap2 ); // here grab new positions for key2
+    // first, remove the key1 indexes from the sorted sequence values; ubl will then have only key2 orig. pos values
+    thrust::remove_if( thrust::device, d_ubl, d_ubl + ucount, [] __device__ (int v) { return v<0; });
+    thrust::sort_by_key( thrust::device, d_ubl, d_ubl+count2, d_remap2 ); // does a de-sort of key2 only
+    // build new map
+    thrust::device_vector<int>* pNewMap = new thrust::device_vector<int>(mcount,0);
+    int* d_map = pNewMap->data().get(); // first half is identical to map1
+    cudaMemcpy( d_map, d_map1, mcount1 * sizeof(int), cudaMemcpyDeviceToDevice);
+    cudaMemcpy( d_map+mcount1, d_map2, mcount2 * sizeof(int), cudaMemcpyDeviceToDevice);
+    // remap map2 values to their new positions in the full keyset
+    thrust::for_each_n( thrust::device, thrust::make_counting_iterator<int>(mcount1), mcount2,
+        [d_map, d_remap2] __device__ (int idx) { d_map[idx] = d_remap2[d_map[idx]]; });
+    // finally, need to copy the pNewList keys strings to new memory
+    {   // copying strings should likely be a utility
+        // add up the lengths
+        thrust::device_vector<size_t> lengths(ucount,0);
+        size_t* d_lengths = lengths.data().get();
+        thrust::for_each_n(thrust::device, thrust::make_counting_iterator<size_t>(0), ucount,
+            [d_keys, d_lengths] __device__(size_t idx){
+                custring_view* dstr = d_keys[idx];
+                if( dstr )
+                    d_lengths[idx] = ALIGN_SIZE(dstr->alloc_size());
+            });
+        // create output buffer to hold the string keys
+        size_t outsize = thrust::reduce(thrust::device, lengths.begin(), lengths.end());
+        char* d_buffer = 0;
+        cudaMalloc(&d_buffer,outsize);
+        thrust::device_vector<size_t> offsets(ucount,0);
+        thrust::exclusive_scan(thrust::device,lengths.begin(),lengths.end(),offsets.begin());
+        size_t* d_offsets = offsets.data().get();
+        // old ptrs are replaced with new ones using d_buffer and d_offsets
+        thrust::for_each_n(thrust::device, thrust::make_counting_iterator<size_t>(0), ucount,
+            [d_keys, d_buffer, d_offsets] __device__ (size_t idx) {
+                custring_view* dstr = d_keys[idx];
+                if( dstr )
+                    d_keys[idx] = custring_view::create_from(d_buffer+d_offsets[idx],*dstr);
+            });
+        rtn->pImpl->addMemoryBuffer(d_buffer,outsize);
+    }
+    rtn->pImpl->pList = pNewList;
+    rtn->pImpl->pMap = pNewMap;
+    return rtn;
 }
 
 // creates a new instance without the specified strings
