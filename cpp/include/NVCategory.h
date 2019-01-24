@@ -82,14 +82,14 @@ public:
     int create_null_bitarray( unsigned char* bitarray, bool emptyIsNull=false, bool devmem=true );
     // build a string-index from this instances strings
     int create_index(std::pair<const char*,size_t>* strs, bool bdevmem=true );
-    
+
     // return key strings for this instance
     NVStrings* get_keys();
 
     // return single category value given string or index
     int get_value(unsigned int index);
     int get_value(const char* str);
-    
+
     // return category values for all indexes
     int get_values( unsigned int* results, bool devmem=true );
     //
@@ -100,6 +100,10 @@ public:
     NVCategory* add_strings(NVStrings& strs);
     // creates a new instance without the specified strings
     NVCategory* remove_strings(NVStrings& strs);
+
+    //
+    NVCategory* merge_category(NVCategory& cat);
+    NVCategory* merge_strings(NVStrings& strs);
 
     // convert to original strings list
     NVStrings* to_strings();
