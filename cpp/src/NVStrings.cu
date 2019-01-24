@@ -2504,7 +2504,7 @@ NVStrings* NVStrings::replace_re( const char* pattern, const char* repl, int max
 
     // compile regex into device object
     const char32_t* ptn32 = to_char32(pattern);
-    dreprog* prog = dreprog::create_from(ptn32);
+    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
     int numInsts = prog->inst_counts();
     if( numInsts > 64 ) // 64 = LISTBYTES<<3 (from regexec.cu)
@@ -2513,6 +2513,7 @@ NVStrings* NVStrings::replace_re( const char* pattern, const char* repl, int max
         dreprog::destroy(prog);
         return 0;
     }
+    //
     // copy replace string to device memory
     if( !repl )
         repl = "";
@@ -3441,7 +3442,7 @@ int NVStrings::findall( const char* pattern, std::vector<NVStrings*>& results )
 
     // compile regex into device object
     const char32_t* ptn32 = to_char32(pattern);
-    dreprog* prog = dreprog::create_from(ptn32);
+    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
     int numInsts = prog->inst_counts();
     if( numInsts > 64 ) // 64 = LISTBYTES<<3 (from regexec.cu)
@@ -3463,44 +3464,48 @@ int NVStrings::findall( const char* pattern, std::vector<NVStrings*>& results )
             custring_view* dstr = d_strings[idx];
             if( !dstr )
                 return;
-            unsigned int bytes = 0, nchars = 0;;
+            unsigned int tsize = 0;;
             int fnd = 0, end = (int)dstr->chars_count();
             int spos = 0, epos = end;
             int result = prog->find(dstr,spos,epos);
             while(result > 0)
             {
-                bytes += (dstr->byte_offset_for(epos)-dstr->byte_offset_for(spos));
-                nchars += (epos-spos);
+                unsigned int bytes = (dstr->byte_offset_for(epos)-dstr->byte_offset_for(spos));
+                unsigned int nchars = (epos-spos);
+                unsigned int size = custring_view::alloc_size(bytes,nchars);
+                tsize += ALIGN_SIZE(size);
                 spos = epos;
                 epos = end;
                 ++fnd;
                 result = prog->find(dstr,spos,epos); // next one
             }
-            unsigned int size = custring_view::alloc_size(bytes,nchars);
-            d_sizes[idx] = ALIGN_SIZE(size);
+            d_sizes[idx] = tsize;
             d_counts[idx] = fnd;
         });
     cudaDeviceSynchronize();
     //
     // create rows of buffers
-    thrust::device_vector<custring_view_array> rows(count,nullptr);
-    thrust::device_vector<char*> buffers(count,nullptr);
+    thrust::host_vector<int> hcounts(counts); // copies counts from device
+    thrust::host_vector<custring_view_array> hrows(count,nullptr);
+    thrust::host_vector<char*> hbuffers(count,nullptr);
     for( unsigned int idx=0; idx < count; ++idx )
     {
-        int rcount = counts[idx];
+        int rcount = hcounts[idx];
         NVStrings* row = new NVStrings(rcount);
         results.push_back(row);
         if( rcount==0 )
             continue;
-        rows[idx] = row->pImpl->getStringsPtr();
+        hrows[idx] = row->pImpl->getStringsPtr();
         int size = sizes[idx];
         char* d_buffer = 0;
         cudaMalloc(&d_buffer,size);
         row->pImpl->setMemoryBuffer(d_buffer,size);
-        buffers[idx] = d_buffer;
+        hbuffers[idx] = d_buffer;
     }
     // copy substrings into buffers
+    thrust::device_vector<custring_view_array> rows(hrows); // copies hrows to device
     custring_view_array* d_rows = rows.data().get();
+    thrust::device_vector<char*> buffers(hbuffers); // copies hbuffers to device
     char** d_buffers = buffers.data().get();
     thrust::for_each_n(thrust::device, thrust::make_counting_iterator<unsigned int>(0), count,
         [prog, d_strings, d_counts, d_buffers, d_sizes, d_rows] __device__(unsigned int idx){
@@ -3538,7 +3543,7 @@ int NVStrings::findall_column( const char* pattern, std::vector<NVStrings*>& res
         return 0;
     // compile regex into device object
     const char32_t* ptn32 = to_char32(pattern);
-    dreprog* prog = dreprog::create_from(ptn32);
+    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
     int numInsts = prog->inst_counts();
     if( numInsts > 64 ) // 64 = LISTBYTES<<3 (from regexec.cu)
@@ -3677,7 +3682,7 @@ int NVStrings::contains_re( const char* pattern, bool* results, bool todevice )
         return 0;
     // compile regex into device object
     const char32_t* ptn32 = to_char32(pattern);
-    dreprog* prog = dreprog::create_from(ptn32);
+    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
     int numInsts = prog->inst_counts();
     if( numInsts > 64 ) // 64 = LISTBYTES<<3 (from regexec.cu)
@@ -3733,7 +3738,7 @@ int NVStrings::match( const char* pattern, bool* results, bool todevice )
         return 0;
     // compile regex into device object
     const char32_t* ptn32 = to_char32(pattern);
-    dreprog* prog = dreprog::create_from(ptn32);
+    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
     int numInsts = prog->inst_counts();
     if( numInsts > 64 ) // 64 = LISTBYTES<<3 (from regexec.cu)
@@ -3790,7 +3795,7 @@ int NVStrings::count_re( const char* pattern, int* results, bool todevice )
         return 0;
     // compile regex into device object
     const char32_t* ptn32 = to_char32(pattern);
-    dreprog* prog = dreprog::create_from(ptn32);
+    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
     int numInsts = prog->inst_counts();
     if( numInsts > 64 ) // 64 = LISTBYTES<<3 (from regexec.cu)
@@ -3952,7 +3957,7 @@ int NVStrings::extract( const char* pattern, std::vector<NVStrings*>& results)
         return 0;
     // compile regex into device object
     const char32_t* ptn32 = to_char32(pattern);
-    dreprog* prog = dreprog::create_from(ptn32);
+    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
     int numInsts = prog->inst_counts();
     if( numInsts > 64 ) // 64 = LISTBYTES<<3 (from regexec.cu)
@@ -4052,7 +4057,7 @@ int NVStrings::extract_column( const char* pattern, std::vector<NVStrings*>& res
         return 0;
     // compile regex into device object
     const char32_t* ptn32 = to_char32(pattern);
-    dreprog* prog = dreprog::create_from(ptn32);
+    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
     int numInsts = prog->inst_counts();
     if( numInsts > 64 ) // 64 = LISTBYTES<<3 (from regexec.cu)
