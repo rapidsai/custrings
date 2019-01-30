@@ -221,7 +221,7 @@ class RegCompiler
                     continue;
                 }
             }
-            if(!quoted && c == ']')
+            if(!quoted && c == ']' && ( (type == CCLASS && cls.size()>0) || cls.size()>2))
                 break;
             if(!quoted && c == '-')
             {
@@ -825,7 +825,7 @@ void Reprog::print()
             if( mask & 16 )
                 printf(" \\S");
             if( mask & 32 )
-                printf(" \\D")			;
+                printf(" \\D");
         }
         printf("\n");
     }

@@ -70,3 +70,8 @@ columns = strs.extract_column(r'Flight:([A-Z]+)(\d+)')
 for col in columns:
 	print(" ",col)
 
+print("----------------------")
+strs = nvstrings.to_device('word [[wikt:anarchism|anarchism]] is')
+print(strs)
+print(".replace('\\[\\[[a-z\\-]+:[^]]+\\]\\]','')",strs.replace('\\[\\[[a-z\\-]+:[^]]+\\]\\]',''))
+

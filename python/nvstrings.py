@@ -58,8 +58,9 @@ def from_csv(csv, column, lines=0, flags=0):
 
 def free(dstrs):
     """Force free resources for the specified instance."""
-    pyniNVStrings.n_destroyStrings(dstrs.m_cptr)
-    dstrs.m_cptr = 0
+    if dstrs is not None:
+        pyniNVStrings.n_destroyStrings(dstrs.m_cptr)
+        dstrs.m_cptr = 0
 
 
 def bind_cpointer(cptr):

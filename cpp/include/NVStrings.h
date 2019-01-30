@@ -1,5 +1,5 @@
 /*
-* Copyright 1993-2018 NVIDIA Corporation.  All rights reserved.
+* Copyright 1993-2019 NVIDIA Corporation.  All rights reserved.
 *
 * NOTICE TO LICENSEE:
 *
@@ -97,7 +97,7 @@ public:
     // return a new instance without the specified strings
     NVStrings* remove_strings( unsigned int* pos, unsigned int count, bool devmem=true );
 
-    // return the length of each string
+    // return the number of characters in each string
     unsigned int len(int* lengths, bool todevice=true);
 
     // adds the given string(s) to this list of strings and returns as new strings

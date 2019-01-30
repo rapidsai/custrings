@@ -9,3 +9,4 @@ dependencies:
 - cmake=3.12
 - numba>=0.40
 - cython=0.28.*
+- cffi>=1.10.0

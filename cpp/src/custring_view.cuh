@@ -29,7 +29,7 @@ typedef unsigned int Char;
 //    https://en.wikipedia.org/wiki/Wikipedia:Size_comparisons
 // Wikipedia recommends breaking up any article over 50KB.
 // A different string class that handles parallelizing over characters seems
-// more appropriate for processing single larg documents like tokenizing CSV files or
+// more appropriate for processing single large documents like tokenizing CSV files or
 // Wikipedia articles.
 //
 class custring_view
