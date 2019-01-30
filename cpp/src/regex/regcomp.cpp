@@ -221,7 +221,7 @@ class RegCompiler
                     continue;
                 }
             }
-            if(!quoted && c == ']')
+            if(!quoted && c == ']' && ( (type == CCLASS && cls.size()>0) || cls.size()>2))
                 break;
             if(!quoted && c == '-')
             {
