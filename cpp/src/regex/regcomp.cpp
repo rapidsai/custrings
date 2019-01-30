@@ -825,7 +825,7 @@ void Reprog::print()
             if( mask & 16 )
                 printf(" \\S");
             if( mask & 32 )
-                printf(" \\D")			;
+                printf(" \\D");
         }
         printf("\n");
     }
