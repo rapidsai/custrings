@@ -277,7 +277,6 @@ class nvcategory:
         Output:
 
         .. code-block:: python
-
           ['aaa','dddd','eee']
           [2, 0, 2, 1]
           ['aaa','dddd','eee','ggg']
@@ -317,7 +316,6 @@ class nvcategory:
         Output:
 
         .. code-block:: python
-
           ['aaa','dddd','eee']
           [2, 0, 2, 1]
           ['dddd', 'eee']
@@ -402,4 +400,22 @@ class nvcategory:
         rtn = pyniNVCategory.n_gather_strings(self.m_cptr, indexes, count)
         if rtn is not None:
             rtn = nvs.nvstrings(rtn)
+        return rtn
+
+    def merge_category(self, nvcat):
+        """
+        Create new category incorporating the specified category keys
+        and values. This will return a new nvcategory with new key values.
+        The index values will appear as if appended. Any matching keys
+        will preserve their values and any new keys will get new values.
+
+        Parameters
+        ----------
+          nvcat : nvcategory
+            New cateogry to be merged.
+
+        """
+        rtn = pyniNVCategory.n_merge_category(self.m_cptr, nvcat)
+        if rtn is not None:
+            rtn = nvcategory(rtn)
         return rtn
