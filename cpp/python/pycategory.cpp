@@ -57,7 +57,7 @@ static PyObject* n_createCategoryFromNVStrings( PyObject* self, PyObject* args )
         PyErr_Format(PyExc_ValueError,"nvcategory: argument must be nvstrings object");
         Py_RETURN_NONE;
     }
-    
+
     NVCategory* thisptr = NVCategory::create_from_strings(strslist);
     return PyLong_FromVoidPtr((void*)thisptr);
 }
@@ -88,7 +88,7 @@ static PyObject* n_createCategoryFromHostStrings( PyObject* self, PyObject* args
     for( int idx=0; idx < count; ++idx )
     {
         PyObject* pystr = PyList_GetItem(pystrs,idx);
-	if( (pystr == Py_None) || !PyObject_TypeCheck(pystr,&PyUnicode_Type) )
+        if( (pystr == Py_None) || !PyObject_TypeCheck(pystr,&PyUnicode_Type) )
             list[idx] = 0;
         else
             list[idx] = PyUnicode_AsUTF8(pystr);
@@ -168,8 +168,8 @@ static PyObject* n_get_values( PyObject* self, PyObject* args )
     unsigned int* rtn = new unsigned int[count];
     tptr->get_values(rtn,false);
     for(size_t idx=0; idx < count; idx++)
-		PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));
-	delete rtn;
+        PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));
+    delete rtn;
     return ret;
 }
 
@@ -188,7 +188,7 @@ static PyObject* n_get_indexes_for_key( PyObject* self, PyObject* args )
             PyErr_Format(PyExc_ValueError,"nvcategory: string not found in keys");
         return PyLong_FromLong(count);
     }
-    // 
+    //
     int count = tptr->get_indexes_for(str,0,false);
     if( count < 0 )
     {
@@ -202,8 +202,8 @@ static PyObject* n_get_indexes_for_key( PyObject* self, PyObject* args )
     unsigned int* rtn = new unsigned int[count];
     tptr->get_indexes_for(str,rtn,false);
     for(size_t idx=0; idx < count; idx++)
-		PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));
-	delete rtn;
+        PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));
+    delete rtn;
     return ret;
 }
 
@@ -230,7 +230,9 @@ static PyObject* n_add_strings( PyObject* self, PyObject* args )
     }
 
     NVCategory* rtn = tptr->add_strings(*strs);
-    return PyLong_FromVoidPtr((void*)rtn);
+    if( rtn )
+        return PyLong_FromVoidPtr((void*)rtn);
+    Py_RETURN_NONE;
 }
 
 static PyObject* n_remove_strings( PyObject* self, PyObject* args )
@@ -256,7 +258,9 @@ static PyObject* n_remove_strings( PyObject* self, PyObject* args )
     }
 
     NVCategory* rtn = tptr->remove_strings(*strs);
-    return PyLong_FromVoidPtr((void*)rtn);
+    if( rtn )
+        return PyLong_FromVoidPtr((void*)rtn);
+    Py_RETURN_NONE;
 }
 
 static PyObject* n_to_strings( PyObject* self, PyObject* args )
@@ -299,11 +303,39 @@ static PyObject* n_gather_strings( PyObject* self, PyObject* args )
     Py_RETURN_NONE;
 }
 
+static PyObject* n_merge_category( PyObject* self, PyObject* args )
+{
+    NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    PyObject* pystrs = PyTuple_GetItem(args,1);
+    if( pystrs == Py_None )
+    {
+        PyErr_Format(PyExc_ValueError,"nvcategory.merge_category: parameter required");
+        Py_RETURN_NONE;
+    }
+    std::string cname = pystrs->ob_type->tp_name;
+    if( cname.compare("nvcategory")!=0 )
+    {
+        PyErr_Format(PyExc_ValueError,"nvcategory.merge_category: argument must be nvcategory object");
+        Py_RETURN_NONE;
+    }
+    NVCategory* cat2 = (NVCategory*)PyLong_AsVoidPtr(PyObject_GetAttrString(pystrs,"m_cptr"));
+    if( cat2==0 )
+    {
+        PyErr_Format(PyExc_ValueError,"nvcategory.merge_category: invalid nvcategory object");
+        Py_RETURN_NONE;
+    }
+
+    NVCategory* rtn = tptr->merge_category(*cat2);
+    if( rtn )
+        return PyLong_FromVoidPtr((void*)rtn);
+    Py_RETURN_NONE;
+}
+
 //
 static PyMethodDef s_Methods[] = {
-	{ "n_createCategoryFromHostStrings", n_createCategoryFromHostStrings, METH_VARARGS, "" },
+    { "n_createCategoryFromHostStrings", n_createCategoryFromHostStrings, METH_VARARGS, "" },
     { "n_createCategoryFromNVStrings", n_createCategoryFromNVStrings, METH_VARARGS, "" },
-	{ "n_destroyCategory", n_destroyCategory, METH_VARARGS, "" },
+    { "n_destroyCategory", n_destroyCategory, METH_VARARGS, "" },
     { "n_size", n_size, METH_VARARGS, "" },
     { "n_keys_size", n_keys_size, METH_VARARGS, "" },
     { "n_get_keys", n_get_keys, METH_VARARGS, "" },
@@ -315,13 +347,14 @@ static PyMethodDef s_Methods[] = {
     { "n_remove_strings", n_remove_strings, METH_VARARGS, "" },
     { "n_to_strings", n_to_strings, METH_VARARGS, "" },
     { "n_gather_strings", n_gather_strings, METH_VARARGS, "" },
-	{ NULL, NULL, 0, NULL }
+    { "n_merge_category", n_merge_category, METH_VARARGS, "" },
+    { NULL, NULL, 0, NULL }
 };
 
 static struct PyModuleDef cModPyDem = {	PyModuleDef_HEAD_INIT, "NVCategory_module", "", -1, s_Methods };
 
-PyMODINIT_FUNC PyInit_pyniNVCategory(void) 
+PyMODINIT_FUNC PyInit_pyniNVCategory(void)
 {
-	return PyModule_Create(&cModPyDem);
+    return PyModule_Create(&cModPyDem);
 }
 
