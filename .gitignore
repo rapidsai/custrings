@@ -1,0 +1,8 @@
+##
+.vscode
+*.swp
+*.a
+*.o
+*.so
+##
+cpp/build/
