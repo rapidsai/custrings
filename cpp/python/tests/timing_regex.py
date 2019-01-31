@@ -3,7 +3,7 @@ import pandas as pd
 import nvstrings
 import time
 
-dstrs_in = nvstrings.from_csv('../tweets.csv', 7)
+dstrs_in = nvstrings.from_csv('/data/tweets.csv', 7)
 vlist = dstrs_in.to_host()
 vlist.extend(vlist)
 vlist.extend(vlist)
