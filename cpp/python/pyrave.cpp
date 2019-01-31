@@ -52,7 +52,7 @@ NVStrings* strings_from_list(PyObject* listObj)
 static PyObject* n_unique_tokens( PyObject* self, PyObject* args )
 {
     PyObject* pystrs = PyTuple_GetItem(args,0); // only one parm expected
-    NVStrings* strs = strings_from_object(pystrs);    
+    NVStrings* strs = strings_from_object(pystrs);
     if( strs==0 )
         Py_RETURN_NONE;
 
@@ -71,7 +71,7 @@ static PyObject* n_unique_tokens( PyObject* self, PyObject* args )
 static PyObject* n_token_count( PyObject* self, PyObject* args )
 {
     PyObject* pystrs = PyTuple_GetItem(args,0);
-    NVStrings* strs = strings_from_object(pystrs);    
+    NVStrings* strs = strings_from_object(pystrs);
     if( strs==0 )
         Py_RETURN_NONE;
 
@@ -103,7 +103,7 @@ static PyObject* n_token_count( PyObject* self, PyObject* args )
 static PyObject* n_contains_strings( PyObject* self, PyObject* args )
 {
     PyObject* pystrs = PyTuple_GetItem(args,0);
-    NVStrings* strs = strings_from_object(pystrs);    
+    NVStrings* strs = strings_from_object(pystrs);
     if( strs==0 )
         Py_RETURN_NONE;
 
@@ -159,7 +159,7 @@ static PyObject* n_contains_strings( PyObject* self, PyObject* args )
 static PyObject* n_strings_counts( PyObject* self, PyObject* args )
 {
     PyObject* pystrs = PyTuple_GetItem(args,0);
-    NVStrings* strs = strings_from_object(pystrs);    
+    NVStrings* strs = strings_from_object(pystrs);
     if( strs==0 )
         Py_RETURN_NONE;
     //
@@ -224,7 +224,7 @@ static PyMethodDef s_Methods[] = {
 
 static struct PyModuleDef cModPyDem = {	PyModuleDef_HEAD_INIT, "Rave_module", "", -1, s_Methods };
 
-PyMODINIT_FUNC PyInit_pyniRave(void) 
+PyMODINIT_FUNC PyInit_pyniRave(void)
 {
     return PyModule_Create(&cModPyDem);
 }

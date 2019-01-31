@@ -1,6 +1,10 @@
 #
 import nvstrings
-
+#
+from librmm_cffi import librmm as rmm
+from librmm_cffi import librmm_config as rmm_cfg
+rmm_cfg.use_pool_allocator = True 
+rmm.initialize()
 #
 strs = nvstrings.to_device(["abc","defghi",None,"jkl","mno","pqr","stu","dog and cat","accénted",""])
 print(strs)
@@ -13,3 +17,5 @@ print(".order(1):",strs.order(1))
 print(".order(2):",strs.order(2))
 print(".order(2,desc):",strs.order(2,False))
 print(".order(3):",strs.order(3))
+
+strs = None
