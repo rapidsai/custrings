@@ -3,6 +3,13 @@ import pandas as pd
 import nvstrings
 import time
 
+# setup rmm to use memory pool
+from librmm_cffi import librmm as rmm
+from librmm_cffi import librmm_config as rmm_cfg
+rmm_cfg.use_pool_allocator = True 
+rmm_cfg.initial_pool_size = 8<<30  # 8GB
+rmm.initialize()
+
 strs = nvstrings.from_csv('/data/tweets.csv', 7).to_host()
 
 vlist1 = []
@@ -46,6 +53,7 @@ for i in range(20):
     #
     d = None
     h = None
+    dstrs = None
 
 line = "' '"
 for n in stats['strings']:
