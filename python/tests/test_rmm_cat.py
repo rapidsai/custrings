@@ -91,3 +91,7 @@ cat = None
 cat1 = None
 cat2 = None
 ncat = None
+
+#import sys
+#print(rmm.csv_log(), file=sys.stderr)
+

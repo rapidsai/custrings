@@ -2,6 +2,11 @@
 import nvstrings
 
 #
+from librmm_cffi import librmm as rmm
+from librmm_cffi import librmm_config as rmm_cfg
+rmm_cfg.use_pool_allocator = True 
+rmm.initialize()
+#
 strs = nvstrings.to_device(["abcdefghij","0123456789","9876543210", None, "accénted", ""])
 print(strs)
 
@@ -21,3 +26,5 @@ print(".get(10):",strs.get(10));
 print(".replace(3,_)",strs.replace('3','_'))
 print(".replace(3,++)",strs.replace('3','++'))
 print(".replace(c,)",strs.replace('c',''))
+
+strs = None

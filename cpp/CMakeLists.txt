@@ -68,8 +68,8 @@ add_library(Rave SHARED
             src/custring.cu)
 
 target_link_libraries(NVStrings rmm)
-target_link_libraries(NVCategory NVStrings)
-target_link_libraries(Rave NVStrings)
+target_link_libraries(NVCategory NVStrings rmm)
+target_link_libraries(Rave NVStrings rmm)
 
 add_library(pyniNVStrings SHARED python/pystrings.cpp)
 add_library(pyniNVCategory SHARED python/pycategory.cpp)

@@ -1,5 +1,10 @@
 #
 import nvstrings
+#
+from librmm_cffi import librmm as rmm
+from librmm_cffi import librmm_config as rmm_cfg
+rmm_cfg.use_pool_allocator = True 
+rmm.initialize()
 
 #
 strs = nvstrings.to_device(["5","hej","\t \n","12345","\\","d","c:\\Tools","+27", "1c2", "1C2" ])
@@ -65,13 +70,20 @@ print(".extract(r'Flight:([A-Z]+)(\d+)'):")
 rows = strs.extract(r'Flight:([A-Z]+)(\d+)')
 for row in rows:
 	print(" ",row)
+	nvstrings.free(row)
 print(".extract_column(r'Flight:([A-Z]+)(\d+)'):")
 columns = strs.extract_column(r'Flight:([A-Z]+)(\d+)')
 for col in columns:
 	print(" ",col)
+	nvstrings.free(col)
 
 print("----------------------")
 strs = nvstrings.to_device('word [[wikt:anarchism|anarchism]] is')
 print(strs)
 print(".replace('\\[\\[[a-z\\-]+:[^]]+\\]\\]','')",strs.replace('\\[\\[[a-z\\-]+:[^]]+\\]\\]',''))
 
+strs = None
+strs1 = None
+strs2 = None
+strs3 = None
+strs4 = None
