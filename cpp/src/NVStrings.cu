@@ -285,7 +285,7 @@ int NVStrings_init_from_strings(NVStringsImpl* pImpl, const char** strs, unsigne
         size_t avg = 0;
         if( count > 0 )
             avg =sum / count;
-        printf("nvs-sts: created %'u strings in device memory = %'lu bytes\n",count,memSize);
+        printf("nvs-sts: created %'u strings in device memory(%p) = %'lu bytes\n",count,d_flatstrs,memSize);
         printf("nvs-sts: largest string is %lu bytes, average string length is %lu bytes\n",max,avg);
     }
 #endif
@@ -416,7 +416,7 @@ int NVStrings_init_from_indexes( NVStringsImpl* pImpl, std::pair<const char*,siz
         if( count > 0 )
             avg =sum / count;
         //
-        printf("nvs-idx: created %'u strings in device memory = %'lu bytes\n",count,memSize);
+        printf("nvs-idx: created %'u strings in device memory(%p) = %'lu bytes\n",count,d_flatdstrs,memSize);
         printf("nvs-idx: largest string is %lu bytes, average string length is %lu bytes\n",max,avg);
     }
 #endif
@@ -758,6 +758,22 @@ NVStrings* NVStrings::sublist( unsigned int* pos, unsigned int elems, bool bdevm
     if( !bdevmem )
         RMM_FREE(d_pos,0);
     return rtn;
+}
+
+NVStrings* NVStrings::sublist( unsigned int start, unsigned int end, unsigned int step )
+{
+    unsigned int count = size();
+    if( end > count )
+        end = count;
+    if( start >= end )
+        return new NVStrings(0);
+    if( step==0 )
+        step = 1;
+    unsigned int elems = (end - start + step -1)/step;
+    auto execpol = rmm::exec_policy(0);
+    rmm::device_vector<unsigned int> indexes(elems);
+    thrust::sequence(execpol->on(0),indexes.begin(),indexes.end(),start,step);
+    return sublist(indexes.data().get(),elems,true);
 }
 
 // remove the specified strings and return a new instance
