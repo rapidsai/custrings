@@ -94,6 +94,7 @@ public:
 
     // create a new instance containing only the strings at the specified positions
     NVStrings* sublist( unsigned int* pos, unsigned int count, bool devmem=true );
+    NVStrings* sublist( unsigned int start, unsigned int end, unsigned int step=0 );
     // return a new instance without the specified strings
     NVStrings* remove_strings( unsigned int* pos, unsigned int count, bool devmem=true );
 

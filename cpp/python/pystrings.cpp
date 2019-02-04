@@ -1491,6 +1491,27 @@ static PyObject* n_sublist( PyObject* self, PyObject* args )
 }
 
 //
+static PyObject* n_sublist_slice( PyObject* self, PyObject* args )
+{
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    unsigned int start = 0, step = 1, end = tptr->size();
+    PyObject* argOpt = PyTuple_GetItem(args,1);
+    if( argOpt != Py_None )
+        start = (unsigned int)PyLong_AsLong(argOpt);
+    argOpt = PyTuple_GetItem(args,2);
+    if( argOpt != Py_None )
+        end = (unsigned int)PyLong_AsLong(argOpt);
+    argOpt = PyTuple_GetItem(args,3);
+    if( argOpt != Py_None )
+        step = (unsigned int)PyLong_AsLong(argOpt);        
+    //
+    NVStrings* rtn = tptr->sublist(start,end,step);
+    if( rtn )
+        return PyLong_FromVoidPtr((void*)rtn);
+    Py_RETURN_NONE;
+}
+
+//
 static PyObject* n_remove_strings( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
@@ -1762,6 +1783,7 @@ static PyMethodDef s_Methods[] = {
     { "n_sort", n_sort, METH_VARARGS, "" },
     { "n_order", n_order, METH_VARARGS, "" },
     { "n_sublist", n_sublist, METH_VARARGS, "" },
+    { "n_sublist_slice", n_sublist_slice, METH_VARARGS, "" },
     { "n_isalnum", n_isalnum, METH_VARARGS, "" },
     { "n_isalpha", n_isalpha, METH_VARARGS, "" },
     { "n_isdigit", n_isdigit, METH_VARARGS, "" },

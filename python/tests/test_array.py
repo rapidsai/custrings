@@ -16,6 +16,9 @@ print(".sublist([1,3,5,7]):  ",strs.sublist([1,3,5,7]))
 d_arr = rmm.to_device(np.array([1,3,5,7],dtype=np.int32))
 devmem = d_arr.device_ctypes_pointer.value
 print(".sublist([1,3,5,7],4):",strs.sublist(devmem,4))
+print("[3]:",strs[3])
+print("[[1,3,5,7]]:",strs[[1,3,5,7]])
+print("[1:7:2]:",strs[1:7:2])
 
 print(".remove_strings([2,4,6,8]):  ",strs.remove_strings([2,4,6,8]))
 d_arr = rmm.to_device(np.array([2,4,6,8],dtype=np.int32))
