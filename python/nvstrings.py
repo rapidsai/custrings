@@ -99,6 +99,27 @@ class nvstrings:
     def __repr__(self):
         return "<nvstrings count={}>".format(self.size())
 
+    def __getitem__(self,key):
+        """
+        Implemented for [] operator on nvstrings.
+        Parameter must be integer, slice, or list of integers.
+        """
+        if key is None:
+            raise KeyError("key must not be None")
+        if isinstance(key,list):
+            return self.sublist(key)
+        if isinstance(key,int):
+            return self.sublist([key])
+        if isinstance(key,slice):
+            start = 0 if key.start is None else key.start
+            end = self.size() if key.stop is None else key.stop
+            step = 1 if key.step is None or key.step is 0 else key.step
+            rtn = pyniNVStrings.n_sublist_slice(self.m_cptr,start,end,step)
+            if rtn is not None:
+                rtn = nvstrings(rtn)
+            return rtn
+        raise TypeError("key must be integer, slice, or list of integers")
+
     def to_host(self):
         """
         Copies strings back to CPU memory into a Python array.
