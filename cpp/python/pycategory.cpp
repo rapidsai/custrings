@@ -157,7 +157,7 @@ static PyObject* n_get_values( PyObject* self, PyObject* args )
     PyObject* ret = PyList_New(count);
     if( count==0 )
         return ret;
-    unsigned int* devptr = (unsigned int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,1));
+    int* devptr = (int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,1));
     if( devptr )
     {
         tptr->get_values(devptr);
@@ -165,7 +165,7 @@ static PyObject* n_get_values( PyObject* self, PyObject* args )
     }
 
     // copy to host option
-    unsigned int* rtn = new unsigned int[count];
+    int* rtn = new int[count];
     tptr->get_values(rtn,false);
     for(size_t idx=0; idx < count; idx++)
         PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));

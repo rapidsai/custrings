@@ -579,15 +579,20 @@ int NVCategory::get_value(const char* str)
 }
 
 // return category values for all indexes
-int NVCategory::get_values( unsigned int* results, bool bdevmem )
+int NVCategory::get_values( int* results, bool bdevmem )
 {
     int count = (int)size();
     int* d_map = pImpl->getMapPtr();
     if( bdevmem )
-        cudaMemcpy(results,d_map,count*sizeof(unsigned int),cudaMemcpyDeviceToDevice);
+        cudaMemcpy(results,d_map,count*sizeof(int),cudaMemcpyDeviceToDevice);
     else
-        cudaMemcpy(results,d_map,count*sizeof(unsigned int),cudaMemcpyDeviceToHost);
+        cudaMemcpy(results,d_map,count*sizeof(int),cudaMemcpyDeviceToHost);
     return count;
+}
+
+const int* NVCategory::values_cptr()
+{
+    return pImpl->getMapPtr();
 }
 
 int NVCategory::get_indexes_for( unsigned int index, unsigned int* results, bool bdevmem )

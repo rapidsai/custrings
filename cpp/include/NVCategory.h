@@ -91,7 +91,10 @@ public:
     int get_value(const char* str);
 
     // return category values for all indexes
-    int get_values( unsigned int* results, bool devmem=true );
+    int get_values( int* results, bool devmem=true );
+    // returns pointer to internal values array in device memory
+    const int* values_cptr();
+
     //
     int get_indexes_for( unsigned int index, unsigned int* results, bool devmem=true );
     int get_indexes_for( const char* str, unsigned int* results, bool devmem=true );
