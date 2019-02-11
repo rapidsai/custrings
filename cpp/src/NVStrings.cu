@@ -704,7 +704,7 @@ int NVStrings::create_custring_index( custring_view** strs, bool bdevmem )
 
 // create a new instance containing only the strings at the specified positions
 // position values can be in any order and can even be repeated
-NVStrings* NVStrings::sublist( unsigned int* pos, unsigned int elems, bool bdevmem )
+NVStrings* NVStrings::gather( unsigned int* pos, unsigned int elems, bool bdevmem )
 {
     unsigned int count = size();
     if( count==0 || elems==0 || pos==0 )
@@ -773,7 +773,7 @@ NVStrings* NVStrings::sublist( unsigned int start, unsigned int end, unsigned in
     auto execpol = rmm::exec_policy(0);
     rmm::device_vector<unsigned int> indexes(elems);
     thrust::sequence(execpol->on(0),indexes.begin(),indexes.end(),start,step);
-    return sublist(indexes.data().get(),elems,true);
+    return gather(indexes.data().get(),elems,true);
 }
 
 // remove the specified strings and return a new instance
