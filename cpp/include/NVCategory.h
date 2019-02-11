@@ -77,9 +77,11 @@ public:
     unsigned int size();
     // return number of keys
     unsigned int keys_size();
+    // true if any null values exist
+    bool has_nulls();
 
-    // create bit-array identifying the null strings
-    int create_null_bitarray( unsigned char* bitarray, bool emptyIsNull=false, bool devmem=true );
+    // set bit-array identifying the null values
+    int set_null_bitarray( unsigned char* bitarray, bool devmem=true );
     // build a string-index from this instances strings
     int create_index(std::pair<const char*,size_t>* strs, bool bdevmem=true );
 

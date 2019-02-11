@@ -10,6 +10,7 @@
 #include <thrust/count.h>
 #include <thrust/remove.h>
 #include <thrust/gather.h>
+#include <thrust/copy.h>
 #include <locale.h>
 #include <rmm/rmm.h>
 #include <rmm/thrust_rmm_allocator.h>
@@ -406,24 +407,41 @@ unsigned int NVCategory::keys_size()
     return pImpl->pList->size();
 }
 
-//
-int NVCategory::create_null_bitarray( unsigned char* bitarray, bool emptyIsNull, bool devmem )
+// true if any null values exist
+bool NVCategory::has_nulls()
 {
-    int count = (int)size();
+    unsigned int count = keys_size();
+    auto execpol = rmm::exec_policy(0);
+    custring_view_array d_strings = pImpl->getStringsPtr();
+    int n = thrust::count_if(execpol->on(0), d_strings, d_strings+count,
+            []__device__(custring_view* dstr) { return dstr==0; } );
+    return n > 0;
+}
+
+// bitarray is for the values
+// return the number of null values found
+int NVCategory::set_null_bitarray( unsigned char* bitarray, bool devmem )
+{
+    unsigned int count = size();
     if( count==0 )
         return 0;
     auto execpol = rmm::exec_policy(0);
-    int size = (count + 7)/8;
+    unsigned int size = (count + 7)/8;
     unsigned char* d_bitarray = bitarray;
-    if( devmem )
+    if( !devmem )
         RMM_ALLOC(&d_bitarray,size,0);
 
-    // get the null value index
-    int nidx = get_value((const char*)0); // null index
-    int eidx = get_value("");             // empty string index
-    if( (nidx < 0) && (!emptyIsNull || (eidx < 0)) )
+    int nidx = -1;
     {
-        // no nulls, set everything to 1s
+        custring_view_array d_strings = pImpl->getStringsPtr();
+        rmm::device_vector<int> nulls(1,-1);
+        thrust::copy_if( execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), thrust::make_counting_iterator<unsigned int>(keys_size()), nulls.begin(),
+                [d_strings] __device__ (unsigned int idx) { return d_strings[idx]==0; } );
+        nidx = nulls[0]; // should be the index of the null entry (or -1)
+    }
+    
+    if( nidx < 0 )
+    {   // no nulls, set everything to 1s
         cudaMemset(d_bitarray,255,size); // actually sets more bits than we need to
         if( !devmem )
         {
@@ -435,23 +453,20 @@ int NVCategory::create_null_bitarray( unsigned char* bitarray, bool emptyIsNull,
 
     // count nulls in range for return value
     int* d_map = pImpl->getMapPtr();
-    int ncount = thrust::count_if(execpol->on(0), d_map, d_map + count,
-       [emptyIsNull,nidx,eidx] __device__ (int index) {
-            return (index==nidx) || (emptyIsNull && (index==eidx));
-         });
+    unsigned int ncount = thrust::count_if(execpol->on(0), d_map, d_map + count,
+        [nidx] __device__ (int index) { return (index==nidx); });
     // fill in the bitarray
-    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<size_t>(0), size,
-        [d_map, eidx, nidx, count, emptyIsNull, d_bitarray] __device__(size_t byteIdx){
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), size,
+        [d_map, nidx, count, size, d_bitarray] __device__(unsigned int byteIdx){
             unsigned char byte = 0; // init all bits to zero
-            for( int i=0; i < 8; ++i )
+            for( unsigned int i=0; i < 8; ++i )
             {
-                int idx = i + (byteIdx*8);
+                unsigned int idx = i + (byteIdx*8);
                 byte = byte << 1;
                 if( idx < count )
                 {
                     int index = d_map[idx];
-                    if( (index!=nidx) && (!emptyIsNull || (index!=eidx)) )
-                        byte |= 1;
+                    byte |= (unsigned char)(index!=nidx);
                 }
             }
             d_bitarray[byteIdx] = byte;
@@ -560,22 +575,33 @@ int NVCategory::get_value(const char* str)
     custring_view_array d_strings = pImpl->getStringsPtr();
 
     // find string in this instance
-    rmm::device_vector<size_t> indexes(count,0);
-    size_t* d_indexes = indexes.data().get();
-    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<size_t>(0), count,
-            [d_strings, d_str, bytes, d_indexes] __device__(size_t idx){
-                custring_view* dstr = d_strings[idx];
-                if( (char*)dstr==d_str ) // only true if both are null
-                    d_indexes[idx] = idx+1;
-                else if( dstr && dstr->compare(d_str,bytes)==0 )
-                    d_indexes[idx] = idx+1;
-            });
-    // should only be one non-zero value in the result
-    size_t cidx = thrust::reduce(execpol->on(0), indexes.begin(), indexes.end());
-    // cidx==0 means string was not found
+    //rmm::device_vector<size_t> indexes(count,0);
+    //size_t* d_indexes = indexes.data().get();
+    //thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<size_t>(0), count,
+    //        [d_strings, d_str, bytes, d_indexes] __device__(size_t idx){
+    //            custring_view* dstr = d_strings[idx];
+    //            if( (char*)dstr==d_str ) // only true if both are null
+    //                d_indexes[idx] = idx+1;
+    //            else if( dstr && dstr->compare(d_str,bytes)==0 )
+    //                d_indexes[idx] = idx+1;
+    //        });
+    //// should only be one non-zero value in the result
+    //size_t cidx = thrust::reduce(execpol->on(0), indexes.begin(), indexes.end());
+    //// cidx==0 means string was not found
+    //return cidx-1; // -1 for not found, otherwise the key-index value
+
+    rmm::device_vector<int> keys(1,-1);
+    thrust::copy_if( execpol->on(0), thrust::make_counting_iterator<int>(0), thrust::make_counting_iterator<int>(count), keys.begin(),
+         [d_strings, d_str, bytes] __device__ (int idx) {
+             custring_view* dstr = d_strings[idx];
+             if( (char*)dstr==d_str ) // only true if both are null
+                 return true;
+             return ( dstr && dstr->compare(d_str,bytes)==0 );
+         } );
+    cudaDeviceSynchronize();
     if( d_str )
         RMM_FREE(d_str,0);
-    return cidx-1; // -1 for not found, otherwise the key-index value
+    return keys[0];
 }
 
 // return category values for all indexes
