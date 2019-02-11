@@ -264,7 +264,8 @@ __device__ int dreprog::regexec(custring_view* dstr, Reljunk &jnk, int& begin, i
 
     int pos = begin;
     int eos = end;
-    char32_t c = 0;
+    char32_t c = 0; // lc = 0;
+    custring_view::iterator itr = custring_view::iterator(*dstr,pos);
 
     jnk.list1->reset();
     do
@@ -296,12 +297,25 @@ __device__ int dreprog::regexec(custring_view* dstr, Reljunk &jnk, int& begin, i
                     break;
                 }
             }
+            //if( pos > 0 )
+            //{
+            //    itr = custring_view::iterator(*dstr,pos-1);
+            //    lc = *itr;
+            //    ++itr;
+            //}
+            //else
+            //{
+            //    itr = dstr->begin();
+            //    lc = 0;
+            //}
+            itr = custring_view::iterator(*dstr,pos);
         }
 
         if (pos < eos && match == 0)
             jnk.list1->activate(startinst_id, pos, 0);
 
-        c = (char32_t)(pos >= txtlen ? 0 : dstr->at(pos) );
+        //c = (char32_t)(pos >= txtlen ? 0 : dstr->at(pos) );
+        c = (char32_t)(pos >= txtlen ? 0 : *itr); // iterator is many times faster than at()
 
         // expand LBRA, RBRA, BOL, EOL, BOW, NBOW, and OR
         bool expanded;
@@ -355,8 +369,13 @@ __device__ int dreprog::regexec(custring_view* dstr, Reljunk &jnk, int& begin, i
                         break;
                     case BOW:
                     {
-                        bool cur_alphaNumeric = isAlphaNumeric(c);
-                        bool last_alphaNumeric = ( (pos==0) ? false : isAlphaNumeric((char32_t)dstr->at(pos-1)) );
+                        unsigned int uni = u82u(c);
+                        char32_t lc = (char32_t)(pos ? dstr->at(pos-1) : 0);
+                        unsigned int luni = u82u(lc);
+                        //bool cur_alphaNumeric = isAlphaNumeric(c);
+                        //bool last_alphaNumeric = ( (pos==0) ? false : isAlphaNumeric((char32_t)dstr->at(pos-1)) );
+                        bool cur_alphaNumeric = (uni < 0x010000) && IS_ALPHANUM(unicode_flags[uni]);
+                        bool last_alphaNumeric = (luni < 0x010000) && IS_ALPHANUM(unicode_flags[luni]);
                         if( cur_alphaNumeric != last_alphaNumeric )
                         {
                             id_activate = inst->u2.next_id;
@@ -366,8 +385,13 @@ __device__ int dreprog::regexec(custring_view* dstr, Reljunk &jnk, int& begin, i
                     }
                     case NBOW:
                     {
-                        bool cur_alphaNumeric = isAlphaNumeric(c);
-                        bool last_alphaNumeric = ( (pos == 0) ? false : isAlphaNumeric((char32_t)dstr->at(pos-1)) );
+                        unsigned int uni = u82u(c);
+                        char32_t lc = (char32_t)(pos ? dstr->at(pos-1) : 0);
+                        unsigned int luni = u82u(lc);
+                        //bool cur_alphaNumeric = isAlphaNumeric(c);
+                        //bool last_alphaNumeric = ( (pos==0) ? false : isAlphaNumeric((char32_t)dstr->at(pos-1)) );
+                        bool cur_alphaNumeric = (uni < 0x010000) && IS_ALPHANUM(unicode_flags[uni]);
+                        bool last_alphaNumeric = (luni < 0x010000) && IS_ALPHANUM(unicode_flags[luni]);
                         if( cur_alphaNumeric == last_alphaNumeric )
                         {
                             id_activate = inst->u2.next_id;
@@ -456,17 +480,17 @@ __device__ int dreprog::regexec(custring_view* dstr, Reljunk &jnk, int& begin, i
             }
             if (id_activate >= 0)
                 jnk.list2->activate(id_activate, range.x, range.y);
+
         }
 
     BreakFor:
         ++pos;
+        ++itr;
         swaplist(jnk.list1, jnk.list2);
-
         checkstart = jnk.list1->size > 0 ? 0 : 1;
     }
     while (c && (jnk.list1->size>0 || match == 0));
     return match;
-
 }
 
 //
