@@ -457,7 +457,7 @@ int NVCategory::set_null_bitarray( unsigned char* bitarray, bool devmem )
         [nidx] __device__ (int index) { return (index==nidx); });
     // fill in the bitarray
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), size,
-        [d_map, nidx, count, size, d_bitarray] __device__(unsigned int byteIdx){
+        [d_map, nidx, count, d_bitarray] __device__(unsigned int byteIdx){
             unsigned char byte = 0; // init all bits to zero
             for( unsigned int i=0; i < 8; ++i )
             {
