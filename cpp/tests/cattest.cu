@@ -8,10 +8,11 @@
 #include <thrust/device_vector.h>
 #include <thrust/for_each.h>
 #include "../include/NVStrings.h"
+#include "../include/NVCategory.h"
 
 //
-// cd ../build
-// nvcc -w -std=c++11 --expt-extended-lambda -gencode arch=compute_70,code=sm_70 ../tests/test.cu -L. -lNVStrings -o test --linker-options -rpath,.:
+// cd ../cpp/build
+// nvcc -w -std=c++11 --expt-extended-lambda -gencode arch=compute_70,code=sm_70 ../tests/cattest.cu -L. -lNVStrings -lNVCategory -o cattest --linker-options -rpath,.:
 //
 
 // csv file contents in device memory
@@ -20,8 +21,7 @@ void* d_fileContents = 0;
 // return a vector of DString's we wish to process
 std::pair<const char*,size_t>* setupTest(int& linesCount, int column)
 {
-    //FILE* fp = fopen("../../data/1420-rows.csv", "rb");
-    FILE* fp = fopen("../../data/7584-rows.csv", "rb");
+    FILE* fp = fopen("../../data/36634-rows.csv", "rb");
     if( !fp )
     {
         printf("missing csv file\n");
@@ -100,7 +100,7 @@ std::pair<const char*,size_t>* setupTest(int& linesCount, int column)
             stringStart = line + i + 1;
             columnLength = 0;
         }
-        if( columnLength==0 )
+        if( columnLength < 1 ) 
             return;
         // add string to vector array
         d_column1[idx].first = (const char*)stringStart;
@@ -117,7 +117,7 @@ int main( int argc, char** argv )
     //NVStrings::initLibrary();
 
     int count = 0;
-    std::pair<const char*,size_t>* column1 = setupTest(count,1);
+    std::pair<const char*,size_t>* column1 = setupTest(count,16);
     if( column1==0 )
         return -1;
 
@@ -126,33 +126,24 @@ int main( int argc, char** argv )
     cudaFree(d_fileContents); // csv data not needed once dstrs is created
     cudaFree(column1);        // string index data has done its job as well
 
-    std::vector<NVStrings*> ncolumns;
-    dstrs->split_column( " ", -1, ncolumns);
-    printf("split_columns = %d\n",(int)ncolumns.size());
     //
     int basize = (count+7)/8;
     unsigned char* d_bitarray = new unsigned char[basize];
-    //cudaMalloc(&d_bitarray,basize);
-    for( int idx=0; idx < (int)ncolumns.size(); ++idx )
-    {
-        NVStrings* ds = ncolumns[idx];
-        int ncount = ds->set_null_bitarray(d_bitarray,true,false);
-        printf("%d: null count = %d/%d\n",idx,ncount,count);
-        //for( int jdx=0; jdx < basize; ++jdx )
-        //    printf("%02x,",(int)d_bitarray[jdx]);
-        printf("\n");
-    }
-    //cudaFree(d_bitarray);
+    int ncount = dstrs->set_null_bitarray(d_bitarray,false,false);
+    printf("str: null count = %d/%d\n",ncount,count);
+
+    NVCategory* dcat = NVCategory::create_from_strings(*dstrs);
+    printf("number of keys = %u\n", dcat->keys_size());
+    printf("number of values = %u\n", dcat->size());
+    unsigned char* d_bitarray2 = new unsigned char[basize];
+    ncount = dcat->set_null_bitarray(d_bitarray2,false);
+    printf("cat: null count = %d/%d\n",ncount,count);
+    fflush(0);
+
     delete d_bitarray;
+    delete d_bitarray2;
 
-    // show column values
-    //char** list = new char*[count];
-    //ncolumns[ncolumns.size()-1]->to_host(list,0,count);
-    //for( int idx=0; idx < count; ++idx )
-    //    printf("%s,",list[idx]);
-    //printf("\n");
-    //delete list;
-    //ncolumns[0]->print();
-
+    NVCategory::destroy(dcat);
+    NVStrings::destroy(dstrs);
     return 0;
 }
