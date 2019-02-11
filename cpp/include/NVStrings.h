@@ -92,9 +92,10 @@ public:
     // set int array with position of null strings
     unsigned int get_nulls( unsigned int* pos, bool emptyIsNull=false, bool todevice=true );
 
-    // create a new instance containing only the strings at the specified positions
-    NVStrings* sublist( unsigned int* pos, unsigned int count, bool devmem=true );
+    // create a new instance containing only the strings in the specified range
     NVStrings* sublist( unsigned int start, unsigned int end, unsigned int step=0 );
+    // returns strings in the order of the specified position values
+    NVStrings* gather( unsigned int* pos, unsigned int count, bool devmem=true );
     // return a new instance without the specified strings
     NVStrings* remove_strings( unsigned int* pos, unsigned int count, bool devmem=true );
 

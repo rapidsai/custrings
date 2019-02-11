@@ -107,14 +107,14 @@ class nvstrings:
         if key is None:
             raise KeyError("key must not be None")
         if isinstance(key,list):
-            return self.sublist(key)
+            return self.gather(key)
         if isinstance(key,int):
-            return self.sublist([key])
+            return self.gather([key])
         if isinstance(key,slice):
             start = 0 if key.start is None else key.start
             end = self.size() if key.stop is None else key.stop
             step = 1 if key.step is None or key.step is 0 else key.step
-            rtn = pyniNVStrings.n_sublist_slice(self.m_cptr,start,end,step)
+            rtn = pyniNVStrings.n_sublist(self.m_cptr,start,end,step)
             if rtn is not None:
                 rtn = nvstrings(rtn)
             return rtn
@@ -2178,8 +2178,12 @@ class nvstrings:
         return rtn
 
     def sublist(self, indexes, count=0):
+        """ Calls gather() """
+        return self.gather(indexes,count)
+
+    def gather(self, indexes, count=0):
         """
-        Return a sublist of strings from this instance.
+        Return a new list of strings from this instance.
 
         Parameters
         ----------
@@ -2197,7 +2201,7 @@ class nvstrings:
           import nvstrings
           s = nvstrings.to_device(["hello","there","world"])
 
-          print(s.sublist([0, 2]))
+          print(s.gather([0, 2]))
 
         Output:
 
@@ -2206,7 +2210,7 @@ class nvstrings:
           ['hello', 'world']
 
         """
-        rtn = pyniNVStrings.n_sublist(self.m_cptr, indexes, count)
+        rtn = pyniNVStrings.n_gather(self.m_cptr, indexes, count)
         if rtn is not None:
             rtn = nvstrings(rtn)
         return rtn

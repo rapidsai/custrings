@@ -1459,7 +1459,7 @@ static PyObject* n_order( PyObject* self, PyObject* args )
 }
 
 //
-static PyObject* n_sublist( PyObject* self, PyObject* args )
+static PyObject* n_gather( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     PyObject* pyidxs = PyTuple_GetItem(args,1);
@@ -1475,7 +1475,7 @@ static PyObject* n_sublist( PyObject* self, PyObject* args )
             indexes[idx] = (unsigned int)PyLong_AsLong(pyidx);
         }
         //
-        rtn = tptr->sublist(indexes,count,false);
+        rtn = tptr->gather(indexes,count,false);
         delete indexes;
     }
     else
@@ -1483,7 +1483,7 @@ static PyObject* n_sublist( PyObject* self, PyObject* args )
         // remove_strings has parse_arg logic; not sure which is better
         unsigned int* indexes = (unsigned int*)PyLong_AsVoidPtr(pyidxs);
         unsigned int count = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,2));
-        rtn = tptr->sublist(indexes,count);
+        rtn = tptr->gather(indexes,count);
     }
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
@@ -1491,7 +1491,7 @@ static PyObject* n_sublist( PyObject* self, PyObject* args )
 }
 
 //
-static PyObject* n_sublist_slice( PyObject* self, PyObject* args )
+static PyObject* n_sublist( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     unsigned int start = 0, step = 1, end = tptr->size();
@@ -1782,8 +1782,8 @@ static PyMethodDef s_Methods[] = {
     { "n_endswith", n_endswith, METH_VARARGS, "" },
     { "n_sort", n_sort, METH_VARARGS, "" },
     { "n_order", n_order, METH_VARARGS, "" },
+    { "n_gather", n_gather, METH_VARARGS, "" },
     { "n_sublist", n_sublist, METH_VARARGS, "" },
-    { "n_sublist_slice", n_sublist_slice, METH_VARARGS, "" },
     { "n_isalnum", n_isalnum, METH_VARARGS, "" },
     { "n_isalpha", n_isalpha, METH_VARARGS, "" },
     { "n_isdigit", n_isdigit, METH_VARARGS, "" },
