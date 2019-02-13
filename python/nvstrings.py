@@ -2,9 +2,37 @@ import pyniNVStrings
 
 
 def to_device(strs):
-    """Create nvstrings instance from list of Python strings."""
-    cptr = pyniNVStrings.n_createFromHostStrings(strs)
-    return nvstrings(cptr)
+    """
+    Create nvstrings instance from list of Python strings.
+
+    Parameters
+    ----------
+
+      strs: list
+        List of Python strings.
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+    import nvstrings
+
+    s = nvstrings.to_device(['apple','pear','banana','orange'])
+    print(s)
+
+    Output:
+
+    .. code-block:: python
+
+    ['apple', 'pear', 'banana', 'orange']
+
+
+    """
+    rtn = pyniNVStrings.n_createFromHostStrings(strs)
+    if rtn is not None:
+        rtn = nvstrings(rtn)
+    return rtn
 
 
 def from_csv(csv, column, lines=0, flags=0):
@@ -56,6 +84,63 @@ def from_csv(csv, column, lines=0, flags=0):
     return rtn
 
 
+def from_offsets(sbuf, obuf, scount, nbuf=None, ncount=0):
+    """
+    Create nvstrings object from byte-array of characters encoded in UTF-8.
+
+    Parameters
+    ----------
+
+      sbuf : CPU memory address or buffer
+        Strings characters encoded as UTF-8.
+
+      obuf : CPU memory address or buffer
+        Array of int32 byte offsets to beginning of each string in sbuf.
+        There should be scount+1 values where the last value is the
+        number of bytes in sbuf.
+
+      scount: int
+        Number of strings.
+
+      nbuf: CPU memory address or buffer
+        Optional null bitmask in arrow format.
+        Strings with no lengths are empty strings unless specified as
+        null by this bitmask.
+
+      ncount: int
+        Optional number of null strings.
+
+      Examples
+      --------
+
+      .. code-block:: python
+
+      import numpy as np
+      import nvstrings
+
+      # 'a','p','p','l','e' are utf8 int8 values 97,112,112,108,101
+      values = np.array([97, 112, 112, 108, 101], dtype=np.int8)
+      print("values",values.tobytes())
+      offsets = np.array([0,1,2,3,4,5], dtype=np.int32)
+      print("offsets",offsets)
+      s = nvstrings.from_offsets(values,offsets,5)
+      print(s)
+
+      Output:
+
+      .. code-block:: python
+
+      values b'apple'
+      offsets [0 1 2 3 4 5]
+      ['a', 'p', 'p', 'l', 'e']
+
+    """
+    rtn = pyniNVStrings.n_createFromOffsets(sbuf, obuf, scount, nbuf, ncount)
+    if rtn is not None:
+        rtn = nvstrings(rtn)
+    return rtn
+
+
 def free(dstrs):
     """Force free resources for the specified instance."""
     if dstrs is not None:
@@ -99,22 +184,22 @@ class nvstrings:
     def __repr__(self):
         return "<nvstrings count={}>".format(self.size())
 
-    def __getitem__(self,key):
+    def __getitem__(self, key):
         """
         Implemented for [] operator on nvstrings.
         Parameter must be integer, slice, or list of integers.
         """
         if key is None:
             raise KeyError("key must not be None")
-        if isinstance(key,list):
+        if isinstance(key, list):
             return self.gather(key)
-        if isinstance(key,int):
+        if isinstance(key, int):
             return self.gather([key])
-        if isinstance(key,slice):
+        if isinstance(key, slice):
             start = 0 if key.start is None else key.start
             end = self.size() if key.stop is None else key.stop
             step = 1 if key.step is None or key.step is 0 else key.step
-            rtn = pyniNVStrings.n_sublist(self.m_cptr,start,end,step)
+            rtn = pyniNVStrings.n_sublist(self.m_cptr, start, end, step)
             if rtn is not None:
                 rtn = nvstrings(rtn)
             return rtn
@@ -1789,7 +1874,7 @@ class nvstrings:
           import nvstrings
 
           s = nvstrings.to_device(["a1","b2","c3"])
-          for result in s.extract('([ab])(\d)'):
+          for result in s.extract('([ab])(\\d)'):
             print(result)
 
 
@@ -1830,7 +1915,7 @@ class nvstrings:
           import nvstrings
 
           s = nvstrings.to_device(["a1","b2","c3"])
-          for result in s.extract_column('([ab])(\d)'):
+          for result in s.extract_column('([ab])(\\d)'):
             print(result)
 
 
@@ -2179,7 +2264,7 @@ class nvstrings:
 
     def sublist(self, indexes, count=0):
         """ Calls gather() """
-        return self.gather(indexes,count)
+        return self.gather(indexes, count)
 
     def gather(self, indexes, count=0):
         """
