@@ -69,11 +69,13 @@ class NVStrings
 public:
     // sort by length and name sorts by length first
     enum sorttype { none=0, length=1, name=2 };
-    
+
     // create instance from array of null-terminated host strings
     static NVStrings* create_from_array(const char** strs, unsigned int count);
     // create instance from array of string/length pairs
     static NVStrings* create_from_index(std::pair<const char*,size_t>* strs, unsigned int count, bool devmem=true, sorttype st=none );
+    // create instance from host buffer with offsets; null-bitmask is arrow-ordered
+    static NVStrings* create_from_offsets(const char* strs, int count, const int* offsets, const unsigned char* nullbitmask=0, int nulls=0);
     // use this method to free any instance created by methods in this class
     static void destroy(NVStrings* inst);
 

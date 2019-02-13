@@ -67,6 +67,8 @@ public:
     static NVCategory* create_from_array(const char** strs, int count);
     // create instance from array of strings/length pairs
     static NVCategory* create_from_index(std::pair<const char*,size_t>* strs, size_t count, bool devmem=true);
+    // create instance from host buffer with offsets; null-bitmask is arrow-ordered
+    static NVCategory* create_from_offsets(const char* strs, int count, const int* offsets, const unsigned char* nullbitmask=0, int nulls=0);
     // create instance from NVStrings instance
     static NVCategory* create_from_strings(NVStrings& strs);
     static NVCategory* create_from_strings(std::vector<NVStrings*>& strs);

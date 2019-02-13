@@ -88,141 +88,11 @@ NVCategory::~NVCategory()
 {
     delete pImpl;
 }
-//
-void NVCategoryImpl_init(NVCategoryImpl* pImpl, const char** strs, int count )
-{
-    rmm::device_vector<custring_view*> allstrings(count,nullptr);
-    custring_view_array d_strings = allstrings.data().get();
-    char* d_flatstrs = 0;
-    auto execpol = rmm::exec_policy(0);
 
-    // scoping here so intermediate data is freed when not needed
-    // probably should be a utility function
-    {
-        // first, calculate total size of all the strings
-        size_t nbytes = 0;
-        thrust::host_vector<size_t> hoffsets(count+1,0);
-        hoffsets[0] = 0;
-        thrust::host_vector<size_t> hlengths(count,0);
-        for( int idx=0; idx < count; ++idx )
-        {
-            const char* str = strs[idx];
-            size_t len = ( str ? (strlen(str)+1) : 0 );
-            size_t nsz = len; // include null-terminator
-            if( len > 0 ) // len=0 is null, len=1 is empty string
-            {
-                int nchars = custring_view::chars_in_string(str,(int)len-1);
-                nsz = custring_view::alloc_size((int)len-1,nchars);
-                hlengths[idx] = len;
-            }
-            nsz = ALIGN_SIZE(nsz);
-            nbytes += nsz;
-            hoffsets[idx+1] = nbytes;
-        }
-
-        // host serialization -- copy all strings to one contiguous host buffer
-        char* h_flatstrs = (char*)malloc(nbytes);
-        for( int idx = 0; idx< count; ++idx )
-            memcpy(h_flatstrs + hoffsets[idx], strs[idx], hlengths[idx]);
-        // copy entire host buffer to device memory
-        RMM_ALLOC(&d_flatstrs,nbytes,0);
-        cudaMemcpy(d_flatstrs, h_flatstrs, nbytes, cudaMemcpyHostToDevice);
-        free(h_flatstrs); // host memory no longer needed
-
-        // copy offsets and lengths to device memory
-        rmm::device_vector<size_t> offsets(hoffsets);
-        rmm::device_vector<size_t> lengths(hlengths);
-        size_t* d_offsets = offsets.data().get();
-        size_t* d_lengths = lengths.data().get();
-        // create d_strings from device memory
-        thrust::for_each_n(execpol->on(0),
-            thrust::make_counting_iterator<size_t>(0), count,
-                [d_flatstrs, d_offsets, d_lengths, d_strings] __device__(size_t idx){
-                  size_t len = d_lengths[idx];
-                  if( len < 1 )
-                      return; // null string; len==1 is empty string
-                  size_t offset = d_offsets[idx];
-                  char* ptr = d_flatstrs + offset;
-                  d_strings[idx] = custring_view::create_from(ptr,ptr,(int)len-1);
-            });
-    }
-
-    // sort the strings so we can remove duplicates easily
-    // indexes are also moved so we can map them back to the original values
-    rmm::device_vector<int> indexes(count);
-    thrust::sequence(indexes.begin(),indexes.end());
-    int* d_indexes = indexes.data().get();
-    thrust::sort_by_key(execpol->on(0), d_strings, d_strings+count, d_indexes,
-        [] __device__( custring_view*& lhs, custring_view*& rhs ) { return ( (!lhs || !rhs) ? (lhs==0) : (rhs->compare(*lhs)>0) ); });
-    // build keys map
-    rmm::device_vector<int>* pMap = new rmm::device_vector<int>(count,0);
-    int* d_map = pMap->data().get();
-    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<int>(0), count,
-        [d_strings, d_map] __device__ (int idx) {
-            if( idx==0 )
-                return;
-            custring_view* dstr1 = d_strings[idx-1];
-            custring_view* dstr2 = d_strings[idx];
-            if( !dstr1 || !dstr2 )
-                d_map[idx] = (int)(dstr1!=dstr2);
-            else
-                d_map[idx] = (int)dstr1->compare(*dstr2)!=0;
-        });
-    // each value in the map is index to the keys (string values)
-    int ucount = thrust::reduce(execpol->on(0), pMap->begin(), pMap->end()) + 1;
-    thrust::inclusive_scan(execpol->on(0), pMap->begin(), pMap->end(), pMap->begin());
-    thrust::sort_by_key(execpol->on(0), indexes.begin(), indexes.end(), pMap->begin());
-    pImpl->pMap = pMap;
-
-    // now remove duplicates from string list
-    thrust::unique(execpol->on(0), d_strings, d_strings+count,
-        [] __device__ ( custring_view* lhs, custring_view* rhs ) { return ( (!lhs || !rhs) ? (lhs==rhs) : (rhs->compare(*lhs)==0) ); });
-
-    // create new string vector of just the keys
-    {
-        // add up the lengths
-        rmm::device_vector<size_t> lengths(ucount,0);
-        size_t* d_lengths = lengths.data().get();
-        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<size_t>(0), ucount,
-            [d_strings, d_lengths] __device__(size_t idx){
-                custring_view* dstr = d_strings[idx];
-                if( dstr )
-                    d_lengths[idx] = ALIGN_SIZE(dstr->alloc_size());
-            });
-        // create output buffer to hold the string keys
-        size_t outsize = thrust::reduce(execpol->on(0), lengths.begin(), lengths.end());
-        char* d_buffer = 0;
-        RMM_ALLOC(&d_buffer,outsize,0);
-        rmm::device_vector<size_t> offsets(ucount,0);
-        thrust::exclusive_scan(execpol->on(0),lengths.begin(),lengths.end(),offsets.begin());
-        size_t* d_offsets = offsets.data().get();
-        // create the vector to hold the pointers
-        rmm::device_vector<custring_view*>* pList = new rmm::device_vector<custring_view*>(ucount,nullptr);
-        custring_view_array d_results = pList->data().get();
-        pImpl->addMemoryBuffer(d_buffer,outsize);
-        // copy keys strings to new memory buffer
-        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<size_t>(0), ucount,
-            [d_strings, d_buffer, d_offsets, d_results] __device__ (size_t idx) {
-                custring_view* dstr = d_strings[idx];
-                if( dstr )
-                    d_results[idx] = custring_view::create_from(d_buffer+d_offsets[idx],*dstr);
-            });
-        pImpl->pList = pList;
-    }
-    //
-    cudaError_t err = cudaDeviceSynchronize();
-    if( err!=cudaSuccess )
-        printf("category1: error(%d) creating %'d unique strings\n",(int)err,ucount);
-    RMM_FREE(d_flatstrs,0);
-}
-
-NVCategory* NVCategory::create_from_array(const char** strs, int count)
-{
-    NVCategory* rtn = new NVCategory;
-    NVCategoryImpl_init(rtn->pImpl,strs,count);
-    return rtn;
-}
-
+// Utility to create category instance data from array of string pointers (in device memory).
+// It does all operations using the given pointers (or copies) to build the map.
+// This method can be given the index values from the NVStrings::create_index.
+// So however an NVStrings can be created can also create an NVCategory.
 void NVCategoryImpl_init(NVCategoryImpl* pImpl, std::pair<const char*,size_t>* pairs, size_t count, bool bdevmem, bool bindexescopied=false )
 {
     cudaError_t err = cudaSuccess;
@@ -337,7 +207,7 @@ void NVCategoryImpl_init(NVCategoryImpl* pImpl, std::pair<const char*,size_t>* p
 
     err = cudaDeviceSynchronize();
     if( err!=cudaSuccess )
-        printf("category2: error(%d) creating %'d strings\n",(int)err,ucount);
+        printf("category: error(%d) creating %'d strings\n",(int)err,ucount);
     if( !bindexescopied )
         RMM_FREE(d_pairs,0);
 }
@@ -349,18 +219,35 @@ NVCategory* NVCategory::create_from_index(std::pair<const char*,size_t>* strs, s
     return rtn;
 }
 
-void NVCategoryImpl_init(NVCategoryImpl* pImpl, NVStrings& strs )
+NVCategory* NVCategory::create_from_array(const char** strs, int count)
 {
+    NVCategory* rtn = new NVCategory;
+    //NVCategoryImpl_init(rtn->pImpl,strs,count);
+    NVStrings* dstrs = NVStrings::create_from_array(strs,count);
+    std::pair<const char*,size_t>* indexes = 0;
+    RMM_ALLOC(&indexes, count * sizeof(std::pair<const char*,size_t>),0);
+    dstrs->create_index(indexes);
+    NVCategoryImpl_init(rtn->pImpl,indexes,count,true,true);
+    RMM_FREE(indexes,0);
+    NVStrings::destroy(dstrs);
+    return rtn;
+}
+
+NVCategory* NVCategory::create_from_strings(NVStrings& strs)
+{
+    NVCategory* rtn = new NVCategory;
     int count = strs.size();
     std::pair<const char*,size_t>* indexes = 0;
     RMM_ALLOC(&indexes, count * sizeof(std::pair<const char*,size_t>),0);
     strs.create_index(indexes);
-    NVCategoryImpl_init(pImpl,indexes,count,true,true);
+    NVCategoryImpl_init(rtn->pImpl,indexes,count,true,true);
     RMM_FREE(indexes,0);
+    return rtn;
 }
 
-void NVCategoryImpl_init(NVCategoryImpl* pImpl, std::vector<NVStrings*>& strs )
+NVCategory* NVCategory::create_from_strings(std::vector<NVStrings*>& strs)
 {
+    NVCategory* rtn = new NVCategory;
     unsigned int count = 0;
     for( unsigned int idx=0; idx < (unsigned int)strs.size(); idx++ )
         count += strs[idx]->size();
@@ -372,21 +259,21 @@ void NVCategoryImpl_init(NVCategoryImpl* pImpl, std::vector<NVStrings*>& strs )
         strs[idx]->create_index(ptr);
         ptr += strs[idx]->size();
     }
-    NVCategoryImpl_init(pImpl,indexes,count,true,true);
+    NVCategoryImpl_init(rtn->pImpl,indexes,count,true,true);
     RMM_FREE(indexes,0);
-}
-
-NVCategory* NVCategory::create_from_strings(NVStrings& strs)
-{
-    NVCategory* rtn = new NVCategory;
-    NVCategoryImpl_init(rtn->pImpl,strs);
     return rtn;
 }
 
-NVCategory* NVCategory::create_from_strings(std::vector<NVStrings*>& strs)
+NVCategory* NVCategory::create_from_offsets(const char* strs, int count, const int* offsets, const unsigned char* nullbitmask, int nulls)
 {
     NVCategory* rtn = new NVCategory;
-    NVCategoryImpl_init(rtn->pImpl,strs);
+    NVStrings* dstrs = NVStrings::create_from_offsets(strs,count,offsets,nullbitmask,nulls);
+    std::pair<const char*,size_t>* indexes = 0;
+    RMM_ALLOC(&indexes, count * sizeof(std::pair<const char*,size_t>),0);
+    dstrs->create_index(indexes);
+    NVCategoryImpl_init(rtn->pImpl,indexes,count,true,true);
+    RMM_FREE(indexes,0);
+    NVStrings::destroy(dstrs);
     return rtn;
 }
 
@@ -439,7 +326,7 @@ int NVCategory::set_null_bitarray( unsigned char* bitarray, bool devmem )
                 [d_strings] __device__ (unsigned int idx) { return d_strings[idx]==0; } );
         nidx = nulls[0]; // should be the index of the null entry (or -1)
     }
-    
+
     if( nidx < 0 )
     {   // no nulls, set everything to 1s
         cudaMemset(d_bitarray,255,size); // actually sets more bits than we need to
@@ -456,17 +343,20 @@ int NVCategory::set_null_bitarray( unsigned char* bitarray, bool devmem )
     unsigned int ncount = thrust::count_if(execpol->on(0), d_map, d_map + count,
         [nidx] __device__ (int index) { return (index==nidx); });
     // fill in the bitarray
+    // the bitmask is in arrow format which means for each byte
+    // the null indicator is in bit position right-to-left: 76543210
+    // logic sets the high-bit and shifts to the right
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), size,
         [d_map, nidx, count, d_bitarray] __device__(unsigned int byteIdx){
             unsigned char byte = 0; // init all bits to zero
             for( unsigned int i=0; i < 8; ++i )
             {
                 unsigned int idx = i + (byteIdx*8);
-                byte = byte << 1;
+                byte = byte >> 1;
                 if( idx < count )
                 {
                     int index = d_map[idx];
-                    byte |= (unsigned char)(index!=nidx);
+                    byte |= (unsigned char)((index!=nidx) << 7);
                 }
             }
             d_bitarray[byteIdx] = byte;

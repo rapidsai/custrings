@@ -201,7 +201,7 @@ int NVStrings_init_from_strings(NVStringsImpl* pImpl, const char** strs, unsigne
     // first compute the size of each string
     size_t nbytes = 0;
     thrust::host_vector<size_t> hoffsets(count+1,0);
-    hoffsets[0] = 0;
+    //hoffsets[0] = 0; --already set by this ----^
     thrust::host_vector<size_t> hlengths(count,0);
     for( unsigned int idx=0; idx < count; ++idx )
     {
@@ -290,7 +290,7 @@ int NVStrings_init_from_strings(NVStringsImpl* pImpl, const char** strs, unsigne
     }
 #endif
 
-    return (int)err;;
+    return (int)err;
 }
 
 // build strings from array of device pointers and sizes
@@ -427,6 +427,108 @@ int NVStrings_init_from_indexes( NVStringsImpl* pImpl, std::pair<const char*,siz
     return (int)err;
 }
 
+// build strings from array of device pointers and sizes
+int NVStrings_init_from_offsets( NVStringsImpl* pImpl, const char* strs, int count, const int* offsets, const unsigned char* bitmask, int nulls )
+{
+    if( count==nulls )
+        return 0; // if all are nulls then we are done
+    setlocale(LC_NUMERIC, "");
+    cudaError_t err = cudaSuccess;
+    auto execpol = rmm::exec_policy(0);
+
+    // first compute the size of each string
+    size_t nbytes = 0;
+    thrust::host_vector<size_t> hoffsets(count+1,0);
+    thrust::host_vector<size_t> hlengths(count,0);
+    for( unsigned int idx=0; idx < count; ++idx )
+    {
+        int offset = offsets[idx];
+        int len = offsets[idx+1] - offset;
+        const char* str = strs + offset;
+        int nchars = custring_view::chars_in_string(str,len);
+        int bytes = custring_view::alloc_size(len,nchars);
+        if( bitmask && ((bitmask[idx/8] & (1 << (idx % 8)))==0) ) // from arrow spec
+            bytes = 0;
+        hlengths[idx] = len;
+        nbytes += ALIGN_SIZE(bytes);
+        hoffsets[idx+1] = nbytes;
+    }
+    if( nbytes==0 )
+        return 0; // should not happen
+
+    // serialize host memory into a new buffer
+    unsigned int cheat = 0;//sizeof(custring_view);
+    char* h_flatstrs = (char*)malloc(nbytes);
+    for( unsigned int idx = 0; idx < count; ++idx )
+        memcpy(h_flatstrs + hoffsets[idx] + cheat, strs + offsets[idx], hlengths[idx]);
+
+    // copy whole thing to device memory
+    char* d_flatstrs = 0;
+    rmmError_t rerr = RMM_ALLOC(&d_flatstrs,nbytes,0);
+    if( rerr == RMM_SUCCESS )
+        err = cudaMemcpy(d_flatstrs, h_flatstrs, nbytes, cudaMemcpyHostToDevice);
+    free(h_flatstrs); // no longer needed
+    if( err != cudaSuccess )
+    {
+        fprintf(stderr,"nvs-ofs: alloc/copy %'lu bytes\n",nbytes);
+        printCudaError(err);
+        return (int)err;
+    }
+
+    // copy offsets and lengths to device memory
+    rmm::device_vector<size_t> doffsets(hoffsets);
+    rmm::device_vector<size_t> dlengths(hlengths);
+    size_t* d_offsets = doffsets.data().get();
+    size_t* d_lengths = dlengths.data().get();
+
+    // initialize custring objects in device memory
+    custring_view_array d_strings = pImpl->getStringsPtr();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_flatstrs, d_offsets, d_lengths, cheat, d_strings] __device__(unsigned int idx){
+            size_t len = d_lengths[idx];
+            size_t offset = d_offsets[idx];
+            size_t size = d_offsets[idx+1] - offset;
+            if( size < 1 )
+                return; // null string
+            char* ptr = d_flatstrs + offset;
+            char* str = ptr + cheat;
+            d_strings[idx] = custring_view::create_from(ptr,str,len);
+        });
+    //
+    err = cudaDeviceSynchronize();
+    if( err!=cudaSuccess )
+    {
+        fprintf(stderr,"nvs-ofs: sync=%d copy %'u strings\n",(int)err,count);
+        printCudaError(err);
+    }
+    size_t memSize = nbytes + (count * sizeof(custring_view*));
+    pImpl->setMemoryBuffer(d_flatstrs,memSize);
+
+#if STR_STATS
+    if( err==cudaSuccess )
+    {
+        // lengths are +1 the size of the string so readjust
+        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+            [d_lengths] __device__ (unsigned int idx) {
+                size_t val = d_lengths[idx];
+                val = (val ? val-1 : 0);
+                d_lengths[idx] = val;
+            });
+        //size_t max = thrust::transform_reduce(execpol->on(0),d_dstLengths,d_dstLengths+count,thrust::identity<size_t>(),0,thrust::maximum<size_t>());
+        size_t max = *thrust::max_element(execpol->on(0), lengths.begin(), lengths.end());
+        size_t sum = thrust::reduce(execpol->on(0), lengths.begin(), lengths.end());
+        size_t avg = 0;
+        if( count > 0 )
+            avg =sum / count;
+        printf("nvs-ofs: created %'u strings in device memory(%p) = %'lu bytes\n",count,d_flatstrs,memSize);
+        printf("nvs-ofs: largest string is %lu bytes, average string length is %lu bytes\n",max,avg);
+    }
+#endif
+
+    return (int)err;;
+}
+
+
 // ctor and dtor are private to control the memory allocation in a single shared-object module
 NVStrings::NVStrings(unsigned int count)
 {
@@ -456,6 +558,14 @@ NVStrings* NVStrings::create_from_index(std::pair<const char*,size_t>* strs, uns
     NVStrings* rtn = new NVStrings(count);
     if( count )
         NVStrings_init_from_indexes(rtn->pImpl,strs,count,devmem,stype);
+    return rtn;
+}
+
+NVStrings* NVStrings::create_from_offsets(const char* strs, int count, const int* offsets, const unsigned char* nullbitmask, int nulls)
+{
+    NVStrings* rtn = new NVStrings(count);
+    if( count )
+        NVStrings_init_from_offsets(rtn->pImpl,strs,count,offsets,nullbitmask,nulls);
     return rtn;
 }
 
@@ -882,18 +992,21 @@ unsigned int NVStrings::set_null_bitarray( unsigned char* bitarray, bool emptyIs
        [emptyIsNull] __device__ (custring_view*& dstr) { return (dstr==0) || (emptyIsNull && !dstr->size()); });
 
     // fill in the bitarray
+    // the bitmask is in arrow format which means for each byte
+    // the null indicator is in bit position right-to-left: 76543210
+    // logic sets the high-bit and shifts to the right
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), size,
         [d_strings, count, emptyIsNull, d_bitarray] __device__(unsigned int byteIdx){
             unsigned char byte = 0; // set one byte per thread -- init to all nulls
             for( unsigned int i=0; i < 8; ++i )
             {
                 unsigned int idx = i + (byteIdx*8);  // compute d_strings index
-                byte = byte << 1;                    // shift left until we are done
+                byte = byte >> 1;                    // shift until we are done
                 if( idx < count )                    // check boundary
                 {
                     custring_view* dstr = d_strings[idx];
                     if( dstr && (!emptyIsNull || dstr->size()) )
-                        byte |= 1;                   // string is not null
+                        byte |= 128;                 // string is not null, set high bit
                 }
             }
             d_bitarray[byteIdx] = byte;

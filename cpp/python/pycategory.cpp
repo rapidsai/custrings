@@ -99,6 +99,73 @@ static PyObject* n_createCategoryFromHostStrings( PyObject* self, PyObject* args
     return PyLong_FromVoidPtr((void*)thisptr);
 }
 
+// called by from_offsets() method in python class
+static PyObject* n_createFromOffsets( PyObject* self, PyObject* args )
+{
+    PyObject* pysbuf = PyTuple_GetItem(args,0);
+    PyObject* pyobuf = PyTuple_GetItem(args,1);
+    PyObject* pyscount = PyTuple_GetItem(args,2);
+    PyObject* pynbuf = PyTuple_GetItem(args,3);
+    PyObject* pyncount = PyTuple_GetItem(args,4);
+
+    //
+    if( (pysbuf == Py_None) || (pyobuf == Py_None) )
+    {
+        PyErr_Format(PyExc_ValueError,"nvcategory: missing parameter");
+        Py_RETURN_NONE;
+    }
+
+    const char* sbuffer = 0;
+    const int* obuffer = 0;
+    const unsigned char* nbuffer = 0;
+    int scount = (int)PyLong_AsLong(pyscount);
+    int ncount = 0;
+
+    Py_buffer sbuf, obuf, nbuf;
+    if( PyObject_CheckBuffer(pysbuf) )
+    {
+        PyObject_GetBuffer(pysbuf,&sbuf,PyBUF_SIMPLE);
+        sbuffer = (const char*)sbuf.buf;
+    }
+    else
+        sbuffer = (const char*)PyLong_AsVoidPtr(pysbuf);
+
+    if( PyObject_CheckBuffer(pyobuf) )
+    {
+        PyObject_GetBuffer(pyobuf,&obuf,PyBUF_SIMPLE);
+        obuffer = (const int*)obuf.buf;
+    }
+    else
+        obuffer = (const int*)PyLong_AsVoidPtr(pyobuf);
+
+    if( PyObject_CheckBuffer(pynbuf) )
+    {
+        PyObject_GetBuffer(pynbuf,&nbuf,PyBUF_SIMPLE);
+        nbuffer = (const unsigned char*)nbuf.buf;
+    }
+    else if( pynbuf != Py_None )
+    {
+        nbuffer = (const unsigned char*)PyLong_AsVoidPtr(pynbuf);
+        ncount = (int)PyLong_AsLong(pyncount);
+    }
+
+    //printf(" ptrs=%p,%p,%p\n",sbuffer,obuffer,nbuffer);
+    //printf(" scount=%d,ncount=%d\n",scount,ncount);
+    // create strings object from these buffers
+    NVCategory* rtn = NVCategory::create_from_offsets(sbuffer,scount,obuffer,nbuffer,ncount);
+
+    if( PyObject_CheckBuffer(pysbuf) )
+        PyBuffer_Release(&sbuf);
+    if( PyObject_CheckBuffer(pyobuf) )
+        PyBuffer_Release(&obuf);
+    if( PyObject_CheckBuffer(pynbuf) )
+        PyBuffer_Release(&nbuf);
+
+    if( rtn )
+        return PyLong_FromVoidPtr((void*)rtn);
+    Py_RETURN_NONE;
+}
+
 // called by destructor in python class
 static PyObject* n_destroyCategory( PyObject* self, PyObject* args )
 {
@@ -335,6 +402,7 @@ static PyObject* n_merge_category( PyObject* self, PyObject* args )
 static PyMethodDef s_Methods[] = {
     { "n_createCategoryFromHostStrings", n_createCategoryFromHostStrings, METH_VARARGS, "" },
     { "n_createCategoryFromNVStrings", n_createCategoryFromNVStrings, METH_VARARGS, "" },
+    { "n_createFromOffsets", n_createFromOffsets, METH_VARARGS, "" },
     { "n_destroyCategory", n_destroyCategory, METH_VARARGS, "" },
     { "n_size", n_size, METH_VARARGS, "" },
     { "n_keys_size", n_keys_size, METH_VARARGS, "" },
