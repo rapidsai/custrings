@@ -244,7 +244,7 @@ static PyObject* n_get_indexes_for_key( PyObject* self, PyObject* args )
 {
     NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     PyObject* argStr = PyTuple_GetItem(args,1);
-    unsigned int* devptr = (unsigned int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,2));
+    int* devptr = (int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,2));
     const char* str = 0;
     if( argStr != Py_None )
         str = PyUnicode_AsUTF8(argStr);
@@ -266,7 +266,7 @@ static PyObject* n_get_indexes_for_key( PyObject* self, PyObject* args )
     if( count==0 )
         return ret;
     // copy to host option
-    unsigned int* rtn = new unsigned int[count];
+    int* rtn = new int[count];
     tptr->get_indexes_for(str,rtn,false);
     for(size_t idx=0; idx < count; idx++)
         PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));
@@ -348,11 +348,11 @@ static PyObject* n_gather_strings( PyObject* self, PyObject* args )
     if( cname.compare("list")==0 )
     {
         unsigned int count = (unsigned int)PyList_Size(pyidxs);
-        unsigned int* indexes = new unsigned int[count];
+        int* indexes = new int[count];
         for( unsigned int idx=0; idx < count; ++idx )
         {
             PyObject* pyidx = PyList_GetItem(pyidxs,idx);
-            indexes[idx] = (unsigned int)PyLong_AsLong(pyidx);
+            indexes[idx] = (int)PyLong_AsLong(pyidx);
         }
         //
         rtn = tptr->gather_strings(indexes,count,false);
@@ -361,7 +361,7 @@ static PyObject* n_gather_strings( PyObject* self, PyObject* args )
     else
     {
         // assume device pointer
-        unsigned int* indexes = (unsigned int*)PyLong_AsVoidPtr(pyidxs);
+        int* indexes = (int*)PyLong_AsVoidPtr(pyidxs);
         unsigned int count = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,2));
         rtn = tptr->gather_strings(indexes,count);
     }

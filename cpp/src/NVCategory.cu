@@ -511,7 +511,7 @@ const int* NVCategory::values_cptr()
     return pImpl->getMapPtr();
 }
 
-int NVCategory::get_indexes_for( unsigned int index, unsigned int* results, bool bdevmem )
+int NVCategory::get_indexes_for( unsigned int index, int* results, bool bdevmem )
 {
     unsigned int count = size();
     if( index >= count )
@@ -525,9 +525,9 @@ int NVCategory::get_indexes_for( unsigned int index, unsigned int* results, bool
     if( results==0 )
         return matches; // caller just wants the count
 
-    unsigned int* d_results = results;
+    int* d_results = results;
     if( !bdevmem )
-        RMM_ALLOC(&d_results,matches*sizeof(unsigned int),0);
+        RMM_ALLOC(&d_results,matches*sizeof(int),0);
 
     thrust::counting_iterator<unsigned int> itr(0);
     thrust::copy_if( execpol->on(0), itr, itr+count, d_results,
@@ -535,13 +535,13 @@ int NVCategory::get_indexes_for( unsigned int index, unsigned int* results, bool
     cudaDeviceSynchronize();
     if( !bdevmem )
     {
-        cudaMemcpy(results,d_results,matches*sizeof(unsigned int),cudaMemcpyDeviceToHost);
+        cudaMemcpy(results,d_results,matches*sizeof(int),cudaMemcpyDeviceToHost);
         RMM_FREE(d_results,0);
     }
     return matches;
 }
 
-int NVCategory::get_indexes_for( const char* str, unsigned int* results, bool bdevmem )
+int NVCategory::get_indexes_for( const char* str, int* results, bool bdevmem )
 {
     int id = get_value(str);
     if( id < 0 )
@@ -788,14 +788,14 @@ NVStrings* NVCategory::to_strings()
 }
 
 // creates a new NVStrings instance using the specified index values
-NVStrings* NVCategory::gather_strings( unsigned int* pos, unsigned int count, bool bdevmem )
+NVStrings* NVCategory::gather_strings( int* pos, unsigned int count, bool bdevmem )
 {
     auto execpol = rmm::exec_policy(0);
-    unsigned int* d_pos = pos;
+    int* d_pos = pos;
     if( !bdevmem )
     {
-        RMM_ALLOC(&d_pos,count*sizeof(unsigned int),0);
-        cudaMemcpy(d_pos,pos,count*sizeof(unsigned int),cudaMemcpyHostToDevice);
+        RMM_ALLOC(&d_pos,count*sizeof(int),0);
+        cudaMemcpy(d_pos,pos,count*sizeof(int),cudaMemcpyHostToDevice);
     }
 
     custring_view** d_strings = pImpl->getStringsPtr();

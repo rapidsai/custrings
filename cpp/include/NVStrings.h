@@ -97,7 +97,7 @@ public:
     // create a new instance containing only the strings in the specified range
     NVStrings* sublist( unsigned int start, unsigned int end, unsigned int step=0 );
     // returns strings in the order of the specified position values
-    NVStrings* gather( unsigned int* pos, unsigned int count, bool devmem=true );
+    NVStrings* gather( int* pos, unsigned int count, bool devmem=true );
     // return a new instance without the specified strings
     NVStrings* remove_strings( unsigned int* pos, unsigned int count, bool devmem=true );
 
