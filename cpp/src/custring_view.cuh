@@ -179,19 +179,12 @@ public:
 
     // return new string with given character from the beginning/end removed from this string
     // caller must provide memory for the resulting object
-    __device__ custring_view* strip( Char chr, void* mem );
-    __device__ unsigned int strip_size( Char chr=' ') const;
-    __device__ custring_view* lstrip( Char chr, void* mem );
-    __device__ unsigned int lstrip_size( Char chr=' ' ) const;
-    __device__ custring_view* rstrip( Char chr, void* mem );
-    __device__ unsigned int rstrip_size( Char chr=' ' ) const;
-
-    // these will change the characters in this string
-    __device__ custring_view& lower();
-    __device__ custring_view& upper();
-    __device__ custring_view& capitalize();
-    __device__ custring_view& swapcase();
-    __device__ custring_view& titlecase();
+    __device__ custring_view* strip( const char* tgts, void* mem );
+    __device__ unsigned int strip_size( const char* tgts ) const;
+    __device__ custring_view* lstrip( const char* tgts, void* mem );
+    __device__ unsigned int lstrip_size( const char* tgts ) const;
+    __device__ custring_view* rstrip( const char* tgts, void* mem );
+    __device__ unsigned int rstrip_size( const char* tgts ) const;
 
     // return numeric value represented by the characters in this string
     __device__ int stoi() const;
@@ -205,14 +198,6 @@ public:
     __device__ bool starts_with( custring_view& str ) const;
     __device__ bool ends_with( const char* str, unsigned int bytes ) const;
     __device__ bool ends_with( custring_view& str ) const;
-
-    //
-    __device__ bool islower() const;
-    __device__ bool isupper() const;
-    __device__ bool isspace() const;
-    __device__ bool isdecimal() const;
-    __device__ bool isnumeric() const;
-    __device__ bool isdigit() const;
 
     // some utilities for handling individual UTF-8 characters
     __host__ __device__ static unsigned int bytes_in_char( Char chr );

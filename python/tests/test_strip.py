@@ -18,4 +18,7 @@ print(".rstrip():",strs.rstrip())
 print(".strip().strip(e):",strs.strip().strip('e'))
 print(".strip().strip(é):",strs.strip().strip('é'))
 
+print(".strip( e):",strs.strip(' e'))
+print(".strip(é ):",strs.strip('é '))
+
 strs = None

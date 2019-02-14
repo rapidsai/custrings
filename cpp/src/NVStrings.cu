@@ -2787,16 +2787,20 @@ NVStrings* NVStrings::replace_re( const char* pattern, const char* repl, int max
 }
 
 
-// remove the target character from the beginning of each string
+// remove the target characters from the beginning of each string
 NVStrings* NVStrings::lstrip( const char* to_strip )
 {
     unsigned int count = size();
     custring_view_array d_strings = pImpl->getStringsPtr();
     auto execpol = rmm::exec_policy(0);
 
-    Char d_strip = 0;
+    char* d_strip = 0;
     if( to_strip )
-        custring_view::char_to_Char(to_strip,d_strip);
+    {
+        int len = (int)strlen(to_strip) + 1; // include null
+        RMM_ALLOC(&d_strip,len,0);
+        cudaMemcpy(d_strip,to_strip,len,cudaMemcpyHostToDevice);
+    }
 
     // compute size of output buffer
     rmm::device_vector<size_t> lengths(count,0);
@@ -2815,7 +2819,12 @@ NVStrings* NVStrings::lstrip( const char* to_strip )
     NVStrings* rtn = new NVStrings(count);
     char* d_buffer = rtn->pImpl->createMemoryFor(d_lengths);
     if( d_buffer==0 )
+    {
+        if( d_strip )
+            RMM_FREE(d_strip,0);
         return rtn; // all strings are null
+    }
+
     double et1 = GetTime();
     // create offsets
     rmm::device_vector<size_t> offsets(count,0);
@@ -2841,6 +2850,8 @@ NVStrings* NVStrings::lstrip( const char* to_strip )
         printCudaError(err);
     }
     pImpl->addOpTimes("lstrip",(et1-st1),(et2-st2));
+    if( d_strip )
+        RMM_FREE(d_strip,0);
     return rtn;
 }
 
@@ -2851,9 +2862,13 @@ NVStrings* NVStrings::strip( const char* to_strip )
     custring_view_array d_strings = pImpl->getStringsPtr();
     auto execpol = rmm::exec_policy(0);
 
-    Char d_strip = 0;
+    char* d_strip = 0;
     if( to_strip )
-        custring_view::char_to_Char(to_strip,d_strip);
+    {
+        int len = (int)strlen(to_strip) + 1; // include null
+        RMM_ALLOC(&d_strip,len,0);
+        cudaMemcpy(d_strip,to_strip,len,cudaMemcpyHostToDevice);
+    }
 
     // compute size of output buffer
     rmm::device_vector<size_t> lengths(count,0);
@@ -2872,7 +2887,12 @@ NVStrings* NVStrings::strip( const char* to_strip )
     NVStrings* rtn = new NVStrings(count);
     char* d_buffer = rtn->pImpl->createMemoryFor(d_lengths);
     if( d_buffer==0 )
+    {
+        if( d_strip )
+            RMM_FREE(d_strip,0);
         return rtn;
+    }
+        
     double et1 = GetTime();
     // create offsets
     rmm::device_vector<size_t> offsets(count,0);
@@ -2898,7 +2918,8 @@ NVStrings* NVStrings::strip( const char* to_strip )
         printCudaError(err);
     }
     pImpl->addOpTimes("strip",(et1-st1),(et2-st2));
-
+    if( d_strip )
+        RMM_FREE(d_strip,0);
     return rtn;
 }
 
@@ -2909,9 +2930,13 @@ NVStrings* NVStrings::rstrip( const char* to_strip )
     custring_view_array d_strings = pImpl->getStringsPtr();
     auto execpol = rmm::exec_policy(0);
 
-    Char d_strip = 0;
+    char* d_strip = 0;
     if( to_strip )
-        custring_view::char_to_Char(to_strip,d_strip);
+    {
+        int len = (int)strlen(to_strip) + 1; // include null
+        RMM_ALLOC(&d_strip,len,0);
+        cudaMemcpy(d_strip,to_strip,len,cudaMemcpyHostToDevice);
+    }
 
     // compute size of output buffer
     rmm::device_vector<size_t> lengths(count,0);
@@ -2931,7 +2956,12 @@ NVStrings* NVStrings::rstrip( const char* to_strip )
     NVStrings* rtn = new NVStrings(count);
     char* d_buffer = rtn->pImpl->createMemoryFor(d_lengths);
     if( d_buffer==0 )
-        return rtn;
+    {
+        if( d_strip )
+            RMM_FREE(d_strip,0);
+        return rtn; // all strings are null
+    }
+
     double et1 = GetTime();
     // create offsets
     rmm::device_vector<size_t> offsets(count,0);
@@ -2957,7 +2987,8 @@ NVStrings* NVStrings::rstrip( const char* to_strip )
         printCudaError(err);
     }
     pImpl->addOpTimes("rstrip",(et1-st1),(et2-st2));
-
+    if( d_strip )
+        RMM_FREE(d_strip,0);
     return rtn;
 }
 
