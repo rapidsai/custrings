@@ -1535,11 +1535,11 @@ static PyObject* n_gather( PyObject* self, PyObject* args )
     if( cname.compare("list")==0 )
     {
         unsigned int count = (unsigned int)PyList_Size(pyidxs);
-        unsigned int* indexes = new unsigned int[count];
+        int* indexes = new int[count];
         for( unsigned int idx=0; idx < count; ++idx )
         {
             PyObject* pyidx = PyList_GetItem(pyidxs,idx);
-            indexes[idx] = (unsigned int)PyLong_AsLong(pyidx);
+            indexes[idx] = (int)PyLong_AsLong(pyidx);
         }
         //
         rtn = tptr->gather(indexes,count,false);
@@ -1548,7 +1548,7 @@ static PyObject* n_gather( PyObject* self, PyObject* args )
     else
     {
         // remove_strings has parse_arg logic; not sure which is better
-        unsigned int* indexes = (unsigned int*)PyLong_AsVoidPtr(pyidxs);
+        int* indexes = (int*)PyLong_AsVoidPtr(pyidxs);
         unsigned int count = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,2));
         rtn = tptr->gather(indexes,count);
     }

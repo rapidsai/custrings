@@ -814,18 +814,18 @@ int NVStrings::create_custring_index( custring_view** strs, bool bdevmem )
 
 // create a new instance containing only the strings at the specified positions
 // position values can be in any order and can even be repeated
-NVStrings* NVStrings::gather( unsigned int* pos, unsigned int elems, bool bdevmem )
+NVStrings* NVStrings::gather( int* pos, unsigned int elems, bool bdevmem )
 {
     unsigned int count = size();
     if( count==0 || elems==0 || pos==0 )
         return new NVStrings(0);
 
     auto execpol = rmm::exec_policy(0);
-    unsigned int* d_pos = pos;
+    int* d_pos = pos;
     if( !bdevmem )
     {   // copy indexes to device memory
-        RMM_ALLOC(&d_pos,elems*sizeof(unsigned int),0);
-        cudaMemcpy(d_pos,pos,elems*sizeof(unsigned int),cudaMemcpyHostToDevice);
+        RMM_ALLOC(&d_pos,elems*sizeof(int),0);
+        cudaMemcpy(d_pos,pos,elems*sizeof(int),cudaMemcpyHostToDevice);
     }
     // get individual sizes
     rmm::device_vector<size_t> sizes(elems,0);
@@ -833,8 +833,8 @@ NVStrings* NVStrings::gather( unsigned int* pos, unsigned int elems, bool bdevme
     custring_view** d_strings = pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), elems,
         [d_strings, d_pos, count, d_sizes] __device__(unsigned int idx){
-            unsigned int pos = d_pos[idx];
-            if( pos >= count )
+            int pos = d_pos[idx];
+            if( (pos < 0) || (pos >= count) )
                 return;
             custring_view* dstr = d_strings[pos];
             if( dstr )
@@ -853,8 +853,8 @@ NVStrings* NVStrings::gather( unsigned int* pos, unsigned int elems, bool bdevme
         size_t* d_offsets = offsets.data().get();
         thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), elems,
             [d_strings, d_buffer, d_offsets, d_pos, count, d_results] __device__(unsigned int idx){
-                unsigned int pos = d_pos[idx];
-                if(pos >= count)
+                int pos = d_pos[idx];
+                if( (pos < 0) || (pos >= count) )
                     return;
                 custring_view* dstr = d_strings[pos];
                 if( !dstr )
@@ -863,7 +863,7 @@ NVStrings* NVStrings::gather( unsigned int* pos, unsigned int elems, bool bdevme
                 d_results[idx] = custring_view::create_from(buffer,*dstr);
             });
         //
-        printCudaError(cudaDeviceSynchronize(),"nvs-sublist");
+        printCudaError(cudaDeviceSynchronize(),"nvs-gather");
     }
     if( !bdevmem )
         RMM_FREE(d_pos,0);
@@ -883,7 +883,7 @@ NVStrings* NVStrings::sublist( unsigned int start, unsigned int end, unsigned in
     auto execpol = rmm::exec_policy(0);
     rmm::device_vector<unsigned int> indexes(elems);
     thrust::sequence(execpol->on(0),indexes.begin(),indexes.end(),start,step);
-    return gather(indexes.data().get(),elems,true);
+    return gather((int*)indexes.data().get(),elems,true);
 }
 
 // remove the specified strings and return a new instance
@@ -2846,7 +2846,7 @@ NVStrings* NVStrings::lstrip( const char* to_strip )
     double et2 = GetTime();
     if( err != cudaSuccess )
     {
-        fprintf(stderr,"nvs-lstrip(0x%0x)\n",d_strip);
+        fprintf(stderr,"nvs-lstrip(%s)\n",to_strip);
         printCudaError(err);
     }
     pImpl->addOpTimes("lstrip",(et1-st1),(et2-st2));
@@ -2914,7 +2914,7 @@ NVStrings* NVStrings::strip( const char* to_strip )
     double et2 = GetTime();
     if( err != cudaSuccess )
     {
-        fprintf(stderr,"nvs-strip(0x%0x)\n",d_strip);
+        fprintf(stderr,"nvs-strip(%s)\n",to_strip);
         printCudaError(err);
     }
     pImpl->addOpTimes("strip",(et1-st1),(et2-st2));
@@ -2983,7 +2983,7 @@ NVStrings* NVStrings::rstrip( const char* to_strip )
     double et2 = GetTime();
     if( err != cudaSuccess )
     {
-        fprintf(stderr,"nvs-rstrip(0x%0x)\n",d_strip);
+        fprintf(stderr,"nvs-rstrip(%s)\n",to_strip);
         printCudaError(err);
     }
     pImpl->addOpTimes("rstrip",(et1-st1),(et2-st2));

@@ -100,8 +100,8 @@ public:
     const int* values_cptr();
 
     //
-    int get_indexes_for( unsigned int index, unsigned int* results, bool devmem=true );
-    int get_indexes_for( const char* str, unsigned int* results, bool devmem=true );
+    int get_indexes_for( unsigned int index, int* results, bool devmem=true );
+    int get_indexes_for( const char* str, int* results, bool devmem=true );
 
     // creates a new instance incorporating the new strings
     NVCategory* add_strings(NVStrings& strs);
@@ -115,5 +115,5 @@ public:
     // convert to original strings list
     NVStrings* to_strings();
     // create a new strings instance identified by the specified index values
-    NVStrings* gather_strings( unsigned int* pos, unsigned int elems, bool devmem=true );
+    NVStrings* gather_strings( int* pos, unsigned int elems, bool devmem=true );
 };
