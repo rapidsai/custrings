@@ -1266,6 +1266,65 @@ unsigned int NVStrings::stof(float* results, bool todevice)
 }
 
 //
+unsigned int NVStrings::htoi(unsigned int* results, bool todevice)
+{
+    unsigned int count = size();
+    if( count==0 || results==0 )
+        return count;
+
+    auto execpol = rmm::exec_policy(0);
+    unsigned int* d_rtn = results;
+    if( !todevice )
+        RMM_ALLOC(&d_rtn,count*sizeof(unsigned int),0);
+
+    double st = GetTime();
+    custring_view** d_strings = pImpl->getStringsPtr();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_strings, d_rtn] __device__(unsigned int idx){
+            custring_view* dstr = d_strings[idx];
+            if( !dstr || dstr->empty() )
+            {
+                d_rtn[idx] = 0;
+                return;
+            }
+            long result = 0, base = 1;
+            const char* str = dstr->data();
+            int len = dstr->size()-1;
+            for( int i=len; i >= 0; --i )
+            {
+                char ch = str[i];
+                if( ch >= '0' && ch <= '9' )
+                {
+                    result += (long)(ch-48) * base;
+                    base *= 16;
+                }
+                else if( ch >= 'A' && ch <= 'Z' )
+                {
+                    result += (long)(ch-55) * base;
+                    base *= 16;
+                }
+                else if( ch >= 'a' && ch <= 'z' )
+                {
+                    result += (long)(ch-87) * base;
+                    base *= 16;
+                }
+            }
+            d_rtn[idx] = (unsigned int)result;
+        });
+    //
+    printCudaError(cudaDeviceSynchronize(),"nvs-htoi");
+    double et = GetTime();
+    pImpl->addOpTimes("htoi",0.0,(et-st));
+
+    if( !todevice )
+    {
+        cudaMemcpy(results,d_rtn,sizeof(unsigned int)*count,cudaMemcpyDeviceToHost);
+        RMM_FREE(d_rtn,0);
+    }
+    return count;
+}
+
+//
 NVStrings* NVStrings::cat( NVStrings* others, const char* separator, const char* narep )
 {
     if( others==0 )
@@ -2892,7 +2951,7 @@ NVStrings* NVStrings::strip( const char* to_strip )
             RMM_FREE(d_strip,0);
         return rtn;
     }
-        
+
     double et1 = GetTime();
     // create offsets
     rmm::device_vector<size_t> offsets(count,0);
