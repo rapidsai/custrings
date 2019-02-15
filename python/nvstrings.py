@@ -377,7 +377,6 @@ class nvstrings:
         .. code-block:: python
 
           import nvstrings
-          import numpy as np
           s = nvstrings.to_device(["1234","-876","543.2","-0.12",".55""])
           print(s.stoi())
 
@@ -406,8 +405,6 @@ class nvstrings:
         .. code-block:: python
 
           import nvstrings
-          import numpy as np
-          from librmm_cffi import librmm
           s = nvstrings.to_device(["1234","-876","543.2","-0.12",".55"])
           print(s.stof())
 
@@ -420,6 +417,35 @@ class nvstrings:
 
         """
         rtn = pyniNVStrings.n_stof(self.m_cptr, devptr)
+        return rtn
+
+    def htoi(self, devptr=0):
+        """
+        Returns integer value represented by each string.
+        String is interpretted to have hex (base-16) characters.
+
+        Parameters
+        ----------
+            devptr : GPU memory pointer
+                Where resulting integer values will be written.
+                Memory must be able to hold at least size() of int32 values.
+
+        Examples
+        --------
+        .. code-block:: python
+
+          import nvstrings
+          s = nvstrings.to_device(["1234","ABCDEF","1A2","cafe"])
+          print(s.htoi())
+
+        Output:
+
+        .. code-block:: python
+
+          [4660, 11259375, 418, 51966]
+
+        """
+        rtn = pyniNVStrings.n_htoi(self.m_cptr, devptr)
         return rtn
 
     def cat(self, others=None, sep=None, na_rep=None):

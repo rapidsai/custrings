@@ -68,4 +68,12 @@ print(".isnumeric():",s.isnumeric())
 s.isnumeric(d_arr.device_ctypes_pointer.value)
 print(".isnumeric(devptr):",d_arr.copy_to_host())
 
+s = nvstrings.to_device(["1234","ABCDEF","1A2","cafe"])
+print(s)
+print(".htoi()",s.htoi())
+arr = np.arange(s.size(),dtype=np.uint32)
+d_arr = rmm.to_device(arr)
+s.htoi(d_arr.device_ctypes_pointer.value)
+print(".htoi(devptr)",d_arr.copy_to_host())
+
 s = None

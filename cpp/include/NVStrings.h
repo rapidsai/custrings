@@ -200,6 +200,7 @@ public:
 
     // returns integer values represented by each string
     unsigned int stoi(int* results, bool todevice=true);
+    unsigned int htoi(unsigned int* results, bool todevice=true);
     // returns float values represented by each string
     unsigned int stof(float* results, bool todevice=true);
     // return unsigned 32-bit hash value for each string

@@ -352,6 +352,31 @@ static PyObject* n_stof( PyObject* self, PyObject* args )
     return ret;
 }
 
+// convert the strings with hex characters to integers
+static PyObject* n_htoi( PyObject* self, PyObject* args )
+{
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    unsigned int count = tptr->size();
+    PyObject* ret = PyList_New(count);
+    if( count==0 )
+        return ret;
+    //
+    unsigned int* devptr = (unsigned int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,1));
+    if( devptr )
+    {
+        tptr->htoi(devptr);
+        return PyLong_FromVoidPtr((void*)devptr);
+    }
+
+    // copy to host option
+    unsigned int* rtn = new unsigned int[count];
+    tptr->htoi(rtn,false);
+    for(size_t idx=0; idx < count; idx++)
+        PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));
+    delete rtn;
+    return ret;
+}
+
 // concatenate the given string to the end of all the strings
 static PyObject* n_cat( PyObject* self, PyObject* args )
 {
@@ -1802,6 +1827,7 @@ static PyMethodDef s_Methods[] = {
     { "n_compare", n_compare, METH_VARARGS, "" },
     { "n_stoi", n_stoi, METH_VARARGS, "" },
     { "n_stof", n_stof, METH_VARARGS, "" },
+    { "n_htoi", n_htoi, METH_VARARGS, "" },
     { "n_cat", n_cat, METH_VARARGS, "" },
     { "n_split", n_split, METH_VARARGS, "" },
     { "n_rsplit", n_rsplit, METH_VARARGS, "" },
