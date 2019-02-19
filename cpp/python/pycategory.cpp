@@ -398,6 +398,90 @@ static PyObject* n_merge_category( PyObject* self, PyObject* args )
     Py_RETURN_NONE;
 }
 
+static PyObject* n_add_keys( PyObject* self, PyObject* args )
+{
+    NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    PyObject* pystrs = PyTuple_GetItem(args,1);
+    if( pystrs == Py_None )
+    {
+        PyErr_Format(PyExc_ValueError,"nvcategory.add_keys: parameter required");
+        Py_RETURN_NONE;
+    }
+    std::string cname = pystrs->ob_type->tp_name;
+    if( cname.compare("nvstrings")!=0 )
+    {
+        PyErr_Format(PyExc_ValueError,"nvcategory.add_keys: argument must be nvstrings object");
+        Py_RETURN_NONE;
+    }
+    NVStrings* strs = (NVStrings*)PyLong_AsVoidPtr(PyObject_GetAttrString(pystrs,"m_cptr"));
+    if( strs==0 )
+    {
+        PyErr_Format(PyExc_ValueError,"nvcategory.add_keys: invalid nvstrings object");
+        Py_RETURN_NONE;
+    }
+
+    NVCategory* rtn = tptr->add_keys_and_remap(*strs);
+    if( rtn )
+        return PyLong_FromVoidPtr((void*)rtn);
+    Py_RETURN_NONE;
+}
+
+static PyObject* n_remove_keys( PyObject* self, PyObject* args )
+{
+    NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    PyObject* pystrs = PyTuple_GetItem(args,1);
+    if( pystrs == Py_None )
+    {
+        PyErr_Format(PyExc_ValueError,"nvcategory.remove_keys: parameter required");
+        Py_RETURN_NONE;
+    }
+    std::string cname = pystrs->ob_type->tp_name;
+    if( cname.compare("nvstrings")!=0 )
+    {
+        PyErr_Format(PyExc_ValueError,"nvcategory.remove_keys: argument must be nvstrings object");
+        Py_RETURN_NONE;
+    }
+    NVStrings* strs = (NVStrings*)PyLong_AsVoidPtr(PyObject_GetAttrString(pystrs,"m_cptr"));
+    if( strs==0 )
+    {
+        PyErr_Format(PyExc_ValueError,"nvcategory.remove_keys: invalid nvstrings object");
+        Py_RETURN_NONE;
+    }
+
+    NVCategory* rtn = tptr->remove_keys_and_remap(*strs);
+    if( rtn )
+        return PyLong_FromVoidPtr((void*)rtn);
+    Py_RETURN_NONE;
+}
+
+static PyObject* n_set_keys( PyObject* self, PyObject* args )
+{
+    NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    PyObject* pystrs = PyTuple_GetItem(args,1);
+    if( pystrs == Py_None )
+    {
+        PyErr_Format(PyExc_ValueError,"nvcategory.set_keys: parameter required");
+        Py_RETURN_NONE;
+    }
+    std::string cname = pystrs->ob_type->tp_name;
+    if( cname.compare("nvstrings")!=0 )
+    {
+        PyErr_Format(PyExc_ValueError,"nvcategory.set_keys: argument must be nvstrings object");
+        Py_RETURN_NONE;
+    }
+    NVStrings* strs = (NVStrings*)PyLong_AsVoidPtr(PyObject_GetAttrString(pystrs,"m_cptr"));
+    if( strs==0 )
+    {
+        PyErr_Format(PyExc_ValueError,"nvcategory.set_keys: invalid nvstrings object");
+        Py_RETURN_NONE;
+    }
+
+    NVCategory* rtn = tptr->set_keys_and_remap(*strs);
+    if( rtn )
+        return PyLong_FromVoidPtr((void*)rtn);
+    Py_RETURN_NONE;
+}
+
 //
 static PyMethodDef s_Methods[] = {
     { "n_createCategoryFromHostStrings", n_createCategoryFromHostStrings, METH_VARARGS, "" },
@@ -416,6 +500,9 @@ static PyMethodDef s_Methods[] = {
     { "n_to_strings", n_to_strings, METH_VARARGS, "" },
     { "n_gather_strings", n_gather_strings, METH_VARARGS, "" },
     { "n_merge_category", n_merge_category, METH_VARARGS, "" },
+    { "n_add_keys", n_add_keys, METH_VARARGS, "" },
+    { "n_remove_keys", n_remove_keys, METH_VARARGS, "" },
+    { "n_set_keys", n_set_keys, METH_VARARGS, "" },
     { NULL, NULL, 0, NULL }
 };
 

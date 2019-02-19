@@ -562,3 +562,50 @@ class nvcategory:
         if rtn is not None:
             rtn = nvcategory(rtn)
         return rtn
+
+    def add_keys(self, strs):
+        """
+        Create new category adding the specified keys and remapping
+        values to the new key indexes.
+
+        Parameters
+        ----------
+          strs: nvstrings
+            keys to be added to existing keys
+        """
+        rtn = pyniNVCategory.n_add_keys(self.m_cptr, strs)
+        if rtn is not None:
+            rtn = nvcategory(rtn)
+        return rtn
+
+    def remove_keys(self, strs):
+        """
+        Create new category removing the specified keys and remapping
+        values to the new key indexes. Values with removed keys are
+        mapped to -1.
+
+        Parameters
+        ----------
+          strs: nvstrings
+            keys to be removed from existing keys
+        """
+        rtn = pyniNVCategory.n_remove_keys(self.m_cptr, strs)
+        if rtn is not None:
+            rtn = nvcategory(rtn)
+        return rtn
+
+    def set_keys(self, strs):
+        """
+        Create new category using the specified keys and remapping
+        values to the new key indexes. Matching names will have
+        remapped values. Values with removed keys are mapped to -1.
+
+        Parameters
+        ----------
+          strs: nvstrings
+            keys to be used for new category
+        """
+        rtn = pyniNVCategory.n_set_keys(self.m_cptr, strs)
+        if rtn is not None:
+            rtn = nvcategory(rtn)
+        return rtn
