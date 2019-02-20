@@ -93,3 +93,6 @@ target_link_libraries(pyniNVCategory ${PYTHON_LIBRARIES} NVStrings NVCategory)
 target_link_libraries(pyniRave ${PYTHON_LIBRARIES} NVStrings Rave)
 
 install(TARGETS NVStrings LIBRARY DESTINATION lib)
+install(TARGETS NVCategory LIBRARY DESTINATION lib)
+install(TARGETS Rave LIBRARY DESTINATION lib)
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/ DESTINATION include/nvstrings PATTERN "*.h")
