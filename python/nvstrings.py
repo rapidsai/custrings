@@ -205,6 +205,9 @@ class nvstrings:
             return rtn
         raise TypeError("key must be integer, slice, or list of integers")
 
+    def __iter__(self):
+        raise TypeError("iterable not supported by nvstrings")
+
     def to_host(self):
         """
         Copies strings back to CPU memory into a Python array.
