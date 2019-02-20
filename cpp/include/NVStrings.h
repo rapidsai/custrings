@@ -89,6 +89,8 @@ public:
     // create index for device strings contained in this instance; array must hold at least size() elements
     int create_index(std::pair<const char*,size_t>* strs, bool devmem=true );
     int create_custring_index( custring_view** strs, bool devmem=true );
+    // copy strings into memory provided
+    int create_offsets( char* strs, int* offsets, unsigned char* nullbitmask=0, bool devmem=true );
     // set bit-array identifying the null strings; returns the number of nulls found
     unsigned int set_null_bitarray( unsigned char* bitarray, bool emptyIsNull=false, bool todevice=true );
     // set int array with position of null strings
@@ -103,6 +105,8 @@ public:
 
     // return the number of characters in each string
     unsigned int len(int* lengths, bool todevice=true);
+    // return the number of bytes for each string
+    size_t byte_count(int* lengths, bool todevice=true);
 
     // adds the given string(s) to this list of strings and returns as new strings
     NVStrings* cat( NVStrings* others, const char* separator, const char* narep=0);

@@ -33,6 +33,14 @@ s = nvstrings.from_offsets(values.ctypes.data,offsets.ctypes.data,3,bitmask.ctyp
 print(s)
 
 print("------------------")
+s = nvstrings.to_device(['a','p','p','l','e'])
+values = np.empty(s.size(), dtype=np.int8)
+offsets = np.empty(s.size()+1, dtype=np.int32)
+s.to_offsets(values,offsets)
+print("values",values.tobytes())
+print("offsets",offsets)
+
+print("------------------")
 import nvcategory
 
 values = np.array([97, 112, 112, 108, 101], dtype=np.int8)

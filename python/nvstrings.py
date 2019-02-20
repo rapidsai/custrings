@@ -236,6 +236,53 @@ class nvstrings:
         """
         return pyniNVStrings.n_createHostStrings(self.m_cptr)
 
+    def to_offsets(self, sbuf, obuf, nbuf=0, bdevmem=False):
+        """
+        Store byte-array of characters encoded in UTF-8 and offsets
+        and optional null-bitmask into provided memory.
+
+        Parameters
+        ----------
+
+          sbuf : memory address or buffer
+            Strings characters are stored contiguously encoded as UTF-8.
+
+          obuf : memory address or buffer
+            Stores array of int32 byte offsets to beginning of each
+            string in sbuf. This should be able to hold size()+1 values.
+
+          nbuf: memory address or buffer
+            Optional: stores null bitmask in arrow format.
+
+          bdevmem: boolean
+            Default (False) interprets memory pointers as CPU memory.
+
+          Examples
+          --------
+
+          .. code-block:: python
+
+          import numpy as np
+          import nvstrings
+
+          s = nvstrings.to_device(['a','p','p','l','e'])
+          values = np.empty(s.size(), dtype=np.int8)
+          offsets = np.empty(s.size()+1, dtype=np.int32)
+          s.to_offsets(values,offsets)
+          print("values",values.tobytes())
+          print("offsets",offsets)
+
+          Output:
+
+          .. code-block:: python
+
+          values b'apple'
+          offsets [0 1 2 3 4 5]
+
+        """
+        return pyniNVStrings.n_create_offsets(self.m_cptr, sbuf, obuf, nbuf,
+                                              bdevmem)
+
     def size(self):
         """
         The number of strings managed by this instance.

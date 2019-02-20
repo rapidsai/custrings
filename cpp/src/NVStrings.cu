@@ -812,6 +812,82 @@ int NVStrings::create_custring_index( custring_view** strs, bool bdevmem )
     return 0;
 }
 
+// copy strings into memory provided
+int NVStrings::create_offsets( char* strs, int* offsets, unsigned char* nullbitmask, bool bdevmem )
+{
+    unsigned int count = size();
+    if( count==0 )
+        return 0;
+    if( strs==0 || offsets==0 )
+        return 0;
+
+    auto execpol = rmm::exec_policy(0);
+    // first compute offsets/nullbitmask
+    int* d_offsets = offsets;
+    unsigned char* d_nulls = nullbitmask;
+    if( !bdevmem )
+    {
+        RMM_ALLOC(&d_offsets,(count+1)*sizeof(int),0);
+        if( nullbitmask )
+        {
+            RMM_ALLOC(&d_nulls,((count+7)/8)*sizeof(unsigned char),0);
+            cudaMemset(d_nulls,0,((count+7)/8));
+        }
+    }
+    //
+    rmm::device_vector<int> sizes(count+1,0);
+    int* d_sizes = sizes.data().get();
+    custring_view** d_strings = pImpl->getStringsPtr();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_strings, d_sizes] __device__(unsigned int idx){
+            custring_view* dstr = d_strings[idx];
+            if( dstr )
+                d_sizes[idx] = (int)dstr->size();
+        });
+    // ^^^-- these two for-each-n's can likely be combined --vvv
+    if( d_nulls )
+    {
+        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), (count+7)/8,
+            [d_strings, count, d_nulls] __device__(unsigned int idx){
+                unsigned int ndx = idx * 8;
+                unsigned char nb = 0;
+                for( int i=0; i<8; ++i )
+                {
+                    nb = nb >> 1;
+                    if( ndx+i < count )
+                    {
+                        custring_view* dstr = d_strings[ndx+i];
+                        if( dstr )
+                            nb |= 128;
+                    }
+                }
+                d_nulls[idx] = nb;
+            });
+    }
+    //
+    thrust::exclusive_scan(execpol->on(0),d_sizes, d_sizes+(count+1), d_offsets);
+    // compute/allocate of memory
+    size_t totalbytes = thrust::reduce(execpol->on(0), d_sizes, d_sizes+count);
+    char* d_strs = strs;
+    if( !bdevmem )
+        RMM_ALLOC(&d_strs,totalbytes,0);
+    // shuffle strings into memory
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_strings, d_strs, d_offsets] __device__(unsigned int idx){
+            char* buffer = d_strs + d_offsets[idx];
+            custring_view* dstr = d_strings[idx];
+            if( dstr )
+                memcpy(buffer,dstr->data(),dstr->size());
+        });
+    // copy memory to parameters (if necessary)
+    if( !bdevmem )
+    {
+        cudaMemcpy(offsets,d_offsets,(count+1)*sizeof(int),cudaMemcpyDeviceToHost);
+        cudaMemcpy(strs,d_strs,totalbytes,cudaMemcpyDeviceToHost);
+    }
+    return 0;
+}
+
 // create a new instance containing only the strings at the specified positions
 // position values can be in any order and can even be repeated
 NVStrings* NVStrings::gather( int* pos, unsigned int elems, bool bdevmem )
@@ -1103,6 +1179,48 @@ unsigned int NVStrings::len(int* lengths, bool todevice)
     printCudaError(cudaDeviceSynchronize(),"nvs-len");
     double et = GetTime();
     pImpl->addOpTimes("len",0.0,(et-st));
+    if( !todevice )
+    {   // copy result back to host
+        cudaMemcpy(lengths,d_rtn,sizeof(int)*count,cudaMemcpyDeviceToHost);
+        RMM_FREE(d_rtn,0);
+    }
+    return count;
+}
+
+// this will return the number of bytes for each string
+size_t NVStrings::byte_count(int* lengths, bool todevice)
+{
+    unsigned int count = size();
+    if( lengths==0 || count==0 )
+        return 0;
+
+    auto execpol = rmm::exec_policy(0);
+    int* d_rtn = lengths;
+    if( !todevice )
+        RMM_ALLOC(&d_rtn,sizeof(int)*count,0);
+
+    double st = GetTime();
+    custring_view** d_strings = pImpl->getStringsPtr();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_strings, d_rtn] __device__(unsigned int idx){
+            custring_view* dstr = d_strings[idx];
+            if( dstr )
+                d_rtn[idx] = dstr->size();
+            else
+                d_rtn[idx] = -1;
+        });
+    //
+    printCudaError(cudaDeviceSynchronize(),"nvs-len");
+    double et = GetTime();
+    pImpl->addOpTimes("byte_count",0.0,(et-st));
+    size_t size = thrust::reduce(execpol->on(0), d_rtn, d_rtn+count, (size_t)0,
+         []__device__(int lhs, int rhs) {
+            if( lhs < 0 )
+                lhs = 0;
+            if( rhs < 0 )
+                rhs = 0;
+            return lhs + rhs;
+         });
     if( !todevice )
     {   // copy result back to host
         cudaMemcpy(lengths,d_rtn,sizeof(int)*count,cudaMemcpyDeviceToHost);
