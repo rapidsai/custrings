@@ -180,6 +180,69 @@ static PyObject* n_createFromOffsets( PyObject* self, PyObject* args )
     Py_RETURN_NONE;
 }
 
+// called by from_offsets() method in python class
+static PyObject* n_create_offsets( PyObject* self, PyObject* args )
+{
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    PyObject* pysbuf = PyTuple_GetItem(args,1);
+    PyObject* pyobuf = PyTuple_GetItem(args,2);
+    PyObject* pynbuf = PyTuple_GetItem(args,3);
+
+    //
+    if( (pysbuf == Py_None) || (pyobuf == Py_None) )
+    {
+        PyErr_Format(PyExc_ValueError,"nvstrings: missing parameter");
+        Py_RETURN_NONE;
+    }
+
+    char* sbuffer = 0;
+    int* obuffer = 0;
+    unsigned char* nbuffer = 0;
+    int ncount = 0;
+
+    Py_buffer sbuf, obuf, nbuf;
+    if( PyObject_CheckBuffer(pysbuf) )
+    {
+        PyObject_GetBuffer(pysbuf,&sbuf,PyBUF_SIMPLE);
+        sbuffer = (char*)sbuf.buf;
+    }
+    else
+        sbuffer = (char*)PyLong_AsVoidPtr(pysbuf);
+
+    if( PyObject_CheckBuffer(pyobuf) )
+    {
+        PyObject_GetBuffer(pyobuf,&obuf,PyBUF_SIMPLE);
+        obuffer = (int*)obuf.buf;
+    }
+    else
+        obuffer = (int*)PyLong_AsVoidPtr(pyobuf);
+
+    if( PyObject_CheckBuffer(pynbuf) )
+    {
+        PyObject_GetBuffer(pynbuf,&nbuf,PyBUF_SIMPLE);
+        nbuffer = (unsigned char*)nbuf.buf;
+    }
+    else if( pynbuf != Py_None )
+        nbuffer = (unsigned char*)PyLong_AsVoidPtr(pynbuf);
+
+    PyObject* pybmem = PyTuple_GetItem(args,4);
+    bool bdevmem = (bool)PyObject_IsTrue(pybmem);
+
+    //printf(" ptrs=%p,%p,%p\n",sbuffer,obuffer,nbuffer);
+    //printf(" scount=%d,ncount=%d\n",scount,ncount);
+    // create strings object from these buffers
+    tptr->create_offsets(sbuffer,obuffer,nbuffer,bdevmem);
+
+    if( PyObject_CheckBuffer(pysbuf) )
+        PyBuffer_Release(&sbuf);
+    if( PyObject_CheckBuffer(pyobuf) )
+        PyBuffer_Release(&obuf);
+    if( PyObject_CheckBuffer(pynbuf) )
+        PyBuffer_Release(&nbuf);
+
+    Py_RETURN_NONE;
+}
+
 static PyObject* n_size( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
@@ -1820,6 +1883,7 @@ static PyMethodDef s_Methods[] = {
     { "n_createHostStrings", n_createHostStrings, METH_VARARGS, "" },
     { "n_createFromCSV", n_createFromCSV, METH_VARARGS, "" },
     { "n_createFromOffsets", n_createFromOffsets, METH_VARARGS, "" },
+    { "n_create_offsets", n_create_offsets, METH_VARARGS, "" },
     { "n_size", n_size, METH_VARARGS, "" },
     { "n_hash", n_hash, METH_VARARGS, "" },
     { "n_get_nulls", n_get_nulls, METH_VARARGS, "" },
