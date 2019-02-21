@@ -1633,12 +1633,35 @@ static PyObject* n_gather( PyObject* self, PyObject* args )
         rtn = tptr->gather(indexes,count,false);
         delete indexes;
     }
-    else
+    else if( cname.compare("DeviceNDArray")==0 )
     {
-        // remove_strings has parse_arg logic; not sure which is better
+        PyObject* pysize = PyObject_GetAttr(pyidxs,PyUnicode_FromString("alloc_size"));
+        PyObject* pydcp = PyObject_GetAttr(pyidxs,PyUnicode_FromString("device_ctypes_pointer"));
+        PyObject* pyptr = PyObject_GetAttr(pydcp,PyUnicode_FromString("value"));
+        unsigned int count = (unsigned int)(PyLong_AsLong(pysize)/sizeof(int));
+        int* indexes = (int*)PyLong_AsVoidPtr(pyptr);
+        //printf("device-array: %p,%u\n",indexes,count);
+        rtn = tptr->gather(indexes,count);
+    }
+    else if( PyObject_CheckBuffer(pyidxs) )
+    {
+        Py_buffer pybuf;
+        PyObject_GetBuffer(pyidxs,&pybuf,PyBUF_SIMPLE);
+        int* indexes = (int*)pybuf.buf;
+        unsigned int count = (unsigned int)(pybuf.len/sizeof(int));
+        //printf("buffer: %p,%u\n",indexes,count);
+        rtn = tptr->gather(indexes,count,false);
+    }
+    else if( cname.compare("int")==0 ) // device pointer directly
+    {                                  // for consistency with other methods
         int* indexes = (int*)PyLong_AsVoidPtr(pyidxs);
         unsigned int count = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,2));
         rtn = tptr->gather(indexes,count);
+    }
+    else
+    {
+        //printf("%s\n",cname.c_str());
+        PyErr_Format(PyExc_TypeError,"nvstrings: unknown type %s",cname.c_str());
     }
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
