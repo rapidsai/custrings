@@ -72,6 +72,8 @@ print("cat1", cat1.keys(), cat1.values())
 print("cat2", cat2.keys(), cat2.values())
 ncat = cat1.merge_category(cat2)
 print("cat1.merge_category(cat2)\n", ncat.keys(), ncat.values())
+ncat = cat1.merge_and_remap(cat2)
+print("cat1.merge_and_remap(cat2)\n", ncat.keys(), ncat.values())
 
 # updating keys
 print("-------------------------")
