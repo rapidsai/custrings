@@ -1136,13 +1136,16 @@ unsigned int NVStrings::get_nulls( unsigned int* array, bool emptyIsNull, bool d
     }
     // compact out the negative values
     int* newend = thrust::remove_if(execpol->on(0), d_array, d_array + count, [] __device__ (int val) {return val<0;});
-    unsigned int ncount = (unsigned int)(newend - d_array); // do not seem to need to normalize this with sizeof(int)
+    unsigned int ncount = (unsigned int)(newend - d_array);
 
     //
-    if( devmem )
-        cudaMemcpy(array,d_array,sizeof(int)*ncount,cudaMemcpyDeviceToDevice);
-    else
-        cudaMemcpy(array,d_array,sizeof(int)*ncount,cudaMemcpyDeviceToHost);
+    if( array )
+    {
+        if( devmem )
+            cudaMemcpy(array,d_array,sizeof(int)*ncount,cudaMemcpyDeviceToDevice);
+        else
+            cudaMemcpy(array,d_array,sizeof(int)*ncount,cudaMemcpyDeviceToHost);
+    }
     return ncount;
 }
 

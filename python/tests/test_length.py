@@ -10,4 +10,5 @@ print("len(strs):",len(strs))
 print(".size():",strs.size())
 print(".len():",strs.len())
 print(".byte_count():",strs.byte_count())
+print(".null_count():",strs.null_count())
 

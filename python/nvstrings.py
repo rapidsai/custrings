@@ -388,6 +388,38 @@ class nvstrings:
         rtn = pyniNVStrings.n_byte_count(self.m_cptr, vals, bdevmem)
         return rtn
 
+    def null_count(self, emptyisnull=False):
+        """
+        Returns the number of null strings in this instance.
+
+        Parameters
+        ----------
+            emptyisnull : boolean
+                If True, empty strings are counted as null.
+                Default is False.
+
+        Examples
+        --------
+
+        .. code-block:: python
+
+          import nvstrings
+
+          # example passing device memory pointer
+          s = nvstrings.to_device(["abc","",None])
+          print("nulls",s.null_count())
+          print("nulls+empty", s.null_count(True))
+
+        Output:
+
+        .. code-block:: python
+
+          nulls 1
+          nulls+empty 2
+
+        """
+        return pyniNVStrings.n_null_count(self.m_cptr, emptyisnull)
+
     def compare(self, str, devptr=0):
         """
         Compare each string to the supplied string.
