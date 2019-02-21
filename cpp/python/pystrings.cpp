@@ -294,33 +294,12 @@ static PyObject* n_byte_count( PyObject* self, PyObject* args )
 }
 
 // return the number of nulls
-static PyObject* n_get_nulls( PyObject* self, PyObject* args )
+static PyObject* n_null_count( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     bool ben = (bool)PyObject_IsTrue(PyTuple_GetItem(args,1));
-    unsigned int* devptr = (unsigned int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,2));
-    if( devptr )
-    {
-        unsigned int count = tptr->get_nulls(devptr,ben);
-        return PyLong_FromUnsignedLong(count);
-    }
-
-    // copy to host option
-    unsigned int count = tptr->size();
-    if( count==0 )
-        return PyList_New(0);
-    unsigned int* rtn = new unsigned int[count];
-    count = tptr->get_nulls(rtn,ben,false);
-    PyObject* ret = PyList_New(count);
-    if( count==0 )
-        return ret;
-    for(unsigned int idx=0; idx < count; idx++)
-    {
-        int val = rtn[idx];
-        PyList_SetItem(ret, idx, PyLong_FromLong((long)val));
-    }
-    delete rtn;
-    return ret;
+    unsigned int nulls = tptr->get_nulls(0,ben,false);
+    return PyLong_FromLong((long)nulls);
 }
 
 // compare a string to the list of strings
@@ -1920,7 +1899,7 @@ static PyMethodDef s_Methods[] = {
     { "n_create_offsets", n_create_offsets, METH_VARARGS, "" },
     { "n_size", n_size, METH_VARARGS, "" },
     { "n_hash", n_hash, METH_VARARGS, "" },
-    { "n_get_nulls", n_get_nulls, METH_VARARGS, "" },
+    { "n_null_count", n_null_count, METH_VARARGS, "" },
     { "n_remove_strings", n_remove_strings, METH_VARARGS, "" },
     { "n_compare", n_compare, METH_VARARGS, "" },
     { "n_stoi", n_stoi, METH_VARARGS, "" },
