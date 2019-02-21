@@ -350,6 +350,44 @@ class nvstrings:
         rtn = pyniNVStrings.n_len(self.m_cptr, devptr)
         return rtn
 
+    def byte_count(self, vals=0, bdevmem=False):
+        """
+        Fills the argument with the number of bytes of each string.
+        Returns the total number of bytes.
+
+        Parameters
+        ----------
+            vals : memory pointer
+                Where byte length values will be written.
+                Must be able to hold at least size() of int32 values.
+                None can be specified if only the total count is required.
+
+        Examples
+        --------
+
+        .. code-block:: python
+
+          import nvstrings
+          import numpy as np
+          from librmm_cffi import librmm
+
+          # example passing device memory pointer
+          s = nvstrings.to_device(["abc","d","ef"])
+          arr = np.arange(s.size(),dtype=np.int32)
+          d_arr = librmm.to_device(arr)
+          s.byte_count(d_arr.device_ctypes_pointer.value,True)
+          print(d_arr.copy_to_host())
+
+        Output:
+
+        .. code-block:: python
+
+          [3,1,2]
+
+        """
+        rtn = pyniNVStrings.n_byte_count(self.m_cptr, vals, bdevmem)
+        return rtn
+
     def compare(self, str, devptr=0):
         """
         Compare each string to the supplied string.

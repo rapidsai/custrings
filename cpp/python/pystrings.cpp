@@ -283,6 +283,16 @@ static PyObject* n_len( PyObject* self, PyObject* args )
     return ret;
 }
 
+static PyObject* n_byte_count( PyObject* self, PyObject* args )
+{
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    int* memptr = (int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,1));
+    bool bdevmem = (bool)PyObject_IsTrue(PyTuple_GetItem(args,2));
+
+    size_t rtn = tptr->byte_count(memptr,bdevmem);
+    return PyLong_FromLong((long)rtn);
+}
+
 // return the number of nulls
 static PyObject* n_get_nulls( PyObject* self, PyObject* args )
 {
@@ -1651,6 +1661,7 @@ static PyObject* n_gather( PyObject* self, PyObject* args )
         unsigned int count = (unsigned int)(pybuf.len/sizeof(int));
         //printf("buffer: %p,%u\n",indexes,count);
         rtn = tptr->gather(indexes,count,false);
+        PyBuffer_Release(&pybuf);
     }
     else if( cname.compare("int")==0 ) // device pointer directly
     {                                  // for consistency with other methods
@@ -1934,6 +1945,7 @@ static PyMethodDef s_Methods[] = {
     { "n_slice_replace", n_slice_replace, METH_VARARGS, "" },
     { "n_replace", n_replace, METH_VARARGS, "" },
     { "n_len", n_len, METH_VARARGS, "" },
+    { "n_byte_count", n_byte_count, METH_VARARGS, "" },
     { "n_lstrip", n_lstrip, METH_VARARGS, "" },
     { "n_strip", n_strip, METH_VARARGS, "" },
     { "n_rstrip", n_rstrip, METH_VARARGS, "" },
