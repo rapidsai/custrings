@@ -203,7 +203,7 @@ class nvstrings:
             if rtn is not None:
                 rtn = nvstrings(rtn)
             return rtn
-        #raise TypeError("key must be integer, slice, or list of integers")
+        # raise TypeError("key must be integer, slice, or list of integers")
         # gather can handle almost anything now
         return self.gather(key)
 
