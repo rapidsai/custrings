@@ -563,6 +563,24 @@ class nvcategory:
             rtn = nvcategory(rtn)
         return rtn
 
+    def merge_and_remap(self, nvcat):
+        """
+        Create new category incorporating the specified category keys
+        and values. This will return a new nvcategory with new key values.
+        The index values will appear as if appended.
+        Values will be remapped to the new keys.
+
+        Parameters
+        ----------
+          nvcat : nvcategory
+            New cateogry to be merged.
+
+        """
+        rtn = pyniNVCategory.n_merge_and_remap(self.m_cptr, nvcat)
+        if rtn is not None:
+            rtn = nvcategory(rtn)
+        return rtn
+
     def add_keys(self, strs):
         """
         Create new category adding the specified keys and remapping

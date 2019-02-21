@@ -74,6 +74,8 @@ public:
     // create instance from NVStrings instance
     static NVCategory* create_from_strings(NVStrings& strs);
     static NVCategory* create_from_strings(std::vector<NVStrings*>& strs);
+    // create instance from list of categories; values are remapped
+    static NVCategory* create_from_categories(std::vector<NVCategory*>& cats);
     // use this method to free any instance create by methods in this class
     static void destroy(NVCategory* inst);
 
@@ -103,7 +105,7 @@ public:
     // returns pointer to internal values array in device memory
     const int* values_cptr();
 
-    //
+    // return values positions for given key
     int get_indexes_for( unsigned int index, int* results, bool devmem=true );
     int get_indexes_for( const char* str, int* results, bool devmem=true );
 
@@ -121,7 +123,7 @@ public:
     NVCategory* set_keys_and_remap(NVStrings& strs);
     //
     NVCategory* merge_category(NVCategory& cat);
-    NVCategory* merge_strings(NVStrings& strs);
+    NVCategory* merge_and_remap(NVCategory& cat);
 
     // convert to original strings list
     NVStrings* to_strings();

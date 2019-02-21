@@ -398,6 +398,34 @@ static PyObject* n_merge_category( PyObject* self, PyObject* args )
     Py_RETURN_NONE;
 }
 
+static PyObject* n_merge_and_remap( PyObject* self, PyObject* args )
+{
+    NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    PyObject* pystrs = PyTuple_GetItem(args,1);
+    if( pystrs == Py_None )
+    {
+        PyErr_Format(PyExc_ValueError,"nvcategory.merge_and_remap: parameter required");
+        Py_RETURN_NONE;
+    }
+    std::string cname = pystrs->ob_type->tp_name;
+    if( cname.compare("nvcategory")!=0 )
+    {
+        PyErr_Format(PyExc_ValueError,"nvcategory.merge_and_remap: argument must be nvcategory object");
+        Py_RETURN_NONE;
+    }
+    NVCategory* cat2 = (NVCategory*)PyLong_AsVoidPtr(PyObject_GetAttrString(pystrs,"m_cptr"));
+    if( cat2==0 )
+    {
+        PyErr_Format(PyExc_ValueError,"nvcategory.merge_and_remap: invalid nvcategory object");
+        Py_RETURN_NONE;
+    }
+
+    NVCategory* rtn = tptr->merge_and_remap(*cat2);
+    if( rtn )
+        return PyLong_FromVoidPtr((void*)rtn);
+    Py_RETURN_NONE;
+}
+
 static PyObject* n_add_keys( PyObject* self, PyObject* args )
 {
     NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
@@ -500,6 +528,7 @@ static PyMethodDef s_Methods[] = {
     { "n_to_strings", n_to_strings, METH_VARARGS, "" },
     { "n_gather_strings", n_gather_strings, METH_VARARGS, "" },
     { "n_merge_category", n_merge_category, METH_VARARGS, "" },
+    { "n_merge_and_remap", n_merge_and_remap, METH_VARARGS, "" },
     { "n_add_keys", n_add_keys, METH_VARARGS, "" },
     { "n_remove_keys", n_remove_keys, METH_VARARGS, "" },
     { "n_set_keys", n_set_keys, METH_VARARGS, "" },
