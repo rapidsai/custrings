@@ -9,7 +9,7 @@ enum InstType_Internal
     START = 0200, /* Start, used for marker on stack */
     //RBRA = 0201,
     //LBRA = 0202,
-    LBRA_NC = 0203, // non-capturing group 
+    LBRA_NC = 0203, // non-capturing group
     //OR = 0204,
     CAT = 0205, /* Concatentation, implicit operator */
     STAR = 0206, /* Closure, * */
@@ -861,7 +861,7 @@ class RegCompiler
 public:
     RegCompiler(const char32_t* pattern, int dot_type, Reprog& prog) : m_prog(prog)
     {
-        // Parse 
+        // Parse
         std::vector<RegParser::Item> items;
         {
             RegParser parser(pattern, dot_type, m_prog);
@@ -871,12 +871,12 @@ public:
                 expand_counted(parser.m_items, items);
             else
                 items = parser.m_items;
-        }      
+        }
 
 
         cursubid = 0;
         pushsubid = 0;
-       
+
         /* Start with a low priority operator to prime parser */
         pushator(START - 1);
 
@@ -1112,7 +1112,7 @@ void Reprog::print()
             if( mask & 16 )
                 printf(" \\S");
             if( mask & 32 )
-                printf(" \\D")			;
+                printf(" \\D");
         }
         printf("\n");
     }
