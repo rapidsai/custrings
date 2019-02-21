@@ -8,29 +8,22 @@
 *	02xx are operators, value == precedence
 *	03xx are tokens, i.e. operands for operators
 */
-#define CHAR        0177
-#define	OPERATOR    0200  /* Bitmask of all operators */
-#define	START       0200  /* Start, used for marker on stack */
-#define	RBRA        0201  /* Right bracket, ) */
-#define	LBRA        0202  /* Left bracket, ( */
-#define	OR          0203  /* Alternation, | */
-#define	CAT         0204  /* Concatentation, implicit operator */
-#define	STAR        0205  /* Closure, * */
-#define	STAR_LAZY   0206
-#define	PLUS        0207  /* a+ == aa* */
-#define	PLUS_LAZY   0210
-#define	QUEST       0211  /* a? == a|nothing, i.e. 0 or 1 a's */
-#define	QUEST_LAZY  0212
-#define	ANY         0300  /* Any character except newline, . */
-#define	ANYNL       0301  /* Any character including newline, . */
-#define	NOP         0302  /* No operation, internal use only */
-#define	BOL         0303  /* Beginning of line, ^ */
-#define	EOL         0304  /* End of line, $ */
-#define	CCLASS      0305  /* Character class, [] */
-#define	NCCLASS     0306  /* Negated character class, [] */
-#define BOW         0307  /* Boundary of word, /b */
-#define NBOW        0310  /* Not boundary of word, /b */
-#define	END         0377  /* Terminate: match found */
+enum InstType
+{
+    CHAR = 0177,
+    RBRA = 0201, /* Right bracket, ) */
+    LBRA = 0202, /* Left bracket, ( */
+    OR = 0204, /* Alternation, | */
+    ANY = 0300, /* Any character except newline, . */
+    ANYNL = 0301, /* Any character including newline, . */
+    BOL = 0303, /* Beginning of line, ^ */
+    EOL = 0304, /* End of line, $ */
+    CCLASS = 0305, /* Character class, [] */
+    NCCLASS = 0306, /* Negated character class, [] */
+    BOW = 0307, /* Boundary of word, /b */
+    NBOW = 0310, /* Not boundary of word, /b */
+    END = 0377 /* Terminate: match found */
+};
 
 //typedef std::u32string Reclass; // .length should be multiple of 2
 struct Reclass

@@ -2,6 +2,36 @@
 #include <string.h>
 #include "regcomp.h"
 
+#define OPERATOR    0200    /* Bitmask of all operators */
+enum InstType_Internal
+{
+    //CHAR = 0177,
+    START = 0200, /* Start, used for marker on stack */
+    //RBRA = 0201,
+    //LBRA = 0202,
+    LBRA_NC = 0203, // non-capturing group 
+    //OR = 0204,
+    CAT = 0205, /* Concatentation, implicit operator */
+    STAR = 0206, /* Closure, * */
+    STAR_LAZY = 0207,
+    PLUS = 0210, /* a+ == aa* */
+    PLUS_LAZY = 0211,
+    QUEST = 0212,  /* a? == a|nothing, i.e. 0 or 1 a's */
+    QUEST_LAZY = 0213,
+    COUNTED = 0214, /* counted repeat a{2} a{3,5} */
+    COUNTED_LAZY = 0215,
+    //ANY = 0300,
+    //ANYNL = 0301,
+    NOP = 0302, /* No operation, internal use only */
+    //BOL = 0303,
+    //EOL = 0304,
+    //CCLASS = 0305,
+    //NCCLASS = 0306,
+    //BOW = 0307,
+    //NBOW = 0310,
+    //END = 0377
+};
+
 static Reclass ccls_w(1); // = { 'a', 'z','A','Z','0','9','_','_' };
 static Reclass ccls_W(8); // = { '\n','\n','a', 'z', 'A', 'Z', '0', '9', '_', '_' };
 static Reclass ccls_s(2); // = { '\t', '\t', '\n', '\n', '\r', '\r', '\f', '\f', '\v', '\v', ' ', ' ' };
@@ -78,58 +108,19 @@ const Reinst* Reprog::insts_data() const
     return insts.data();
 }
 
-class RegCompiler
+class RegParser
 {
-    int id_ccls_w = -1, id_ccls_W = -1, id_ccls_s = -1, id_ccls_d = -1, id_ccls_D = -1;
-    struct Node
-    {
-        int id_first;
-        int id_last;
-    };
-    int cursubid;
-    int pushsubid;
-    std::vector<Node> andstack;
-    std::vector<int> atorstack;
-    std::vector<int> subidstack;
+    Reprog& m_prog;
+
     const char32_t* exprp;
     bool lexdone;
+
+    int id_ccls_w = -1, id_ccls_W = -1, id_ccls_s = -1, id_ccls_d = -1, id_ccls_D = -1;
+
     char32_t yy; /* last lex'd Char */
-    int yyclass_id;	/* last lex'd class */
-    bool lastwasand;
-    int	nbra;
-
-    inline void pushand(int f, int l)
-    {
-        andstack.push_back({ f, l });
-    }
-
-    inline Node popand(int op)
-    {
-        if( andstack.size() < 1 )
-        {
-            //missing operand for op
-            int inst_id = m_prog.add_inst(NOP);
-            pushand(inst_id, inst_id);
-        }
-        Node node = andstack[andstack.size() - 1];
-        andstack.pop_back();
-        return node;
-    }
-
-    inline void pushator(int t)
-    {
-        atorstack.push_back(t);
-        subidstack.push_back(pushsubid);
-    }
-
-    inline int popator(int& subid)
-    {
-        int ret = atorstack[atorstack.size() - 1];
-        subid = subidstack[subidstack.size() - 1];
-        atorstack.pop_back();
-        subidstack.pop_back();
-        return ret;
-    }
+    int yyclass_id; /* last lex'd class */
+    short yy_min_count;
+    short yy_max_count;
 
     bool nextc(char32_t& c) // return "quoted" == backslash-escape prefix
     {
@@ -149,11 +140,12 @@ class RegCompiler
         return false;
     }
 
-    int	bldcclass()
+    int bldcclass()
     {
         int type = CCLASS;
         std::vector<char32_t> cls;
         int builtins = 0;
+
         /* look ahead for negation */
         /* SPECIAL CASE!!! negated classes don't match \n */
         char32_t c;
@@ -165,9 +157,12 @@ class RegCompiler
             cls.push_back('\n');
             cls.push_back('\n');
         }
+
         /* parse class into a set of spans */
+        int count_char = 0;
         while(true)
         {
+            count_char++;
             if(c == 0)
             {
                 // malformed '[]'
@@ -221,7 +216,7 @@ class RegCompiler
                     continue;
                 }
             }
-            if(!quoted && c == ']' && ( (type == CCLASS && cls.size()>0) || cls.size()>2))
+            if(!quoted && c == ']' && count_char>1)
                 break;
             if(!quoted && c == '-')
             {
@@ -246,7 +241,7 @@ class RegCompiler
             quoted = nextc(c);
         }
 
-        /* sort on span start */
+         /* sort on span start */
         for (int p = 0; p < cls.size(); p += 2)
             for (int np = p + 2; np < cls.size(); np+=2)
                 if (cls[np] < cls[p])
@@ -259,8 +254,10 @@ class RegCompiler
                     cls[p+1] = c;
 
                 }
+
         /* merge spans */
         Reclass yycls;
+        yycls.builtins=builtins;
         int p = 0;
         if( cls.size()>=2 )
         {
@@ -342,7 +339,6 @@ class RegCompiler
                     else if (b > 'A' && b <= 'F') yy += b - 'A' + 10;
                     break;
                 }
-                // TODO : 'b' & 'B'
                 case 'w':
                 {
                     if (id_ccls_w < 0)
@@ -421,6 +417,7 @@ class RegCompiler
                 return CHAR;
             }
         }
+
         switch(yy)
         {
         case 0:
@@ -446,6 +443,51 @@ class RegCompiler
                 return PLUS_LAZY;
             }
             return PLUS;
+        case '{': // counted repitition
+        {
+            if (*exprp<'0' || *exprp>'9') break;
+            const char32_t* exprp_backup = exprp; // in case '}' is not found
+            char buff[8];
+            buff[0] = 0;
+            for (int i = 0; i < 7 && *exprp != '}' && *exprp != ',' && *exprp != 0; i++, exprp++)
+            {
+                buff[i] = *exprp;
+                buff[i + 1] = 0;
+            }
+            if (*exprp != '}' && *exprp != ',')
+            {
+                exprp = exprp_backup;
+                break;
+            }
+            sscanf(buff, "%hd", &yy_min_count);
+            if (*exprp != ',')
+                yy_max_count = yy_min_count;
+            else
+            {
+                yy_max_count = -1;
+                exprp++;
+                buff[0] = 0;
+                for (int i = 0; i < 7 && *exprp != '}' && *exprp != 0; i++, exprp++)
+                {
+                    buff[i] = *exprp;
+                    buff[i + 1] = 0;
+                }
+                if (*exprp != '}')
+                {
+                    exprp = exprp_backup;
+                    break;
+                }
+                if (buff[0] != 0)
+                    sscanf(buff, "%hd", &yy_max_count);
+            }
+            exprp++;
+            if (*exprp == '?')
+            {
+                exprp++;
+                return COUNTED_LAZY;
+            }
+            return COUNTED;
+        }
         case '|':
             return OR;
         case '.':
@@ -454,12 +496,7 @@ class RegCompiler
             if (*exprp == '?' && *(exprp + 1) == ':')  // non-capturing group
             {
                 exprp += 2;
-                pushsubid = 0;
-            }
-            else
-            {
-                ++cursubid;
-                pushsubid = cursubid;
+                return LBRA_NC;
             }
             return LBRA;
         case ')':
@@ -473,15 +510,116 @@ class RegCompiler
         }
         return CHAR;
     }
+public:
+    struct Item
+    {
+        int t;
+        union
+        {
+            char32_t yy;
+            int yyclass_id;
+            struct
+            {
+                short n;
+                short m;
+            } yycount;
+        } d;
+    };
+    std::vector<Item> m_items;
+
+    bool m_has_counted;
+
+    RegParser(const char32_t* pattern, int dot_type, Reprog& prog) : m_prog(prog)
+    {
+        exprp = pattern;
+        lexdone = false;
+        m_has_counted = false;
+        int token;
+        while ((token = lex(dot_type)) != END)
+        {
+            Item item;
+            item.t = token;
+            if (token == CCLASS || token == NCCLASS)
+                item.d.yyclass_id = yyclass_id;
+            else if (token == COUNTED || token == COUNTED_LAZY)
+            {
+                item.d.yycount.n = yy_min_count;
+                item.d.yycount.m = yy_max_count;
+                m_has_counted = true;
+            }
+            else
+                item.d.yy = yy;
+            m_items.push_back(item);
+        }
+    }
+};
+
+class RegCompiler
+{
+    Reprog& m_prog;
+
+    struct Node
+    {
+        int id_first;
+        int id_last;
+    };
+
+    int cursubid;
+    int pushsubid;
+    std::vector<Node> andstack;
+
+    struct Ator
+    {
+        int t;
+        int subid;
+    };
+
+    std::vector<Ator> atorstack;
+
+    bool lastwasand;
+    int	nbra;
+
+    inline void pushand(int f, int l)
+    {
+        andstack.push_back({ f, l });
+    }
+
+    inline Node popand(int op)
+    {
+        if( andstack.size() < 1 )
+        {
+            //missing operand for op
+            int inst_id = m_prog.add_inst(NOP);
+            pushand(inst_id, inst_id);
+        }
+        Node node = andstack[andstack.size() - 1];
+        andstack.pop_back();
+        return node;
+    }
+
+    inline void pushator(int t)
+    {
+        Ator ator;
+        ator.t = t;
+        ator.subid = pushsubid;
+        atorstack.push_back(ator);
+    }
+
+    inline Ator popator()
+    {
+        Ator ator = atorstack[atorstack.size() - 1];
+        atorstack.pop_back();
+        return ator;
+    }
 
     void evaluntil(int pri)
     {
         Node op1, op2;
         int id_inst1, id_inst2;
-        while( pri == RBRA || atorstack[atorstack.size() - 1] >= pri )
+        while( pri == RBRA || atorstack[atorstack.size() - 1].t >= pri )
         {
-            int subid;
-            switch(popator(subid))
+            Ator ator = popator();
+            switch(ator.t)
             {
             default:
                 // unknown operator in evaluntil
@@ -489,10 +627,10 @@ class RegCompiler
             case LBRA:		/* must have been RBRA */
                 op1 = popand('(');
                 id_inst2 = m_prog.add_inst(RBRA);
-                m_prog.inst_at(id_inst2).u1.subid = subid;//subidstack[subidstack.size()-1];
+                m_prog.inst_at(id_inst2).u1.subid = ator.subid;//subidstack[subidstack.size()-1];
                 m_prog.inst_at(op1.id_last).u2.next_id = id_inst2;
                 id_inst1 = m_prog.add_inst(LBRA);
-                m_prog.inst_at(id_inst1).u1.subid = subid;//subidstack[subidstack.size() - 1];
+                m_prog.inst_at(id_inst1).u1.subid = ator.subid;//subidstack[subidstack.size() - 1];
                 m_prog.inst_at(id_inst1).u2.next_id = op1.id_first;
                 pushand(id_inst1, id_inst2);
                 return;
@@ -601,27 +739,176 @@ class RegCompiler
         lastwasand = true;
     }
 
-public:
-    Reprog m_prog;
-    RegCompiler(const char32_t* pattern, int dot_type)
+    char32_t yy;
+    int yyclass_id;
+
+    void expand_counted(const std::vector<RegParser::Item>& in, std::vector<RegParser::Item>& out)
     {
+        std::vector<int> lbra_stack;
+        int rep_start = -1;
+
+        out.clear();
+        for (int i = 0; i < in.size(); i++)
+        {
+            if (in[i].t != COUNTED && in[i].t != COUNTED_LAZY)
+            {
+                out.push_back(in[i]);
+                if (in[i].t == LBRA || in[i].t == LBRA_NC)
+                {
+                    lbra_stack.push_back(i);
+                    rep_start = -1;
+                }
+                else if (in[i].t == RBRA)
+                {
+                    rep_start = lbra_stack[lbra_stack.size() - 1];
+                    lbra_stack.pop_back();
+                }
+                else if ((in[i].t & 0300) != OPERATOR)
+                {
+                    rep_start = i;
+                }
+            }
+            else
+            {
+                if (rep_start < 0) // broken regex
+                    return;
+
+                RegParser::Item item = in[i];
+                if (item.d.yycount.n <= 0)
+                {
+                    // need to erase
+                    for (int j = 0; j < i - rep_start; j++)
+                        out.pop_back();
+                }
+                else
+                {
+                    // repeat
+                    for (int j = 1; j < item.d.yycount.n; j++)
+                        for (int k = rep_start; k < i; k++)
+                            out.push_back(in[k]);
+                }
+
+                // optional repeats
+                if (item.d.yycount.m >= 0)
+                {
+                    for (int j = item.d.yycount.n; j < item.d.yycount.m; j++)
+                    {
+                        RegParser::Item o_item;
+                        o_item.t = LBRA_NC;
+                        o_item.d.yy = 0;
+                        out.push_back(o_item);
+                        for (int k = rep_start; k < i; k++)
+                            out.push_back(in[k]);
+                    }
+                    for (int j = item.d.yycount.n; j < item.d.yycount.m; j++)
+                    {
+                        RegParser::Item o_item;
+                        o_item.t = RBRA;
+                        o_item.d.yy = 0;
+                        out.push_back(o_item);
+                        if (item.t == COUNTED)
+                        {
+                            o_item.t = QUEST;
+                            out.push_back(o_item);
+                        }
+                        else
+                        {
+                            o_item.t = QUEST_LAZY;
+                            out.push_back(o_item);
+                        }
+                    }
+                }
+                else // infinite repeat
+                {
+                    RegParser::Item o_item;
+                    o_item.d.yy = 0;
+
+                    if (item.d.yycount.n > 0) // put '+' after last repetition
+                    {
+                        if (item.t == COUNTED)
+                        {
+                            o_item.t = PLUS;
+                            out.push_back(o_item);
+                        }
+                        else
+                        {
+                            o_item.t = PLUS_LAZY;
+                            out.push_back(o_item);
+                        }
+                    }
+                    else // copy it once then put '*'
+                    {
+                        for (int k = rep_start; k < i; k++)
+                            out.push_back(in[k]);
+
+                        if (item.t == COUNTED)
+                        {
+                            o_item.t = STAR;
+                            out.push_back(o_item);
+                        }
+                        else
+                        {
+                            o_item.t = STAR_LAZY;
+                            out.push_back(o_item);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
+public:
+    RegCompiler(const char32_t* pattern, int dot_type, Reprog& prog) : m_prog(prog)
+    {
+        // Parse 
+        std::vector<RegParser::Item> items;
+        {
+            RegParser parser(pattern, dot_type, m_prog);
+
+            // Expand counted repetitions
+            if (parser.m_has_counted)
+                expand_counted(parser.m_items, items);
+            else
+                items = parser.m_items;
+        }      
+
+
         cursubid = 0;
         pushsubid = 0;
-        exprp = pattern;
-        lexdone = false;
+       
         /* Start with a low priority operator to prime parser */
         pushator(START - 1);
 
         lastwasand = false;
         nbra = 0;
-        int token;
-        while ((token = lex(dot_type)) != END)
+
+        for (int i = 0; i < (int)items.size(); i++)
         {
+            RegParser::Item item = items[i];
+            int token = item.t;
+            if (token == CCLASS || token == NCCLASS)
+                yyclass_id = item.d.yyclass_id;
+            else
+                yy = item.d.yy;
+
+            if (token == LBRA)
+            {
+                ++cursubid;
+                pushsubid = cursubid;
+            }
+            else if (token == LBRA_NC)
+            {
+                pushsubid = 0;
+                token = LBRA;
+            }
+
             if ((token & 0300) == OPERATOR)
                 Operator(token);
             else
                 Operand(token);
         }
+
         /* Close with a low priority operator */
         evaluntil(START);
         /* Force END */
@@ -638,8 +925,8 @@ public:
 
 Reprog* Reprog::create_from(const char32_t* pattern)
 {
-    RegCompiler compiler(pattern, ANY);
-    Reprog* rtn = new Reprog(compiler.m_prog);
+    Reprog* rtn = new Reprog;
+    RegCompiler compiler(pattern, ANY, *rtn);
     //rtn->print();
     return rtn;
 }
@@ -825,7 +1112,7 @@ void Reprog::print()
             if( mask & 16 )
                 printf(" \\S");
             if( mask & 32 )
-                printf(" \\D");
+                printf(" \\D")			;
         }
         printf("\n");
     }
