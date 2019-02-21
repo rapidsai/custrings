@@ -210,6 +210,9 @@ class nvstrings:
     def __iter__(self):
         raise TypeError("iterable not supported by nvstrings")
 
+    def __len__(self):
+        return self.size()
+
     def to_host(self):
         """
         Copies strings back to CPU memory into a Python array.
