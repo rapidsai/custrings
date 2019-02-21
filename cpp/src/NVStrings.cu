@@ -1191,11 +1191,13 @@ unsigned int NVStrings::len(int* lengths, bool todevice)
 size_t NVStrings::byte_count(int* lengths, bool todevice)
 {
     unsigned int count = size();
-    if( lengths==0 || count==0 )
+    if( count==0 )
         return 0;
 
     auto execpol = rmm::exec_policy(0);
     int* d_rtn = lengths;
+    if( !lengths )
+        todevice = false; // makes sure we free correctly
     if( !todevice )
         RMM_ALLOC(&d_rtn,sizeof(int)*count,0);
 
@@ -1210,7 +1212,7 @@ size_t NVStrings::byte_count(int* lengths, bool todevice)
                 d_rtn[idx] = -1;
         });
     //
-    printCudaError(cudaDeviceSynchronize(),"nvs-len");
+    printCudaError(cudaDeviceSynchronize(),"nvs-bytes");
     double et = GetTime();
     pImpl->addOpTimes("byte_count",0.0,(et-st));
     size_t size = thrust::reduce(execpol->on(0), d_rtn, d_rtn+count, (size_t)0,
@@ -1223,10 +1225,11 @@ size_t NVStrings::byte_count(int* lengths, bool todevice)
          });
     if( !todevice )
     {   // copy result back to host
-        cudaMemcpy(lengths,d_rtn,sizeof(int)*count,cudaMemcpyDeviceToHost);
+        if( lengths )
+            cudaMemcpy(lengths,d_rtn,sizeof(int)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
-    return count;
+    return size;
 }
 
 //
