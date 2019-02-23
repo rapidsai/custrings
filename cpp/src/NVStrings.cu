@@ -884,6 +884,8 @@ int NVStrings::create_offsets( char* strs, int* offsets, unsigned char* nullbitm
     {
         cudaMemcpy(offsets,d_offsets,(count+1)*sizeof(int),cudaMemcpyDeviceToHost);
         cudaMemcpy(strs,d_strs,totalbytes,cudaMemcpyDeviceToHost);
+        if( nullbitmask )
+            cudaMemcpy(nullbitmask,d_nulls,((count+7)/8)*sizeof(unsigned char),cudaMemcpyDeviceToHost);
     }
     return 0;
 }

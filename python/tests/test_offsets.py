@@ -36,9 +36,11 @@ print("------------------")
 s = nvstrings.to_device(['a','p','p','l','e'])
 values = np.empty(s.size(), dtype=np.int8)
 offsets = np.empty(s.size()+1, dtype=np.int32)
-s.to_offsets(values,offsets)
+nulls = np.empty(int(s.size()/8)+1, dtype=np.int32)
+s.to_offsets(values,offsets,nulls)
 print("values",values.tobytes())
 print("offsets",offsets)
+print("nulls",nulls.tobytes())
 
 print("------------------")
 import nvcategory
