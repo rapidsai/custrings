@@ -100,6 +100,59 @@ static PyObject* n_createHostStrings( PyObject* self, PyObject* args )
     return ret;
 }
 
+static PyObject* n_createFromNVStrings( PyObject* self, PyObject* args )
+{
+    PyObject* pystrs = PyTuple_GetItem(args,0); // only one parm expected
+    if( pystrs == Py_None )
+    {
+        PyErr_Format(PyExc_ValueError,"nvstrings: parameter required");
+        Py_RETURN_NONE;
+    }
+    std::vector<NVStrings*> strslist;
+    // parameter can be a list of nvstrings instances
+    std::string cname = pystrs->ob_type->tp_name;
+    if( cname.compare("list")==0 )
+    {
+        unsigned int count = (unsigned int)PyList_Size(pystrs);
+        for( unsigned int idx=0; idx < count; ++idx )
+        {
+            PyObject* pystr = PyList_GetItem(pystrs,idx);
+            cname = pystr->ob_type->tp_name;
+            if( cname.compare("nvstrings")!=0 )
+            {
+                PyErr_Format(PyExc_ValueError,"nvstrings: argument list must contain nvstrings objects");
+                Py_RETURN_NONE;
+            }
+            NVStrings* strs = (NVStrings*)PyLong_AsVoidPtr(PyObject_GetAttrString(pystr,"m_cptr"));
+            if( strs==0 )
+            {
+                PyErr_Format(PyExc_ValueError,"nvstrings: invalid nvstrings object");
+                Py_RETURN_NONE;
+            }
+            strslist.push_back(strs);
+        }
+    }
+    // or a single nvstrings instance
+    else if( cname.compare("nvstrings")==0 )
+    {
+        NVStrings* strs = (NVStrings*)PyLong_AsVoidPtr(PyObject_GetAttrString(pystrs,"m_cptr"));
+        if( strs==0 )
+        {
+            PyErr_Format(PyExc_ValueError,"nvstrings: invalid nvstrings object");
+            Py_RETURN_NONE;
+        }
+        strslist.push_back(strs);
+    }
+    else
+    {
+        PyErr_Format(PyExc_ValueError,"nvstrings: argument must be nvstrings object");
+        Py_RETURN_NONE;
+    }
+
+    NVStrings* thisptr = NVStrings::create_from_strings(strslist);
+    return PyLong_FromVoidPtr((void*)thisptr);
+}
+
 // just for testing and should be removed
 static PyObject* n_createFromCSV( PyObject* self, PyObject* args )
 {
@@ -1713,6 +1766,36 @@ static PyObject* n_remove_strings( PyObject* self, PyObject* args )
     Py_RETURN_NONE;
 }
 
+//
+static PyObject* n_add_strings( PyObject* self, PyObject* args )
+{
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    PyObject* pyarg = PyTuple_GetItem(args,1);
+    std::string cname = pyarg->ob_type->tp_name;
+    std::vector<NVStrings*> strslist;
+    strslist.push_back(tptr);
+    if( cname.compare("list")==0 )
+    {
+        unsigned int count = (unsigned int)PyList_Size(pyarg);
+        for( int idx=0; idx < count; ++idx )
+        {
+            PyObject* pystrs = PyList_GetItem(pyarg,idx);
+            NVStrings* strs = (NVStrings*)PyLong_AsVoidPtr(PyObject_GetAttrString(pystrs,"m_cptr"));
+            strslist.push_back(strs);
+        }
+    }
+    else if( cname.compare("nvstrings")==0 )
+    {
+        NVStrings* strs = (NVStrings*)PyLong_AsVoidPtr(PyObject_GetAttrString(pyarg,"m_cptr"));
+        strslist.push_back(strs);
+    }
+    //
+    NVStrings* rtn = NVStrings::create_from_strings(strslist);
+    if( rtn )
+        return PyLong_FromVoidPtr((void*)rtn);
+    Py_RETURN_NONE;
+}
+
 static PyObject* n_isalnum( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
@@ -1896,11 +1979,13 @@ static PyMethodDef s_Methods[] = {
     { "n_createHostStrings", n_createHostStrings, METH_VARARGS, "" },
     { "n_createFromCSV", n_createFromCSV, METH_VARARGS, "" },
     { "n_createFromOffsets", n_createFromOffsets, METH_VARARGS, "" },
+    { "n_createFromNVStrings", n_createFromNVStrings, METH_VARARGS, "" },
     { "n_create_offsets", n_create_offsets, METH_VARARGS, "" },
     { "n_size", n_size, METH_VARARGS, "" },
     { "n_hash", n_hash, METH_VARARGS, "" },
     { "n_null_count", n_null_count, METH_VARARGS, "" },
     { "n_remove_strings", n_remove_strings, METH_VARARGS, "" },
+    { "n_add_strings", n_add_strings, METH_VARARGS, "" },
     { "n_compare", n_compare, METH_VARARGS, "" },
     { "n_stoi", n_stoi, METH_VARARGS, "" },
     { "n_stof", n_stof, METH_VARARGS, "" },
