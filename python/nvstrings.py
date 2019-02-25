@@ -35,6 +35,44 @@ def to_device(strs):
     return rtn
 
 
+def from_strings(*args):
+    """
+    Create a nvstrings object from other nvstrings objects.
+
+    Parameters
+    ----------
+
+      args: variadic
+        1 or more nvstrings objects
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+      import nvstrings
+
+      s1 = nvstrings.to_device(['apple','pear','banana'])
+      s2 = nvstrings.to_device(['orange','pear'])
+      s3 = nvstrings.from_strings(s1,s2)
+      print(s3)
+
+      Output:
+
+      .. code-block:: python
+
+      ['apple', 'pear', banana', 'orange', 'pear']
+
+    """
+    strs = []
+    for arg in args:
+        strs.append(arg)
+    rtn = pyniNVStrings.n_createFromNVStrings(strs)
+    if rtn is not None:
+        rtn = nvstrings(rtn)
+    return rtn
+
+
 def from_csv(csv, column, lines=0, flags=0):
     """
     Reads a column of values from a CSV file into a new nvstrings instance.
@@ -2483,6 +2521,38 @@ class nvstrings:
 
         """
         rtn = pyniNVStrings.n_remove_strings(self.m_cptr, indexes, count)
+        if rtn is not None:
+            rtn = nvstrings(rtn)
+        return rtn
+
+    def add_strings(self, strs):
+        """
+        Add the specified strings to the end of these strings
+        and return a new instance.
+
+        Parameters
+        ----------
+          strs : nvstrings or list
+            1 or more nvstrings objects
+
+        Examples
+        --------
+        .. code-block:: python
+
+          import nvstrings
+          s1 = nvstrings.to_device(['apple','pear','banana'])
+          s2 = nvstrings.to_device(['orange','pear'])
+          s3 = s1.add_strings(s2)
+          print(s3)
+
+        Output:
+
+        .. code-block:: python
+
+          ['apple', 'pear', banana', 'orange', 'pear']
+
+        """
+        rtn = pyniNVStrings.n_add_strings(self.m_cptr, strs)
         if rtn is not None:
             rtn = nvstrings(rtn)
         return rtn

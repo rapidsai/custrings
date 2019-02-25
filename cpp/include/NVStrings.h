@@ -62,8 +62,10 @@ class NVStrings
     NVStringsImpl* pImpl;
 
     // ctors/dtor are made private to control memory allocation
-    NVStrings(unsigned int count);
     NVStrings();
+    NVStrings(unsigned int count);
+    NVStrings(const NVStrings&);
+    NVStrings& operator=(const NVStrings&);
     ~NVStrings();
 
 public:
@@ -76,13 +78,15 @@ public:
     static NVStrings* create_from_index(std::pair<const char*,size_t>* strs, unsigned int count, bool devmem=true, sorttype st=none );
     // create instance from host buffer with offsets; null-bitmask is arrow-ordered
     static NVStrings* create_from_offsets(const char* strs, int count, const int* offsets, const unsigned char* nullbitmask=0, int nulls=0);
+    // create instance from NVStrings instances
+    static NVStrings* create_from_strings( std::vector<NVStrings*> strs );
     // use this method to free any instance created by methods in this class
     static void destroy(NVStrings* inst);
 
     // return the number of device bytes used by this instance
-    size_t memsize();
+    size_t memsize() const;
     // number of strings managed by this instance
-    unsigned int size();
+    unsigned int size() const;
 
     // copy the list of strings back into the provided host memory
     int to_host(char** list, int start, int end);
@@ -96,6 +100,8 @@ public:
     // set int array with position of null strings
     unsigned int get_nulls( unsigned int* pos, bool emptyIsNull=false, bool todevice=true );
 
+    // create a new instance from this instance
+    NVStrings* copy();
     // create a new instance containing only the strings in the specified range
     NVStrings* sublist( unsigned int start, unsigned int end, unsigned int step=0 );
     // returns strings in the order of the specified position values
