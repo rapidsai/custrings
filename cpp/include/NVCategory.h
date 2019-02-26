@@ -99,6 +99,8 @@ public:
     // return single category value given string or index
     int get_value(unsigned int index);
     int get_value(const char* str);
+    // this method can be used to return possible position value for unknown keys
+    std::pair<int,int> get_value_bounds(const char* str);
 
     // return category values for all indexes
     int get_values( int* results, bool devmem=true );
