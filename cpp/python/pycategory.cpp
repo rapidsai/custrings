@@ -240,6 +240,13 @@ static PyObject* n_get_values( PyObject* self, PyObject* args )
     return ret;
 }
 
+static PyObject* n_get_values_cpointer( PyObject* self, PyObject* args )
+{
+    NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    const int* vptr = tptr->values_cptr();
+    return PyLong_FromVoidPtr((void*)vptr);
+}
+
 static PyObject* n_get_indexes_for_key( PyObject* self, PyObject* args )
 {
     NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
@@ -523,6 +530,7 @@ static PyMethodDef s_Methods[] = {
     { "n_get_value_for_index", n_get_value_for_index, METH_VARARGS, "" },
     { "n_get_value_for_string", n_get_value_for_string, METH_VARARGS, "" },
     { "n_get_values", n_get_values, METH_VARARGS, "" },
+    { "n_get_values_cpointer", n_get_values_cpointer, METH_VARARGS, "" },
     { "n_add_strings", n_add_strings, METH_VARARGS, "" },
     { "n_remove_strings", n_remove_strings, METH_VARARGS, "" },
     { "n_to_strings", n_to_strings, METH_VARARGS, "" },

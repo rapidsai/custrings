@@ -189,6 +189,12 @@ class nvcategory:
         return "<nvcategory keys={},values={}>".format(
                 self.keys_size(), self.size())
 
+    def get_cpointer(self):
+        """
+        Returns memory pointer to underlying C++ class instance.
+        """
+        return self.m_cptr
+
     def size(self):
         """
         The number of values.
@@ -390,6 +396,13 @@ class nvcategory:
 
         """
         return pyniNVCategory.n_get_values(self.m_cptr, devptr)
+
+    def values_cpointer(self):
+        """
+        Returns memory pointer to underlying device memory array
+        of int32 values for this instance.
+        """
+        return pyniNVCategory.n_get_values_cpointer(self.m_cptr)
 
     def add_strings(self, nvs):
         """

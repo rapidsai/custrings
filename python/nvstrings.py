@@ -251,6 +251,12 @@ class nvstrings:
     def __len__(self):
         return self.size()
 
+    def get_cpointer(self):
+        """
+        Returns memory pointer to underlying C++ class instance.
+        """
+        return self.m_cptr
+
     def to_host(self):
         """
         Copies strings back to CPU memory into a Python array.
