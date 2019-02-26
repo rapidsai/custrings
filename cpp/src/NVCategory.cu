@@ -64,12 +64,18 @@ public:
 
     inline custring_view_array getStringsPtr()
     {
-        return pList->data().get();
+        custring_view_array rtn = 0;
+        if( pList )
+            rtn = pList->data().get();
+        return rtn;
     }
 
     inline int* getMapPtr()
     {
-        return pMap->data().get();
+        int* rtn = 0;
+        if( pMap )
+            rtn = pMap->data().get();
+        return rtn;
     }
 
     inline void addMemoryBuffer( void* ptr, size_t memSize )
