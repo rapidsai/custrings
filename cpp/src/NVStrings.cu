@@ -530,7 +530,7 @@ int NVStrings_init_from_offsets( NVStringsImpl* pImpl, const char* strs, int cou
     return (int)err;;
 }
 
-int NVStrings_copy_strings( NVStringsImpl* pImpl, std::vector<NVStrings*> strslist )
+int NVStrings_copy_strings( NVStringsImpl* pImpl, std::vector<NVStrings*>& strslist )
 {
     auto execpol = rmm::exec_policy(0);
     auto pList = pImpl->pList;
@@ -608,7 +608,7 @@ NVStrings::NVStrings(const NVStrings& strsIn)
     pImpl = new NVStringsImpl(count);
     if( count )
     {
-        std::vector<NVStrings*> strslist(1);
+        std::vector<NVStrings*> strslist;
         strslist.push_back(&strs);
         NVStrings_copy_strings(pImpl,strslist);
     }
@@ -622,7 +622,7 @@ NVStrings& NVStrings::operator=(const NVStrings& strsIn)
     pImpl = new NVStringsImpl(count);
     if( count )
     {
-        std::vector<NVStrings*> strslist(1);
+        std::vector<NVStrings*> strslist;
         strslist.push_back(&strs);
         NVStrings_copy_strings(pImpl,strslist);
     }
@@ -690,9 +690,9 @@ NVStrings* NVStrings::copy()
     NVStrings* rtn = new NVStrings(count);
     if( count )
     {
-        std::vector<NVStrings*> strs(1);
-        strs.push_back(this);
-        NVStrings_copy_strings(pImpl,strs);
+        std::vector<NVStrings*> strslist;
+        strslist.push_back(this);
+        NVStrings_copy_strings(rtn->pImpl,strslist);
     }
     return rtn;
 }
