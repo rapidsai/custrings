@@ -143,6 +143,19 @@ int main( int argc, char** argv )
     delete d_bitarray;
     delete d_bitarray2;
 
+    NVStrings::destroy(dstrs);
+    dstrs = dcat->get_keys();
+    printf("keys:\n");
+    dstrs->print();
+    std::pair<int,int> bounds = dcat->get_value_bounds("Plastic");
+    printf("Plastic would go (%d,%d)\n",bounds.first,bounds.second);
+    bounds = dcat->get_value_bounds("Wood");
+    printf("Wood is at (%d,%d)\n",bounds.first,bounds.second);
+    bounds = dcat->get_value_bounds("Artisan");
+    printf("Artisan (%d,%d)\n",bounds.first,bounds.second);
+    bounds = dcat->get_value_bounds("Zebra");
+    printf("Zebra (%d,%d)\n",bounds.first,bounds.second);
+
     NVCategory::destroy(dcat);
     NVStrings::destroy(dstrs);
     return 0;

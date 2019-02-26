@@ -712,6 +712,77 @@ int NVCategory::get_value(const char* str)
     return keys[0];
 }
 
+std::pair<int,int> NVCategory::get_value_bounds(const char* str)
+{
+    std::pair<int,int> rtn(-1,-1);
+    // first check if key exists (saves alot work below)
+    int value = get_value(str);
+    if( value>=0 )
+    {
+        rtn.first = value;
+        rtn.second = value;
+        return rtn;
+    }
+    // not found in existing keyset
+    auto execpol = rmm::exec_policy(0);
+    unsigned int count = keys_size();
+    custring_view** d_strings = pImpl->getStringsPtr();
+    // create index of the keys
+    rmm::device_vector< thrust::pair<const char*,size_t> > indexes(count+1);
+    thrust::pair<const char*,size_t>* d_indexes = indexes.data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<size_t>(0), count,
+        [d_strings, d_indexes] __device__(size_t idx){
+            custring_view* dstr = d_strings[idx];
+            if( dstr )
+            {
+                d_indexes[idx].first = (const char*)dstr->data();
+                d_indexes[idx].second = (size_t)dstr->size();
+            }
+            else
+            {
+                d_indexes[idx].first = 0;
+                d_indexes[idx].second = 0;
+            }
+        });
+    //
+    cudaDeviceSynchronize();
+    // and add the passed in string to the indexes
+    size_t len = 0;
+    char* d_str = 0;
+    if( str )
+    {
+        len = strlen(str);
+        RMM_ALLOC(&d_str,len+1,0);
+        cudaMemcpy(d_str,str,len+1,cudaMemcpyHostToDevice);
+    }
+    thrust::pair<const char*,size_t> newstr(d_str,len); // add to the end
+    cudaMemcpy(d_indexes+count,&newstr,sizeof(thrust::pair<const char*,size_t>),cudaMemcpyHostToDevice);
+
+    // sort the keys with attached sequence numbers
+    rmm::device_vector<int> seqdata(count+1);
+    thrust::sequence(execpol->on(0),seqdata.begin(),seqdata.end()); // [0:count]
+    int* d_seqdata = seqdata.data().get();
+    thrust::sort_by_key(execpol->on(0), d_indexes, d_indexes+(count+1), d_seqdata,
+        [] __device__( thrust::pair<const char*,size_t>& lhs, thrust::pair<const char*,size_t>& rhs ) {
+            if( lhs.first==0 || rhs.first==0 )
+                return lhs.first==0; // non-null > null
+            return custr::compare(lhs.first,(unsigned int)lhs.second,rhs.first,(unsigned int)rhs.second) < 0;
+        });
+    // now find the new position of the argument
+    // this will be where the sequence number equals the count
+    rmm::device_vector<int> keys(1,-1);
+    thrust::copy_if( execpol->on(0), thrust::make_counting_iterator<int>(0), thrust::make_counting_iterator<int>(count+1), keys.begin(),
+        [d_seqdata, count, d_indexes] __device__ (int idx) { return d_seqdata[idx]==count; });
+    cudaDeviceSynchronize();
+    int first = 0; // get the position back into host memory
+    cudaMemcpy(&first,keys.data().get(),sizeof(int),cudaMemcpyDeviceToHost);
+    rtn.first = first-1; // range is always
+    rtn.second = first;  // position and previous one
+    if( d_str )
+        RMM_FREE(d_str,0);
+    return rtn;
+}
+
 // return category values for all indexes
 int NVCategory::get_values( int* results, bool bdevmem )
 {
