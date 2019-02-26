@@ -1681,7 +1681,9 @@ static PyObject* n_gather( PyObject* self, PyObject* args )
         PyObject* pydcp = PyObject_GetAttr(pyidxs,PyUnicode_FromString("device_ctypes_pointer"));
         PyObject* pyptr = PyObject_GetAttr(pydcp,PyUnicode_FromString("value"));
         unsigned int count = (unsigned int)(PyLong_AsLong(pysize)/sizeof(int));
-        int* indexes = (int*)PyLong_AsVoidPtr(pyptr);
+        int* indexes = 0;
+        if( pyptr != Py_None )
+            indexes = (int*)PyLong_AsVoidPtr(pyptr);
         //printf("device-array: %p,%u\n",indexes,count);
         rtn = tptr->gather(indexes,count);
     }
