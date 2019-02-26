@@ -5192,6 +5192,8 @@ NVStrings* NVStrings::join( const char* delimiter, const char* narep )
                 nchars = custring_view::chars_in_string(d_narep,narlen);
                 bytes = narlen;
             }
+            else
+                dlen = 0; // for null, no delimiter
             if( dlen )
             {
                 nchars += custring_view::chars_in_string(d_delim,dellen);
