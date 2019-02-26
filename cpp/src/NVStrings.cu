@@ -15,6 +15,7 @@
 #include <thrust/gather.h>
 #include <locale.h>
 #include <map>
+#include <stdexcept>
 #include <rmm/rmm.h>
 #include <rmm/thrust_rmm_allocator.h>
 #include "NVStrings.h"
@@ -1019,21 +1020,35 @@ NVStrings* NVStrings::gather( int* pos, unsigned int elems, bool bdevmem )
         cudaMemcpy(d_pos,pos,elems*sizeof(int),cudaMemcpyHostToDevice);
     }
     // get individual sizes
-    rmm::device_vector<size_t> sizes(elems,0);
-    size_t* d_sizes = sizes.data().get();
+    rmm::device_vector<long> sizes(elems,0);
+    long* d_sizes = sizes.data().get();
     custring_view** d_strings = pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), elems,
         [d_strings, d_pos, count, d_sizes] __device__(unsigned int idx){
             int pos = d_pos[idx];
             if( (pos < 0) || (pos >= count) )
+            {
+                d_sizes[idx] = -1;
                 return;
+            }   
             custring_view* dstr = d_strings[pos];
             if( dstr )
                 d_sizes[idx] = ALIGN_SIZE(dstr->alloc_size());
         });
+    // check for any out-of-range values
+    long* first = thrust::min_element(execpol->on(0),d_sizes,d_sizes+elems);
+    long hfirst = 0;
+    cudaMemcpy(&hfirst,first,sizeof(long),cudaMemcpyDeviceToHost);
+    if( hfirst < 0 )
+    {
+        if( !bdevmem )
+            RMM_FREE(d_pos,0);
+        throw std::out_of_range("");
+    }
+        
     // create output object
     NVStrings* rtn = new NVStrings(elems);
-    char* d_buffer = rtn->pImpl->createMemoryFor(d_sizes);
+    char* d_buffer = rtn->pImpl->createMemoryFor((size_t*)d_sizes);
     if( d_buffer ) // if all values are not null
     {
         // create offsets
@@ -1045,8 +1060,8 @@ NVStrings* NVStrings::gather( int* pos, unsigned int elems, bool bdevmem )
         thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), elems,
             [d_strings, d_buffer, d_offsets, d_pos, count, d_results] __device__(unsigned int idx){
                 int pos = d_pos[idx];
-                if( (pos < 0) || (pos >= count) )
-                    return;
+                //if( (pos < 0) || (pos >= count) )
+                //    return;  -- should no longer happen
                 custring_view* dstr = d_strings[pos];
                 if( !dstr )
                     return;

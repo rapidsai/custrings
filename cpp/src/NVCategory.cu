@@ -12,6 +12,7 @@
 #include <thrust/gather.h>
 #include <thrust/copy.h>
 #include <locale.h>
+#include <stdexcept>
 #include <rmm/rmm.h>
 #include <rmm/thrust_rmm_allocator.h>
 #include "NVCategory.h"
@@ -861,12 +862,21 @@ NVStrings* NVCategory::gather_strings( int* pos, unsigned int count, bool bdevme
     }
 
     custring_view** d_strings = pImpl->getStringsPtr();
+    // need to check for invalid values
+    unsigned int size = keys_size();
+    rmm::device_vector<int> check(count,0);
+    int* d_check = check.data().get();
     // use the map to build the indexes array
     rmm::device_vector< thrust::pair<const char*,size_t> > indexes(count);
     thrust::pair<const char*,size_t>* d_indexes = indexes.data().get();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<size_t>(0), count,
-        [d_strings, d_pos, d_indexes] __device__(size_t idx){
+        [d_strings, d_pos, size, d_check, d_indexes] __device__(size_t idx){
             int stridx = d_pos[idx];
+            if( (stridx < 0) || (stridx >= size) )
+            {
+                d_check[idx] = 1;
+                return;
+            }
             custring_view* dstr = 0;
             if( stridx >=0 )
                 dstr = d_strings[stridx];
@@ -885,6 +895,9 @@ NVStrings* NVCategory::gather_strings( int* pos, unsigned int count, bool bdevme
     cudaDeviceSynchronize();
     if( !bdevmem )
         RMM_FREE(d_pos,0);
+    int invalidcount = thrust::reduce( execpol->on(0), d_check, d_check+count );
+    if( invalidcount )
+        throw std::out_of_range("");
     // create strings from index
     return NVStrings::create_from_index((std::pair<const char*,size_t>*)d_indexes,count);
 }
