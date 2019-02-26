@@ -2,6 +2,8 @@
 #include <vector>
 #include <string>
 #include <stdio.h>
+#include <exception>
+#include <stdexcept>
 #include "NVCategory.h"
 #include "NVStrings.h"
 #include "util.h"
@@ -352,25 +354,32 @@ static PyObject* n_gather_strings( PyObject* self, PyObject* args )
     PyObject* pyidxs = PyTuple_GetItem(args,1);
     std::string cname = pyidxs->ob_type->tp_name;
     NVStrings* rtn = 0;
-    if( cname.compare("list")==0 )
+    try
     {
-        unsigned int count = (unsigned int)PyList_Size(pyidxs);
-        int* indexes = new int[count];
-        for( unsigned int idx=0; idx < count; ++idx )
+        if( cname.compare("list")==0 )
         {
-            PyObject* pyidx = PyList_GetItem(pyidxs,idx);
-            indexes[idx] = (int)PyLong_AsLong(pyidx);
+            unsigned int count = (unsigned int)PyList_Size(pyidxs);
+            int* indexes = new int[count];
+            for( unsigned int idx=0; idx < count; ++idx )
+            {
+                PyObject* pyidx = PyList_GetItem(pyidxs,idx);
+                indexes[idx] = (int)PyLong_AsLong(pyidx);
+            }
+            //
+            rtn = tptr->gather_strings(indexes,count,false);
+            delete indexes;
         }
-        //
-        rtn = tptr->gather_strings(indexes,count,false);
-        delete indexes;
+        else
+        {
+            // assume device pointer
+            int* indexes = (int*)PyLong_AsVoidPtr(pyidxs);
+            unsigned int count = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,2));
+            rtn = tptr->gather_strings(indexes,count);
+        }
     }
-    else
+    catch(const std::out_of_range& eor)
     {
-        // assume device pointer
-        int* indexes = (int*)PyLong_AsVoidPtr(pyidxs);
-        unsigned int count = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,2));
-        rtn = tptr->gather_strings(indexes,count);
+        PyErr_Format(PyExc_IndexError,"one or more indexes out of range [0:%u)",tptr->keys_size());
     }
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
