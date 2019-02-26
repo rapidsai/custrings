@@ -2557,6 +2557,31 @@ class nvstrings:
             rtn = nvstrings(rtn)
         return rtn
 
+    def copy(self):
+        """
+        Return a new instance as a copy of this instance.
+
+        Examples
+        --------
+        .. code-block:: python
+
+          import nvstrings
+          s1 = nvstrings.to_device(['apple','pear','banana'])
+          s2 = s1.copy()
+          print(s2)
+
+        Output:
+
+        .. code-block:: python
+
+          ['apple', 'pear', banana']
+
+        """
+        rtn = pyniNVStrings.n_copy(self.m_cptr)
+        if rtn is not None:
+            rtn = nvstrings(rtn)
+        return rtn
+
     def find_multiple(self, strs, devptr=0):
         """
         Return a 'matrix' of find results for each of the string in the

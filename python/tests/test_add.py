@@ -10,3 +10,4 @@ s2 = nvstrings.to_device(["aaa",None,"","bbb"])
 print("s2",s2)
 print("s1.add_strings(s2)",s1.add_strings(s2))
 
+print("s1.copy()",s1.copy())

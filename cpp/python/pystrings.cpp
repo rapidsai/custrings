@@ -1796,6 +1796,15 @@ static PyObject* n_add_strings( PyObject* self, PyObject* args )
     Py_RETURN_NONE;
 }
 
+static PyObject* n_copy( PyObject* self, PyObject* args )
+{
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    NVStrings* rtn = tptr->copy();
+    if( rtn )
+        return PyLong_FromVoidPtr((void*)rtn);
+    Py_RETURN_NONE;
+}
+
 static PyObject* n_isalnum( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
@@ -1984,6 +1993,7 @@ static PyMethodDef s_Methods[] = {
     { "n_size", n_size, METH_VARARGS, "" },
     { "n_hash", n_hash, METH_VARARGS, "" },
     { "n_null_count", n_null_count, METH_VARARGS, "" },
+    { "n_copy", n_copy, METH_VARARGS, "" },
     { "n_remove_strings", n_remove_strings, METH_VARARGS, "" },
     { "n_add_strings", n_add_strings, METH_VARARGS, "" },
     { "n_compare", n_compare, METH_VARARGS, "" },
