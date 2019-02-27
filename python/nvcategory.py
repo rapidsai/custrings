@@ -625,6 +625,16 @@ class nvcategory:
             rtn = nvcategory(rtn)
         return rtn
 
+    def remove_unused_keys(self):
+        """
+        Create new category removing any keys that have no corresponding
+        values. Values are remapped to match the new keyset.
+        """
+        rtn = pyniNVCategory.n_remove_unused_keys(self.m_cptr)
+        if rtn is not None:
+            rtn = nvcategory(rtn)
+        return rtn
+
     def set_keys(self, strs):
         """
         Create new category using the specified keys and remapping

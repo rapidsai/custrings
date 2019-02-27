@@ -13,7 +13,7 @@
 //
 static PyObject* n_createCategoryFromNVStrings( PyObject* self, PyObject* args )
 {
-    PyObject* pystrs = PyTuple_GetItem(args,0); // only one parm expected
+    PyObject* pystrs = PyTuple_GetItem(args,0);
     if( pystrs == Py_None )
     {
         PyErr_Format(PyExc_ValueError,"nvcategory: parameter required");
@@ -498,6 +498,15 @@ static PyObject* n_remove_keys( PyObject* self, PyObject* args )
     Py_RETURN_NONE;
 }
 
+static PyObject* n_remove_unused_keys( PyObject* self, PyObject* args )
+{
+    NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    NVCategory* rtn = tptr->remove_unused_keys_and_remap();
+    if( rtn )
+        return PyLong_FromVoidPtr((void*)rtn);
+    Py_RETURN_NONE;
+}
+
 static PyObject* n_set_keys( PyObject* self, PyObject* args )
 {
     NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
@@ -548,6 +557,7 @@ static PyMethodDef s_Methods[] = {
     { "n_merge_and_remap", n_merge_and_remap, METH_VARARGS, "" },
     { "n_add_keys", n_add_keys, METH_VARARGS, "" },
     { "n_remove_keys", n_remove_keys, METH_VARARGS, "" },
+    { "n_remove_unused_keys", n_remove_unused_keys, METH_VARARGS, "" },
     { "n_set_keys", n_set_keys, METH_VARARGS, "" },
     { NULL, NULL, 0, NULL }
 };
