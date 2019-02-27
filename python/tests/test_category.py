@@ -95,3 +95,7 @@ strs2 = nvstrings.to_device(["b","c","e","d"])
 print("set keys",strs2)
 cat1 = cat.set_keys(strs2)
 print(cat1.keys(),cat1.values())
+
+print("remove unused keys")
+cat1 = cat1.remove_unused_keys()
+print(cat1.keys(),cat1.values())

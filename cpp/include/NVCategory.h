@@ -120,9 +120,10 @@ public:
     NVCategory* add_keys_and_remap(NVStrings& strs);
     // creates a new instance removing the keys matching the specified strings and remapping the values
     NVCategory* remove_keys_and_remap(NVStrings& strs);
-    // creates a new instance using the specified strings as keys causing add/remove as appropriate
-    // values are also remapped
+    // creates a new instance using the specified strings as keys causing add/remove as appropriate; values are also remapped
     NVCategory* set_keys_and_remap(NVStrings& strs);
+    // creates a new instance removing any keys that are not represented in the values; values are remapped
+    NVCategory* remove_unused_keys_and_remap();
     //
     NVCategory* merge_category(NVCategory& cat);
     NVCategory* merge_and_remap(NVCategory& cat);
