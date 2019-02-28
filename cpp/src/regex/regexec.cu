@@ -17,30 +17,63 @@
 // defined in util.cu
 __host__ __device__ unsigned int u82u( unsigned int utf8 );
 
+//
 #define LISTBYTES 12
 #define LISTSIZE (LISTBYTES<<3)
 //
 struct Relist
 {
-    u_char mask[LISTBYTES];
-    u_char inst_ids[LISTSIZE];
-    int2 ranges[LISTSIZE];
-    short size;
+    short size, listsize;
+    int pad; // keep data on 8-byte bounday
+    int2* ranges;//[LISTSIZE];
+    u_char* inst_ids;//[LISTSIZE];
+    u_char* mask;//[LISTBYTES];
+    u_char data[(9*LISTSIZE)+LISTBYTES]; // always last
+
+    __host__ __device__ static int size_for(int insts)
+    {
+        int size = 0;
+        size += sizeof(short);                  // size
+        size += sizeof(short);                  // listsize
+        size += sizeof(int);                    // pad
+        size += sizeof(u_char*)*3;              // 3 pointers
+        size += sizeof(int2)*insts;             // ranges bytes
+        size += sizeof(u_char)*insts;           // inst_ids bytes
+        size += sizeof(u_char)*((insts+7)/8);   // mask bytes
+        size = ((size+7)/8)*8;   // align it too
+        return size;
+    }
 
     __host__ __device__ Relist()
     {
+        //listsize = LISTSIZE;
+        //reset();
+        set_listsize(LISTSIZE);
+    }
+
+    __host__ __device__ inline void set_listsize(short ls)
+    {
+        listsize = ls;
+        u_char* ptr = (u_char*)data;
+        ranges = (int2*)ptr;
+        ptr += listsize * sizeof(int2);
+        inst_ids = ptr;
+        ptr += listsize;
+        mask = ptr;
         reset();
     }
 
     __host__ __device__ inline void reset()
     {
-        memset(mask, 0, LISTBYTES);
+        //memset(mask, 0, LISTBYTES);
+        memset(mask, 0, (listsize+7)/8);
         size = 0;
     }
 
     __device__ inline bool activate(int i, int begin, int end)
     {
-        if (i < LISTSIZE)
+        //if ( i >= listsize )
+        //    printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
         {
             if (!readMask(i))
             {
@@ -74,6 +107,7 @@ struct Relist
         u_char uc = mask[pos >> 3];
         return (bool)((uc >> (pos & 7)) & 1);
     }
+
 };
 
 struct	Reljunk
@@ -131,7 +165,7 @@ __device__ bool dreclass::is_match(char32_t ch)
 dreprog::dreprog() {}
 dreprog::~dreprog() {}
 
-dreprog* dreprog::create_from(const char32_t* pattern, unsigned char* uflags)
+dreprog* dreprog::create_from(const char32_t* pattern, unsigned char* uflags, unsigned int strscount )
 {
     // compile pattern
     Reprog* prog = Reprog::create_from(pattern);
@@ -171,6 +205,17 @@ dreprog* dreprog::create_from(const char32_t* pattern, unsigned char* uflags)
     rtn->insts_count = insts_count;
     rtn->classes_count = classes_count;
     rtn->unicode_flags = uflags;
+    rtn->relists_mem = 0;
+    // allocate memory for relist if necessary
+    if( (insts_count > LISTSIZE) && strscount )
+    {
+        int rsz = Relist::size_for(insts_count);
+        size_t rlmsz = rsz*2*strscount; // Reljunk has 2 Relist ptrs
+        void* rmem = 0;
+        cudaMalloc(&rmem,rlmsz);
+        rtn->relists_mem = rmem;
+    }
+
     // compiled prog copied into flat memory
     delete prog;
 
@@ -184,7 +229,16 @@ dreprog* dreprog::create_from(const char32_t* pattern, unsigned char* uflags)
 
 void dreprog::destroy(dreprog* prog)
 {
+    prog->free_relists();
     cudaFree(prog);
+}
+
+void dreprog::free_relists()
+{
+    void* cptr = 0; // this magic works but only as member function
+    cudaMemcpy(&cptr,&relists_mem,sizeof(void*),cudaMemcpyDeviceToHost);
+    if( cptr )
+        cudaFree(cptr);
 }
 
 int dreprog::inst_counts()
@@ -514,6 +568,36 @@ __device__ int dreprog::contains( custring_view* dstr )
     return rtn;
 }
 
+__device__ int dreprog::contains( unsigned int idx, custring_view* dstr )
+{
+    Reljunk jnk;
+    jnk.starttype = 0;
+    jnk.startchar = 0;
+    int type = get_inst(startinst_id)->type;
+    if( type == CHAR || type == BOL )
+    {
+        jnk.starttype = type;
+        jnk.startchar = get_inst(startinst_id)->u1.c;
+    }
+
+    int begin=0, end=dstr->chars_count();
+    if( relists_mem==0 )
+    {
+        Relist relist[2];
+        jnk.list1 = relist;
+        jnk.list2 = relist + 1;
+        return regexec(dstr,jnk,begin,end);
+    }
+    int relsz = Relist::size_for(insts_count);
+    char* drel = (char*)relists_mem; // beginning of Relist buffer
+    drel += (idx * relsz * 2);       // two Relist ptrs in Reljunk
+    jnk.list1 = (Relist*)drel;           // first one
+    jnk.list2 = (Relist*)(drel + relsz); // second one
+    jnk.list1->set_listsize((short)insts_count); // essentially this is
+    jnk.list2->set_listsize((short)insts_count); // substitute ctor call
+    return regexec(dstr,jnk,begin,end);
+}
+
 __device__ int dreprog::match( custring_view* dstr )
 {
     Reljunk jnk;
@@ -532,6 +616,36 @@ __device__ int dreprog::match( custring_view* dstr )
     int begin=0, end=1;
     int rtn = regexec(dstr,jnk,begin,end);
     return rtn;
+}
+
+__device__ int dreprog::match( unsigned int idx, custring_view* dstr )
+{
+    Reljunk jnk;
+    jnk.starttype = 0;
+    jnk.startchar = 0;
+    int type = get_inst(startinst_id)->type;
+    if( type == CHAR || type == BOL )
+    {
+        jnk.starttype = type;
+        jnk.startchar = get_inst(startinst_id)->u1.c;
+    }
+
+    int begin=0, end=1;
+    if( relists_mem==0 )
+    {
+        Relist relist[2];
+        jnk.list1 = relist;
+        jnk.list2 = relist + 1;
+        return regexec(dstr,jnk,begin,end);
+    }
+    int relsz = Relist::size_for(insts_count);
+    char* drel = (char*)relists_mem; // beginning of Relist buffer
+    drel += (idx * relsz * 2);       // two Relist ptrs in Reljunk
+    jnk.list1 = (Relist*)drel;           // first one
+    jnk.list2 = (Relist*)(drel + relsz); // second one
+    jnk.list1->set_listsize((short)insts_count); // essentially this is
+    jnk.list2->set_listsize((short)insts_count); // substitute ctor call
+    return regexec(dstr,jnk,begin,end);
 }
 
 __device__ int dreprog::find( custring_view* dstr, int& begin, int& end )
@@ -555,6 +669,40 @@ __device__ int dreprog::find( custring_view* dstr, int& begin, int& end )
     return rtn;
 }
 
+__device__ int dreprog::find( unsigned int idx, custring_view* dstr, int& begin, int& end )
+{
+    Reljunk jnk;
+    jnk.starttype = 0;
+    jnk.startchar = 0;
+    int type = get_inst(startinst_id)->type;
+    if( (type == CHAR) || (type == BOL) )
+    {
+        jnk.starttype = type;
+        jnk.startchar = get_inst(startinst_id)->u1.c;
+    }
+    int rtn = 0;
+    if( relists_mem==0 )
+    {
+        Relist relist[2];
+        jnk.list1 = relist;
+        jnk.list2 = relist + 1;
+        rtn = regexec(dstr,jnk,begin,end);
+    }
+    else
+    {
+        int relsz = Relist::size_for(insts_count);
+        char* drel = (char*)relists_mem; // beginning of Relist buffer
+        drel += (idx * relsz * 2);       // two Relist ptrs in Reljunk
+        jnk.list1 = (Relist*)drel;           // first one
+        jnk.list2 = (Relist*)(drel + relsz); // second one
+        jnk.list1->set_listsize((short)insts_count); // essentially this is
+        jnk.list2->set_listsize((short)insts_count); // substitute ctor call
+        rtn = regexec(dstr,jnk,begin,end);
+    }
+    if( rtn <=0 )
+        begin = end = -1;
+    return rtn;
+}
 
 //
 __device__ int dreprog::extract( custring_view* str, int& begin, int& end, int col )
@@ -576,4 +724,33 @@ __device__ int dreprog::extract( custring_view* str, int& begin, int& end, int c
     end = begin + 1;
     int rtn = regexec(str,jnk,begin,end, col +1);
     return rtn;
+}
+
+__device__ int dreprog::extract( unsigned int idx, custring_view* dstr, int& begin, int& end, int col )
+{
+    Reljunk jnk;
+    jnk.starttype = 0;
+    jnk.startchar = 0;
+    int type = get_inst(startinst_id)->type;
+    if( (type == CHAR) || (type == BOL) )
+    {
+        jnk.starttype = type;
+        jnk.startchar = get_inst(startinst_id)->u1.c;
+    }
+    end = begin + 1;
+    if( relists_mem==0 )
+    {
+        Relist relist[2];
+        jnk.list1 = relist;
+        jnk.list2 = relist + 1;
+        return regexec(dstr,jnk,begin,end,col+1);
+    }
+    int relsz = Relist::size_for(insts_count);
+    char* drel = (char*)relists_mem; // beginning of Relist buffer
+    drel += (idx * relsz * 2);       // two Relist ptrs in Reljunk
+    jnk.list1 = (Relist*)drel;           // first one
+    jnk.list2 = (Relist*)(drel + relsz); // second one
+    jnk.list1->set_listsize((short)insts_count); // essentially this is
+    jnk.list2->set_listsize((short)insts_count); // substitute ctor call
+    return regexec(dstr,jnk,begin,end,col+1);
 }
