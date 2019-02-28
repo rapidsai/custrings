@@ -79,8 +79,21 @@ static PyObject* n_createHostStrings( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     unsigned int count = tptr->size();
-    char** list = new char*[count];
-    tptr->to_host(list,0,count);
+    if( count==0 )
+        return PyList_New(0);
+    std::vector<char*> list(count);
+    char** plist = list.data();
+    std::vector<int> lens(count);
+    size_t totalmem = tptr->byte_count(lens.data(),false);
+    std::vector<char> buffer(totalmem+count,0); // null terminates each string
+    char* pbuffer = buffer.data();
+    size_t offset = 0;
+    for( int idx=0; idx < count; ++idx )
+    {
+        plist[idx] = pbuffer + offset;
+        offset += lens[idx]+1; // account for null-terminator; also nulls are -1
+    }
+    tptr->to_host(plist,0,count);
     PyObject* ret = PyList_New(count);
     for( unsigned int idx=0; idx < count; ++idx )
     {
@@ -96,9 +109,7 @@ static PyObject* n_createHostStrings( PyObject* self, PyObject* args )
             Py_INCREF(Py_None);
             PyList_SetItem(ret, idx, Py_None);
         }
-        delete str;
     }
-    delete list;
     return ret;
 }
 
