@@ -2984,19 +2984,14 @@ NVStrings* NVStrings::replace_re( const char* pattern, const char* repl, int max
 {
     if( !pattern || !*pattern )
         return 0; // null and empty string not allowed
-
+    unsigned int count = size();
+    if( count==0 )
+        return new NVStrings(count);
     auto execpol = rmm::exec_policy(0);
     // compile regex into device object
     const char32_t* ptn32 = to_char32(pattern);
-    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
+    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags(),count);
     delete ptn32;
-    int numInsts = prog->inst_counts();
-    if( numInsts > 64 ) // 64 = LISTBYTES<<3 (from regexec.cu)
-    {   // pre-check prevents crashing
-        fprintf(stderr,"nvs-replace: pattern %s exceeds instances limit (64) for regex execution.\n",pattern);
-        dreprog::destroy(prog);
-        return 0;
-    }
     //
     // copy replace string to device memory
     if( !repl )
@@ -3008,7 +3003,6 @@ NVStrings* NVStrings::replace_re( const char* pattern, const char* repl, int max
     unsigned int rszch = custring_view::chars_in_string(repl,rsz);
 
     // compute size of the output
-    unsigned int count = size();
     custring_view_array d_strings = pImpl->getStringsPtr();
     rmm::device_vector<size_t> sizes(count,0);
     size_t* d_sizes = sizes.data().get();
@@ -3023,14 +3017,14 @@ NVStrings* NVStrings::replace_re( const char* pattern, const char* repl, int max
                 mxn = dstr->chars_count(); //max possible replaces for this string
             unsigned int bytes = dstr->size(), nchars = dstr->chars_count();
             int begin = 0, end = (int)nchars;
-            int result = prog->find(dstr,begin,end);
+            int result = prog->find(idx,dstr,begin,end);
             while((result > 0) && (mxn > 0))
             {
                 bytes += rsz - (dstr->byte_offset_for(end)-dstr->byte_offset_for(begin));
                 nchars += rszch - (end-begin);
                 begin = end;
                 end = (int)nchars;
-                result = prog->find(dstr,begin,end); // next one
+                result = prog->find(idx,dstr,begin,end); // next one
                 --mxn;
             }
             unsigned int size = custring_view::alloc_size(bytes,nchars);
@@ -3069,7 +3063,7 @@ NVStrings* NVStrings::replace_re( const char* pattern, const char* repl, int max
             unsigned int size = dstr->size();          // number of byte in input string
             int lpos = 0, begin = 0, end = nchars;     // working vars
             // copy input to output replacing strings as we go
-            int result = prog->find(dstr,begin,end);
+            int result = prog->find(idx,dstr,begin,end);
             while((result > 0) && (mxn > 0))
             {                                                 // i:bbbbsssseeee
                 int spos = dstr->byte_offset_for(begin);      //       ^
@@ -3080,7 +3074,7 @@ NVStrings* NVStrings::replace_re( const char* pattern, const char* repl, int max
                 lpos = dstr->byte_offset_for(end);            // i:bbbbsssseeee
                 begin = end;                                  //           ^
                 end = nchars;
-                result = prog->find(dstr,begin,end);
+                result = prog->find(idx,dstr,begin,end);
                 --mxn;
             }                                                 // copy the rest:
             memcpy(optr,sptr+lpos,size-lpos);                 // o:bbbbrrrreeee
@@ -3968,15 +3962,8 @@ int NVStrings::findall( const char* pattern, std::vector<NVStrings*>& results )
     auto execpol = rmm::exec_policy(0);
     // compile regex into device object
     const char32_t* ptn32 = to_char32(pattern);
-    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
+    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags(),count);
     delete ptn32;
-    int numInsts = prog->inst_counts();
-    if( numInsts > 64 ) // 64 = LISTBYTES<<3 (from regexec.cu)
-    {   // pre-check prevents crashing
-        fprintf(stderr,"nvs-findall: pattern %s exceeds instances limit (64) for regex execution.\n",pattern);
-        dreprog::destroy(prog);
-        return -2;
-    }
 
     // compute counts of each match and size of the buffers
     custring_view_array d_strings = pImpl->getStringsPtr();
@@ -3993,7 +3980,7 @@ int NVStrings::findall( const char* pattern, std::vector<NVStrings*>& results )
             unsigned int tsize = 0;;
             int fnd = 0, end = (int)dstr->chars_count();
             int spos = 0, epos = end;
-            int result = prog->find(dstr,spos,epos);
+            int result = prog->find(idx,dstr,spos,epos);
             while(result > 0)
             {
                 unsigned int bytes = (dstr->byte_offset_for(epos)-dstr->byte_offset_for(spos));
@@ -4003,7 +3990,7 @@ int NVStrings::findall( const char* pattern, std::vector<NVStrings*>& results )
                 spos = epos;
                 epos = end;
                 ++fnd;
-                result = prog->find(dstr,spos,epos); // next one
+                result = prog->find(idx,dstr,spos,epos); // next one
             }
             d_sizes[idx] = tsize;
             d_counts[idx] = fnd;
@@ -4047,7 +4034,7 @@ int NVStrings::findall( const char* pattern, std::vector<NVStrings*>& results )
             for( int i=0; i < dcount; ++i )
             {
                 int epos = nchars;
-                prog->find(dstr,spos,epos);
+                prog->find(idx,dstr,spos,epos);
                 custring_view* str = dstr->substr((unsigned)spos,(unsigned)(epos-spos),1,buffer);
                 drow[i] = str;
                 buffer += ALIGN_SIZE(str->alloc_size());
@@ -4070,15 +4057,8 @@ int NVStrings::findall_column( const char* pattern, std::vector<NVStrings*>& res
     auto execpol = rmm::exec_policy(0);
     // compile regex into device object
     const char32_t* ptn32 = to_char32(pattern);
-    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
+    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags(),count);
     delete ptn32;
-    int numInsts = prog->inst_counts();
-    if( numInsts > 64 ) // 64 = LISTBYTES<<3 (from regexec.cu)
-    {   // pre-check prevents crashing
-        fprintf(stderr,"nvs-findall_column: pattern %s exceeds instances limit (64) for regex execution.\n",pattern);
-        dreprog::destroy(prog);
-        return -2;
-    }
 
     // compute counts of each match and size of the buffers
     custring_view_array d_strings = pImpl->getStringsPtr();
@@ -4092,13 +4072,13 @@ int NVStrings::findall_column( const char* pattern, std::vector<NVStrings*>& res
                 return;
             int fnd = 0, nchars = (int)dstr->chars_count();
             int begin = 0, end = nchars;
-            int result = prog->find(dstr,begin,end);
+            int result = prog->find(idx,dstr,begin,end);
             while(result > 0)
             {
                 ++fnd;
                 begin = end;
                 end = nchars;
-                result = prog->find(dstr,begin,end); // next one
+                result = prog->find(idx,dstr,begin,end); // next one
             }
             d_counts[idx] = fnd;
         });
@@ -4120,12 +4100,12 @@ int NVStrings::findall_column( const char* pattern, std::vector<NVStrings*>& res
                     return;
                 int spos = 0, nchars = (int)dstr->chars_count();
                 int epos = nchars;
-                prog->find(dstr,spos,epos);
+                prog->find(idx,dstr,spos,epos);
                 for( int c=0; c < col; ++c )
                 {
                     spos = epos;    // update
                     epos = nchars;  // parameters
-                    prog->find(dstr,spos,epos);
+                    prog->find(idx,dstr,spos,epos);
                 }
                 // this will be the string for this column
                 if( spos < epos )
@@ -4212,15 +4192,8 @@ int NVStrings::contains_re( const char* pattern, bool* results, bool todevice )
     auto execpol = rmm::exec_policy(0);
     // compile regex into device object
     const char32_t* ptn32 = to_char32(pattern);
-    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
+    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags(),count);
     delete ptn32;
-    int numInsts = prog->inst_counts();
-    if( numInsts > 64 ) // 64 = LISTBYTES<<3 (from regexec.cu)
-    {   // pre-check prevents crashing
-        fprintf(stderr,"nvs-contains: pattern %s exceeds instances limit (64) for regex execution.\n",pattern);
-        dreprog::destroy(prog);
-        return -2;
-    }
 
     bool* d_rtn = results;
     if( !todevice )
@@ -4232,7 +4205,7 @@ int NVStrings::contains_re( const char* pattern, bool* results, bool todevice )
         [d_strings, prog, d_rtn] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
             if( dstr )
-                d_rtn[idx] = prog->contains(dstr)==1;
+                d_rtn[idx] = prog->contains(idx,dstr)==1;
             else
                 d_rtn[idx] = false;
         });
@@ -4245,7 +4218,7 @@ int NVStrings::contains_re( const char* pattern, bool* results, bool todevice )
         printCudaError(err);
     }
     pImpl->addOpTimes("contains_re",0.0,(et-st));
-
+    // destroy compiled regex
     dreprog::destroy(prog);
 
     // count the number of successful finds
@@ -4270,15 +4243,8 @@ int NVStrings::match( const char* pattern, bool* results, bool todevice )
     auto execpol = rmm::exec_policy(0);
     // compile regex into device object
     const char32_t* ptn32 = to_char32(pattern);
-    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
+    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags(),count);
     delete ptn32;
-    int numInsts = prog->inst_counts();
-    if( numInsts > 64 ) // 64 = LISTBYTES<<3 (from regexec.cu)
-    {   // pre-check prevents crashing
-        fprintf(stderr,"nvs-match: pattern %s exceeds instances limit (64) for regex execution.\n",pattern);
-        dreprog::destroy(prog);
-        return -2;
-    }
 
     bool* d_rtn = results;
     if( !todevice )
@@ -4290,7 +4256,7 @@ int NVStrings::match( const char* pattern, bool* results, bool todevice )
         [d_strings, prog, d_rtn] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
             if( dstr )
-                d_rtn[idx] = prog->match(dstr)==1;
+                d_rtn[idx] = prog->match(idx,dstr)==1;
             else
                 d_rtn[idx] = false;
         });
@@ -4329,15 +4295,8 @@ int NVStrings::count_re( const char* pattern, int* results, bool todevice )
     auto execpol = rmm::exec_policy(0);
     // compile regex into device object
     const char32_t* ptn32 = to_char32(pattern);
-    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
+    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags(),count);
     delete ptn32;
-    int numInsts = prog->inst_counts();
-    if( numInsts > 64 ) // 64 = LISTBYTES<<3 (from regexec.cu)
-    {   // pre-check prevents crashing
-        fprintf(stderr,"nvs-count: pattern %s exceeds instances limit (64) for regex execution.\n",pattern);
-        dreprog::destroy(prog);
-        return -2;
-    }
 
     int* d_rtn = results;
     if( !todevice )
@@ -4354,13 +4313,13 @@ int NVStrings::count_re( const char* pattern, int* results, bool todevice )
                 fnd = 0;
                 int nchars = (int)dstr->chars_count();
                 int begin = 0, end = nchars;
-                int result = prog->find(dstr,begin,end);
+                int result = prog->find(idx,dstr,begin,end);
                 while(result > 0)
                 {
                     ++fnd; // count how many we find
                     begin = end;
                     end = nchars;
-                    result = prog->find(dstr,begin,end);
+                    result = prog->find(idx,dstr,begin,end);
                 }
             }
             d_rtn[idx] = fnd;
@@ -4495,15 +4454,8 @@ int NVStrings::extract( const char* pattern, std::vector<NVStrings*>& results)
     auto execpol = rmm::exec_policy(0);
     // compile regex into device object
     const char32_t* ptn32 = to_char32(pattern);
-    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
+    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags(),count);
     delete ptn32;
-    int numInsts = prog->inst_counts();
-    if( numInsts > 64 ) // 64 = LISTBYTES<<3 (from regexec.cu)
-    {   // pre-check prevents crashing
-        fprintf(stderr,"nvs-extract: pattern %s exceeds instances limit (64) for regex execution.\n",pattern);
-        dreprog::destroy(prog);
-        return -2;
-    }
     //
     int groups = prog->group_counts();
     if( groups==0 )
@@ -4521,13 +4473,13 @@ int NVStrings::extract( const char* pattern, std::vector<NVStrings*>& results)
             if( !dstr )
                 return;
             int begin = 0, end = dstr->chars_count();
-            if( prog->find(dstr,begin,end) <=0 )
+            if( prog->find(idx,dstr,begin,end) <=0 )
                 return;
             int* sizes = d_lengths + (idx*groups);
             for( int col=0; col < groups; ++col )
             {
                 int spos=begin, epos=end;
-                if( prog->extract(dstr,spos,epos,col) <=0 )
+                if( prog->extract(idx,dstr,spos,epos,col) <=0 )
                     continue;
                 unsigned int size = dstr->substr_size(spos,epos);
                 sizes[col] = (size_t)ALIGN_SIZE(size);
@@ -4561,7 +4513,7 @@ int NVStrings::extract( const char* pattern, std::vector<NVStrings*>& results)
             if( !dstr )
                 return;
             int begin = 0, end = dstr->chars_count(); // these could have been saved above
-            if( prog->find(dstr,begin,end) <=0 )      // to avoid this call again here
+            if( prog->find(idx,dstr,begin,end) <=0 )      // to avoid this call again here
                 return;
             int* sizes = d_lengths + (idx*groups);
             char* buffer = (char*)d_buffers[idx];
@@ -4569,7 +4521,7 @@ int NVStrings::extract( const char* pattern, std::vector<NVStrings*>& results)
             for( int col=0; col < groups; ++col )
             {
                 int spos=begin, epos=end;
-                if( prog->extract(dstr,spos,epos,col) <=0 )
+                if( prog->extract(idx,dstr,spos,epos,col) <=0 )
                     continue;
                 d_row[col] = dstr->substr((unsigned)spos,(unsigned)(epos-spos),1,buffer);
                 buffer += sizes[col];
@@ -4597,15 +4549,8 @@ int NVStrings::extract_column( const char* pattern, std::vector<NVStrings*>& res
     auto execpol = rmm::exec_policy(0);
     // compile regex into device object
     const char32_t* ptn32 = to_char32(pattern);
-    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
+    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags(),count);
     delete ptn32;
-    int numInsts = prog->inst_counts();
-    if( numInsts > 64 ) // 64 = LISTBYTES<<3 (from regexec.cu)
-    {   // pre-check prevents crashing
-        fprintf(stderr,"nvs-extract_column: pattern %s exceeds instances limit (64) for regex execution.\n",pattern);
-        dreprog::destroy(prog);
-        return -2;
-    }
     //
     int groups = prog->group_counts();
     if( groups==0 )
@@ -4634,9 +4579,9 @@ int NVStrings::extract_column( const char* pattern, std::vector<NVStrings*>& res
                 if( !dstr )
                     return;
                 int begin=0, end=dstr->chars_count();
-                int result = prog->find(dstr,begin,end);
+                int result = prog->find(idx,dstr,begin,end);
                 if( result > 0 )
-                    result = prog->extract(dstr,begin,end,col);
+                    result = prog->extract(idx,dstr,begin,end,col);
                 if( result > 0 )
                 {
                     d_begins[idx] = begin;
