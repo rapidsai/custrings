@@ -89,6 +89,7 @@ public:
     unsigned int size() const;
 
     // copy the list of strings back into the provided host memory
+    // each pointer must point to memory large enough to hold the bytes of each corresponding string
     int to_host(char** list, int start, int end);
     // create index for device strings contained in this instance; array must hold at least size() elements
     int create_index(std::pair<const char*,size_t>* strs, bool devmem=true );
@@ -109,9 +110,10 @@ public:
     // return a new instance without the specified strings
     NVStrings* remove_strings( unsigned int* pos, unsigned int count, bool devmem=true );
 
-    // return the number of characters in each string
+    // retrieve the number of characters in each string (-1 is return for null strings)
     unsigned int len(int* lengths, bool todevice=true);
-    // return the number of bytes for each string
+    // retrieve the number of bytes for each string (-1 is returned for null strings)
+    // return value is the total number of bytes
     size_t byte_count(int* lengths, bool todevice=true);
 
     // adds the given string(s) to this list of strings and returns as new strings

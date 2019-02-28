@@ -267,7 +267,7 @@ int NVStrings_init_from_strings(NVStringsImpl* pImpl, const char** strs, unsigne
         fprintf(stderr,"nvs-sts: sync=%d copy %'u strings\n",(int)err,count);
         printCudaError(err);
     }
-    
+
     pImpl->setMemoryBuffer(d_flatstrs,nbytes);
 
 #if STR_STATS
@@ -503,7 +503,7 @@ int NVStrings_init_from_offsets( NVStringsImpl* pImpl, const char* strs, int cou
         fprintf(stderr,"nvs-ofs: sync=%d copy %'u strings\n",(int)err,count);
         printCudaError(err);
     }
-    
+
     pImpl->setMemoryBuffer(d_flatstrs,nbytes);
 
 #if STR_STATS
@@ -614,7 +614,7 @@ NVStrings::NVStrings(const NVStrings& strsIn)
         NVStrings_copy_strings(pImpl,strslist);
     }
 }
-    
+
 NVStrings& NVStrings::operator=(const NVStrings& strsIn)
 {
     delete pImpl;
@@ -785,6 +785,7 @@ int NVStrings::to_host(char** list, int start, int end)
         return 0;
     count = end - start;
 
+    // compute size of specified strings
     auto execpol = rmm::exec_policy(0);
     rmm::device_vector<size_t> lens(count,0);
     size_t* d_lens = lens.data().get();
@@ -799,11 +800,12 @@ int NVStrings::to_host(char** list, int start, int end)
     cudaError_t err = cudaSuccess;
     size_t msize = thrust::reduce(execpol->on(0),lens.begin(),lens.end());
     if( msize==0 )
-    {   // every string is null
+    {
         memset(list,0,count*sizeof(char*));
-        return 0;
+        return 0; // every string is null so we are done
     }
 
+    // allocate device memory to copy strings temporarily
     char* d_buffer = 0;
     rmmError_t rerr = RMM_ALLOC(&d_buffer,msize,0);
     if( rerr != RMM_SUCCESS )
@@ -812,12 +814,11 @@ int NVStrings::to_host(char** list, int start, int end)
         //printCudaError(err);
         return (int)err;
     }
-    // allocate large device buffer to hold all the strings
     // convert lengths to offsets
     rmm::device_vector<size_t> offsets(count,0);
     thrust::exclusive_scan(execpol->on(0),lens.begin(),lens.end(),offsets.begin());
     size_t* d_offsets = offsets.data().get();
-    // copy strings into single buffer
+    // copy strings into temporary buffer
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(start), end,
         [d_strings, start, d_offsets, d_buffer] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -842,7 +843,7 @@ int NVStrings::to_host(char** list, int start, int end)
     // copy strings to host
     char* h_buffer = new char[msize];
     err = cudaMemcpy(h_buffer, d_buffer, msize, cudaMemcpyDeviceToHost);
-    RMM_FREE(d_buffer,0);
+    RMM_FREE(d_buffer,0); // done with device buffer
     if( err != cudaSuccess )
     {
         printCudaError(err, "nvs-to_host: copying strings device to host");
@@ -850,7 +851,7 @@ int NVStrings::to_host(char** list, int start, int end)
         return (int)err;
     }
 
-    // Host deserialization
+    // Deserialization host memory to memory provided by the caller
     thrust::host_vector<custring_view*> h_strings(*(pImpl->pList)); // just for checking nulls
     thrust::host_vector<size_t> h_offsets(offsets);
     h_offsets.push_back(msize); // include size as last offset
@@ -864,10 +865,12 @@ int NVStrings::to_host(char** list, int start, int end)
         size_t offset = h_offsets[idx];
         size_t len = h_offsets[idx+1] - offset;
         const char* p_data = h_buffer + offset;
-        char* h_data = new char[len]; // make memory on the host
-        h_data[len-1] = 0; // null terminate for the caller
-        memcpy(h_data, p_data, len-1);
-        list[idx] = h_data;
+        //char* h_data = new char[len]; // make memory on the host
+        //h_data[len-1] = 0; // null terminate for the caller
+        //memcpy(h_data, p_data, len-1);
+        //list[idx] = h_data;
+        if( list[idx] )
+            memcpy(list[idx], p_data, len-1);
     }
     delete h_buffer;
     return 0;
@@ -1030,7 +1033,7 @@ NVStrings* NVStrings::gather( int* pos, unsigned int elems, bool bdevmem )
             {
                 d_sizes[idx] = -1;
                 return;
-            }   
+            }
             custring_view* dstr = d_strings[pos];
             if( dstr )
                 d_sizes[idx] = ALIGN_SIZE(dstr->alloc_size());
@@ -1045,7 +1048,7 @@ NVStrings* NVStrings::gather( int* pos, unsigned int elems, bool bdevmem )
             RMM_FREE(d_pos,0);
         throw std::out_of_range("");
     }
-        
+
     // create output object
     NVStrings* rtn = new NVStrings(elems);
     char* d_buffer = rtn->pImpl->createMemoryFor((size_t*)d_sizes);
