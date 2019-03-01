@@ -901,6 +901,22 @@ static PyObject* n_replace( PyObject* self, PyObject* args )
     Py_RETURN_NONE;
 }
 
+//
+static PyObject* n_replace_with_backrefs( PyObject* self, PyObject* args )
+{
+    PyObject* vo = 0;      // self pointer   = O
+    const char* pat = 0;   // cannot be null = s
+    const char* repl = 0;  // can be null    = z
+    if( !parse_args("replace",args,"Osz",&vo,&pat,&repl) )
+        Py_RETURN_NONE;
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
+    NVStrings* rtn = 0;
+    rtn = tptr->replace_with_backrefs(pat,repl);
+    if( rtn )
+        return PyLong_FromVoidPtr((void*)rtn);
+    Py_RETURN_NONE;
+}
+
 // strip specific characters from the beginning of each string
 static PyObject* n_lstrip( PyObject* self, PyObject* args )
 {
@@ -2041,6 +2057,7 @@ static PyMethodDef s_Methods[] = {
     { "n_slice_from", n_slice_from, METH_VARARGS, "" },
     { "n_slice_replace", n_slice_replace, METH_VARARGS, "" },
     { "n_replace", n_replace, METH_VARARGS, "" },
+    { "n_replace_with_backrefs", n_replace_with_backrefs, METH_VARARGS, "" },
     { "n_len", n_len, METH_VARARGS, "" },
     { "n_byte_count", n_byte_count, METH_VARARGS, "" },
     { "n_lstrip", n_lstrip, METH_VARARGS, "" },

@@ -82,6 +82,14 @@ strs = nvstrings.to_device('word [[wikt:anarchism|anarchism]] is')
 print(strs)
 print(".replace('\\[\\[[a-z\\-]+:[^]]+\\]\\]','')",strs.replace('\\[\\[[a-z\\-]+:[^]]+\\]\\]',''))
 
+print("----------------------")
+strs = nvstrings.to_device(["A543","Z756","",None])
+print(strs)
+print("(\\d)(\\d),'\\1-\\2'",strs.replace_with_backrefs('(\\d)(\\d)', '\\1-\\2'))
+print("(\\d)(\\d),'V\\2-\\1'",strs.replace_with_backrefs('(\\d)(\\d)', 'V\\2-\\1'))
+print("(\\d)(\\d),'V\\1-\\3'",strs.replace_with_backrefs('(\\d)(\\d)', 'V\\1-\\3'))
+print("(\\d)(\\d),'V\\3-\\2'",strs.replace_with_backrefs('(\\d)(\\d)', 'V\\3-\\2'))
+
 strs = None
 strs1 = None
 strs2 = None
