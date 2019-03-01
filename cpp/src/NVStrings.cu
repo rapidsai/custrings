@@ -4608,7 +4608,6 @@ int NVStrings::extract( const char* pattern, std::vector<NVStrings*>& results)
                 if( prog->extract(idx,dstr,spos,epos,col) <=0 )
                     continue;
                 unsigned int size = dstr->substr_size(spos,epos); // this is wrong
-                printf("%u:bytes=%u\n",idx,size);
                 sizes[col] = (size_t)ALIGN_SIZE(size);
             }
         });

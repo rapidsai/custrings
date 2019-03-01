@@ -1407,7 +1407,7 @@ class nvstrings:
 
         .. code-block:: python
 
-          ['V45', 'Z57']
+          ['V45', 'V57']
 
         """
         rtn = pyniNVStrings.n_replace_with_backrefs(self.m_cptr, pat, repl)
