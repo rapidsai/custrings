@@ -76,4 +76,7 @@ d_arr = rmm.to_device(arr)
 s.htoi(d_arr.device_ctypes_pointer.value)
 print(".htoi(devptr)",d_arr.copy_to_host())
 
+s = nvstrings.itos(d_arr)
+print(s)
+
 s = None

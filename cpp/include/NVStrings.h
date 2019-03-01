@@ -219,6 +219,8 @@ public:
     unsigned int stof(float* results, bool todevice=true);
     // return unsigned 32-bit hash value for each string
     unsigned int hash( unsigned int* results, bool todevice=true );
+    // return string representation for provided integers
+    static NVStrings* itos(const int* values, unsigned int count, bool todevice=true);
 
     // sorts the strings managed by this instance
     NVStrings* sort( sorttype st, bool ascending=true );

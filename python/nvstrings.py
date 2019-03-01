@@ -179,6 +179,29 @@ def from_offsets(sbuf, obuf, scount, nbuf=None, ncount=0):
     return rtn
 
 
+def itos(values, count=0, bdevmem=False):
+    """
+    Create strings from an array of int32 values.
+
+    Parameters
+    ----------
+      values : list, memory address or buffer
+        Array of int32 values to convert to strings.
+
+      count: int
+        Number of integers in values.
+        This is only required if values is a memptr.
+
+      bdevmem: boolean
+        Default (False) interprets memory pointers as CPU memory.
+
+    """
+    rtn = pyniNVStrings.n_createFromIntegers(values, count, bdevmem)
+    if rtn is not None:
+        rtn = nvstrings(rtn)
+    return rtn
+
+
 def free(dstrs):
     """Force free resources for the specified instance."""
     if dstrs is not None:

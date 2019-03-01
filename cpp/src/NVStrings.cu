@@ -1582,6 +1582,95 @@ unsigned int NVStrings::htoi(unsigned int* results, bool todevice)
     return count;
 }
 
+// build strings from given integers
+NVStrings* NVStrings::itos(const int* values, unsigned int count, bool bdevmem)
+{
+    if( values==0 || count==0 )
+        return 0;
+    auto execpol = rmm::exec_policy(0);
+    NVStrings* rtn = new NVStrings(count);
+
+    int* d_values = (int*)values;
+    if( !bdevmem )
+    {
+        RMM_ALLOC(&d_values,count*sizeof(int),0);
+        cudaMemcpy(d_values,values,count*sizeof(int),cudaMemcpyHostToDevice);
+    }
+
+    // compute size of memory we'll need
+    rmm::device_vector<size_t> sizes(count,0);
+    size_t* d_sizes = sizes.data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_values, d_sizes] __device__ (unsigned int idx) {
+            int value = d_values[idx];
+            if( value==0 )
+            {   // yes, zero is a digit man
+                d_sizes[idx] = ALIGN_SIZE(custring_view::alloc_size(1,1));
+                return;
+            }
+            bool sign = value < 0;
+            if( sign )
+                value = -value;
+            int digits = 0; // count the digits
+            while( value > 0 )
+            {
+                ++digits;
+                value = value/10;
+            }
+            int bytes = digits + (int)sign;
+            int size = custring_view::alloc_size(bytes,bytes);
+            d_sizes[idx] = ALIGN_SIZE(size);
+        });
+
+    rmm::device_vector<size_t> offsets(count,0);
+    size_t* d_offsets = offsets.data().get();
+    thrust::exclusive_scan(execpol->on(0),sizes.begin(),sizes.end(),offsets.begin());
+    // build strings from integers
+    char* d_buffer = rtn->pImpl->createMemoryFor(d_sizes);
+    custring_view_array d_strings = rtn->pImpl->getStringsPtr();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_buffer, d_offsets, d_values, d_strings] __device__(unsigned int idx){
+            char* str = d_buffer + d_offsets[idx];
+            int value = d_values[idx];
+            if( value==0 )
+            {
+                d_strings[idx] = custring_view::create_from(str,"0",1);
+                return;
+            }
+            char* ptr = str;
+            bool sign = value < 0;
+            if( sign )
+                value = -value;
+            while( value > 0 )
+            {
+                char ch = '0' + (value % 10);
+                *ptr++ = ch;
+                value = value/10;
+            }
+            if( sign )
+                *ptr++ = '-';
+            // number is backwards, so let's reverse it
+            // should make this a custring method
+            int len = (int)(ptr-str);
+            for( int j=0; j<(len/2); ++j )
+            {
+                char ch1 = str[j];
+                char ch2 = str[len-j-1];
+                str[j] = ch2;
+                str[len-j-1] = ch1;
+            }
+            d_strings[idx] = custring_view::create_from(str,str,len);
+        });
+    //
+    cudaError_t err = cudaDeviceSynchronize();
+    if( err != cudaSuccess )
+        printCudaError(err,"nvs-itos");
+    // done
+    if( !bdevmem )
+        RMM_FREE(d_values,0);
+    return rtn;
+}
+
 //
 NVStrings* NVStrings::cat( NVStrings* others, const char* separator, const char* narep )
 {
