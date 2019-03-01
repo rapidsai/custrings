@@ -1357,7 +1357,7 @@ class nvstrings:
           This can also be a regex expression -- not a compiled regex.
 
         repl : str
-          String to replace `strng` with
+          String to replace found section with
 
         Examples
         --------
@@ -1376,6 +1376,41 @@ class nvstrings:
 
         """
         rtn = pyniNVStrings.n_replace(self.m_cptr, pat, repl, n, regex)
+        if rtn is not None:
+            rtn = nvstrings(rtn)
+        return rtn
+
+    def replace_with_backrefs(self, pat, repl):
+        """
+        Use the repl back-ref template to create a new string with
+        the extracted elements found using the pat expression.
+
+        Parameters
+        ----------
+        pat : str
+          Regex with groupings to identify extract sections.
+          This should not be a compiled regex.
+
+        repl : str
+          String template containing back-reference indicators.
+
+        Examples
+        --------
+        .. code-block:: python
+
+          import nvstrings
+
+          s = nvstrings.to_device(["A543","Z756"])
+          print(s.replace_with_backrefs('(\\d)', 'V\\2\\1'))
+
+        Output:
+
+        .. code-block:: python
+
+          ['V45', 'V57']
+
+        """
+        rtn = pyniNVStrings.n_replace_with_backrefs(self.m_cptr, pat, repl)
         if rtn is not None:
             rtn = nvstrings(rtn)
         return rtn

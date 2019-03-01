@@ -155,6 +155,8 @@ public:
     // replaces occurrences of str with repl
     NVStrings* replace( const char* str, const char* repl, int maxrepl=-1 );
     NVStrings* replace_re( const char* pat, const char* repl, int maxrepl=-1 );
+    // extract values using pattern and place them repl as indicated by backref indicators
+    NVStrings* replace_with_backrefs( const char* pattern, const char* repl );
     // translate characters in each string using the character-mapping table provided
     NVStrings* translate( std::pair<unsigned,unsigned>* table, unsigned int count );
 
