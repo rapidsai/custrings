@@ -246,6 +246,64 @@ static PyObject* n_createFromOffsets( PyObject* self, PyObject* args )
     Py_RETURN_NONE;
 }
 
+static PyObject* n_createFromIntegers( PyObject* self, PyObject* args )
+{
+    PyObject* pyvals = PyTuple_GetItem(args,0);
+    PyObject* pycount = PyTuple_GetItem(args,1);
+    PyObject* pybmem = PyTuple_GetItem(args,2);
+
+    bool bdevmem = (bool)PyObject_IsTrue(pybmem);
+    NVStrings* rtn = 0;
+    std::string cname = pyvals->ob_type->tp_name;
+    if( cname.compare("list")==0 )
+    {
+        unsigned int elems = (unsigned int)PyList_Size(pyvals);
+        std::vector<int> values;
+        for( unsigned int idx=0; idx < elems; ++idx )
+        {
+            PyObject* pyidx = PyList_GetItem(pyvals,idx);
+            values.push_back((int)PyLong_AsLong(pyidx));
+        }
+        //
+        rtn = NVStrings::itos(values.data(),elems,false);
+    }
+    else if( cname.compare("DeviceNDArray")==0 )
+    {
+        PyObject* pysize = PyObject_GetAttr(pyvals,PyUnicode_FromString("alloc_size"));
+        PyObject* pydcp = PyObject_GetAttr(pyvals,PyUnicode_FromString("device_ctypes_pointer"));
+        PyObject* pyptr = PyObject_GetAttr(pydcp,PyUnicode_FromString("value"));
+        unsigned int count = (unsigned int)(PyLong_AsLong(pysize)/sizeof(int));
+        int* values = 0;
+        if( pyptr != Py_None )
+            values = (int*)PyLong_AsVoidPtr(pyptr);
+        rtn = NVStrings::itos(values,count);
+    }
+    else if( PyObject_CheckBuffer(pyvals) )
+    {
+        Py_buffer mbuf;
+        PyObject_GetBuffer(pyvals,&mbuf,PyBUF_SIMPLE);
+        int* values = (int*)mbuf.buf;
+        unsigned int count = (unsigned int)(mbuf.len/sizeof(int));
+        rtn = NVStrings::itos(values,count,bdevmem);
+        PyBuffer_Release(&mbuf);
+    }
+    else if( cname.compare("int")==0 ) // device pointer directly
+    {                                  // for consistency with other methods
+        int* values = (int*)PyLong_AsVoidPtr(pyvals);
+        unsigned int count = (unsigned int)PyLong_AsLong(pycount);
+        rtn = NVStrings::itos(values,count,bdevmem);
+    }
+    else
+    {
+        //printf("%s\n",cname.c_str());
+        PyErr_Format(PyExc_TypeError,"nvstrings: unknown type %s",cname.c_str());
+    }
+    //
+    if( rtn )
+        return PyLong_FromVoidPtr((void*)rtn);
+    Py_RETURN_NONE;
+}
+
 // called by from_offsets() method in python class
 static PyObject* n_create_offsets( PyObject* self, PyObject* args )
 {
@@ -2028,6 +2086,7 @@ static PyMethodDef s_Methods[] = {
     { "n_createFromCSV", n_createFromCSV, METH_VARARGS, "" },
     { "n_createFromOffsets", n_createFromOffsets, METH_VARARGS, "" },
     { "n_createFromNVStrings", n_createFromNVStrings, METH_VARARGS, "" },
+    { "n_createFromIntegers", n_createFromIntegers, METH_VARARGS, "" },
     { "n_create_offsets", n_create_offsets, METH_VARARGS, "" },
     { "n_size", n_size, METH_VARARGS, "" },
     { "n_hash", n_hash, METH_VARARGS, "" },
