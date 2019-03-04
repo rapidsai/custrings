@@ -558,6 +558,53 @@ class nvcategory:
             rtn = nvs.nvstrings(rtn)
         return rtn
 
+    def gather(self, indexes, count=0):
+        """
+        Return nvcategory instance using the specified indexes
+        to gather strings from this instance.
+        Index values will be remapped if any keys are not
+        represented.
+        This is equivalent to calling nvcategory.from_strings()
+        using the nvstrings object returned from a call to
+        gather_strings().
+
+        Parameters
+        ----------
+          indexes : list or GPU memory pointer
+            List of ints or GPU memory pointer to array of int32 values.
+
+          count : int
+            Number of ints if indexes parm is a device pointer.
+            Otherwise it is ignored.
+
+        Returns
+        -------
+          nvcategory: keys and values based on indexes provided
+
+        Examples
+        --------
+
+        .. code-block:: python
+
+          import nvcategory
+          c = nvcategory.to_device(["aa","bb","bb","ff","cc","ff"])
+          print(c.keys(),c.values())
+          c = c.gather([1,3,2,3,1,2])
+          print(c.keys(),c.values())
+
+        Output:
+
+        .. code-block:: python
+
+          ['aa', 'bb', 'cc', 'ff'] [0, 1, 1, 3, 2, 3]
+          ['bb', 'cc', 'ff'] [0, 2, 1, 2, 0, 1]
+
+        """
+        rtn = pyniNVCategory.n_gather(self.m_cptr, indexes, count)
+        if rtn is not None:
+            rtn = nvcategory(rtn)
+        return rtn
+
     def merge_category(self, nvcat):
         """
         Create new category incorporating the specified category keys

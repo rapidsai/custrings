@@ -974,6 +974,83 @@ NVStrings* NVCategory::gather_strings( int* pos, unsigned int count, bool bdevme
 }
 
 //
+// Create a new category by gathering strings from this category.
+// If specific keys are not referenced, the values are remapped.
+// This is a shortcut method to calling gather_strings() and then
+// just converting the resulting NVStrings instance into an new NVCategory.
+//
+// Example category
+//    category :---------
+//    | strs        key  |
+//    | abbfcf  ->  abcf |
+//    | 012345      0123 |
+//    | 011323    <-'    |
+//     ------------------
+//
+// Specify strings in pos parameter:
+//  v = 1 3 2 3 1 2   bfcfbc
+//  x = 0 1 1 1       x[v[idx]] = 1  (set 1 for values in v)
+//  y = 0 0 1 2       excl-scan(x)
+//
+// Remap values using:
+//  v[idx] = y[v[idx]]  -> 021201
+// New key list is copy_if of keys where x==1  -> bcf
+//
+NVCategory* NVCategory::gather( int* pos, unsigned int count, bool bdevmem )
+{
+    auto execpol = rmm::exec_policy(0);
+    int* d_v = pos;
+    if( !bdevmem )
+    {
+        RMM_ALLOC(&d_v,count*sizeof(int),0);
+        cudaMemcpy(d_v,pos,count*sizeof(int),cudaMemcpyHostToDevice);
+    }
+
+    unsigned int kcount = keys_size();
+    // first, do bounds check on input values
+    int invalidcount = thrust::count_if(execpol->on(0), d_v, d_v+count,
+        [kcount] __device__ (int v) { return ((v < 0) || (v >= kcount)); } );
+    if( invalidcount )
+        throw std::out_of_range("");
+
+    // build x vector which has 1s for each value in v
+    rmm::device_vector<int> x(kcount,0);
+    int* d_x = x.data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<size_t>(0), count,
+        [d_v, d_x] __device__ (unsigned int idx) { d_x[d_v[idx]] = 1; });
+    // y vector is scan of x values
+    rmm::device_vector<int> y(kcount,0);
+    int* d_y = y.data().get();
+    thrust::exclusive_scan(execpol->on(0),d_x,d_x+kcount,d_y,0);
+    // use y to map input to new values
+    rmm::device_vector<int>* pNewMap = new rmm::device_vector<int>(count,0);
+    int* d_map = pNewMap->data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<size_t>(0), count,
+        [d_v, d_y, d_map] __device__ (unsigned int idx) { d_map[idx] = d_y[d_v[idx]]; });
+    // done creating the map
+    NVCategory* rtn = new NVCategory;
+    rtn->pImpl->pMap = pNewMap;
+    // copy/gather the keys
+    custring_view_array d_keys = pImpl->getStringsPtr();
+    unsigned int ucount = kcount;
+    {   // reuse the y vector for gather positions
+        thrust::counting_iterator<int> citr(0);
+        auto nend = thrust::copy_if( execpol->on(0), citr, citr + kcount, d_y, [d_x] __device__ (const int& idx) { return d_x[idx]==1; });
+        ucount = (unsigned int)(nend - d_y); // how many were copied
+    }
+    // gather keys into new vector
+    rmm::device_vector<custring_view*> newkeys(ucount,nullptr);
+    thrust::gather( execpol->on(0), d_y, d_y + ucount, d_keys, newkeys.data().get() );
+    cudaDeviceSynchronize();
+    // build keylist for new category
+    NVCategoryImpl_keys_from_custringarray(rtn->pImpl,newkeys.data().get(),ucount);
+    //
+    if( !bdevmem )
+        RMM_FREE(d_v,0);
+    return rtn;
+}
+
+//
 // Merge two categories and maintain the values and key positions of the this category.
 // Very complicated to avoid looping over values or keys from either category.
 //
@@ -1075,8 +1152,8 @@ NVCategory* NVCategory::merge_category(NVCategory& cat2)
     int matched = thrust::reduce( execpol->on(0), d_y, d_y + count12 ); // how many keys matched
     unsigned int ncount = count2 - (unsigned int)matched; // new keys count
     unsigned int ucount = count1 + ncount; // total unique keys count
-    rmm::device_vector<custring_view*>* pNewList = new rmm::device_vector<custring_view*>(ucount,nullptr);
-    custring_view_array d_keys = pNewList->data().get(); // this will hold the merged keyset
+    rmm::device_vector<custring_view*> keys(ucount,nullptr);
+    custring_view_array d_keys = keys.data().get(); // this will hold the merged keyset
     rmm::device_vector<int> nidxs(ucount); // needed for various gather methods below
     int* d_nidxs = nidxs.data().get(); // indexes of 'new' keys from key2 not in key1
     {
