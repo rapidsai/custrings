@@ -646,7 +646,7 @@ static PyObject* n_cat( PyObject* self, PyObject* args )
 static PyObject* n_split( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    const char* delimiter = " ";
+    const char* delimiter = 0;
     PyObject* argOpt = PyTuple_GetItem(args,1);
     if( argOpt != Py_None )
         delimiter = PyUnicode_AsUTF8(argOpt);
@@ -669,7 +669,7 @@ static PyObject* n_split( PyObject* self, PyObject* args )
 static PyObject* n_rsplit( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    const char* delimiter = " ";
+    const char* delimiter = 0;
     PyObject* argOpt = PyTuple_GetItem(args,1);
     if( argOpt != Py_None )
         delimiter = PyUnicode_AsUTF8(argOpt);
@@ -723,7 +723,7 @@ static PyObject* n_rpartition( PyObject* self, PyObject* args )
 static PyObject* n_split_column( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    const char* delimiter = " ";
+    const char* delimiter = 0;
     PyObject* argOpt = PyTuple_GetItem(args,1);
     if( argOpt != Py_None )
         delimiter = PyUnicode_AsUTF8(argOpt);
@@ -745,7 +745,7 @@ static PyObject* n_split_column( PyObject* self, PyObject* args )
 static PyObject* n_rsplit_column( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    const char* delimiter = " ";
+    const char* delimiter = 0;
     PyObject* argOpt = PyTuple_GetItem(args,1);
     if( argOpt != Py_None )
         delimiter = PyUnicode_AsUTF8(argOpt);

@@ -1166,8 +1166,6 @@ __device__ unsigned int custring_view::replace_size(unsigned int pos, unsigned i
 
 __device__ unsigned int custring_view::split(const char* delim, unsigned int bytes, int count, custring_view** strs)
 {
-    if(delim == 0)
-        return 0;
     char* sptr = data();
     unsigned int sz = size();
     if(sz == 0)
@@ -1181,13 +1179,37 @@ __device__ unsigned int custring_view::split(const char* delim, unsigned int byt
         return 1;
     }
 
+    auto whitespace_find = [sptr,sz] __device__ (int& pos) {
+        int rtn = -1;
+        while( pos < sz )
+        {
+            unsigned char ch = (unsigned char)sptr[pos++];
+            if( ch <= ' ' )
+            {
+                rtn = chars_in_string(sptr,pos-1);
+                break;
+            }
+        }
+        return rtn;
+    };
+
     unsigned int delimCount = 0;
-    int pos = find(delim, bytes);
-    while(pos >= 0)
+    int pos = 0;
+    if( delim && bytes )
     {
-        ++delimCount;
-        pos = find(delim, bytes, (unsigned int)pos + bytes);
+        pos = find(delim, bytes);
+        while(pos >= 0)
+        {
+            ++delimCount;
+            pos = find(delim, bytes, (unsigned int)pos + bytes);
+        }
     }
+    else
+    {
+        while( pos < sz )
+            delimCount += (int)((unsigned char)sptr[pos++] <= ' ');
+    }
+
     unsigned int strsCount = delimCount + 1;
     unsigned int rtn = strsCount;
     if((count > 0) && (rtn > count))
@@ -1198,9 +1220,19 @@ __device__ unsigned int custring_view::split(const char* delim, unsigned int byt
     if(strsCount < count)
         count = strsCount;
     //
+    unsigned int dchars = 1;
+    if( delim && bytes )
+        dchars = chars_in_string(delim,bytes);
     unsigned int nchars = chars_count();
     unsigned int spos = 0, sidx = 0;
-    int epos = find(delim, bytes);
+    int epos = -1;
+    if( delim && bytes )
+        epos = find(delim, bytes);
+    else
+    {
+        pos = 0;
+        epos = whitespace_find(pos);
+    }
     while(epos >= 0)
     {
         if(sidx >= (count - 1)) // add this to the while clause
@@ -1208,8 +1240,11 @@ __device__ unsigned int custring_view::split(const char* delim, unsigned int byt
         int len = (unsigned int)epos - spos;
         void* str = (void*)strs[sidx++];
         substr(spos, len, 1, str);
-        spos = epos + bytes;
-        epos = find(delim, bytes, spos);
+        spos = epos + dchars;
+        if( delim && bytes )
+            epos = find(delim, bytes, spos);
+        else
+            epos = whitespace_find(pos);
     }
     if((spos <= nchars) && (sidx < count))
         substr(spos, nchars - spos, 1, (void*)strs[sidx]);
@@ -1220,8 +1255,6 @@ __device__ unsigned int custring_view::split(const char* delim, unsigned int byt
 //
 __device__ unsigned int custring_view::split_size(const char* delim, unsigned int bytes, int *sizes, int count) const
 {
-    if(delim == 0 || bytes == 0)
-        return 0;
     char* sptr = (char*)data();
     unsigned int sz = size();
     if(sz == 0)
@@ -1234,13 +1267,36 @@ __device__ unsigned int custring_view::split_size(const char* delim, unsigned in
         }
         return 1;
     }
-    //
+
+    auto whitespace_find = [sptr,sz] __device__ (int& pos) {
+        int rtn = -1;
+        while( pos < sz )
+        {
+            unsigned char ch = (unsigned char)sptr[pos++];
+            if( ch <= ' ' )
+            {
+                rtn = chars_in_string(sptr,pos-1);
+                break;
+            }
+        }
+        return rtn;
+    };
+
     unsigned int delimCount = 0;
-    int pos = find(delim, bytes);
-    while(pos >= 0)
+    int pos = 0;
+    if( delim && bytes )
     {
-        ++delimCount;
-        pos = find(delim, bytes, (unsigned int)pos + bytes);
+        pos = find(delim, bytes);
+        while(pos >= 0)
+        {
+            ++delimCount;
+            pos = find(delim, bytes, (unsigned int)pos + bytes);
+        }
+    }
+    else
+    {
+        while( pos < sz )
+            delimCount += (int)((unsigned char)sptr[pos++] <= ' ');
     }
     unsigned int strsCount = delimCount + 1;
     unsigned int rtn = strsCount;
@@ -1252,10 +1308,20 @@ __device__ unsigned int custring_view::split_size(const char* delim, unsigned in
     if(strsCount < count)
         count = strsCount;
     //
+    unsigned int dchars = 1;
+    if( delim && bytes )
+        dchars = chars_in_string(delim,bytes);
     unsigned int nchars = chars_count();
     unsigned int total = 0;
     unsigned int spos = 0, sidx = 0;
-    int epos = find(delim, bytes);
+    int epos = 0;
+    if( delim && bytes )
+        epos = find(delim, bytes);
+    else
+    {
+        pos = 0;
+        epos = whitespace_find(pos);
+    }
     while(epos >= 0)
     {
         if(sidx >= (count - 1)) // all but the last; this can be added to the while clause
@@ -1264,8 +1330,11 @@ __device__ unsigned int custring_view::split_size(const char* delim, unsigned in
         unsigned int ssz = substr_size(spos, len);
         sizes[sidx++] = ssz;
         total += ALIGN_SIZE(ssz);
-        spos = epos + bytes;
-        epos = find(delim, bytes, spos);
+        spos = epos + dchars;
+        if( delim && bytes )
+            epos = find(delim, bytes, spos);
+        else
+            epos = whitespace_find(pos);
     }
     // handle the last string
     if((spos <= nchars) && (sidx < count))
@@ -1279,8 +1348,6 @@ __device__ unsigned int custring_view::split_size(const char* delim, unsigned in
 
 __device__ unsigned int custring_view::rsplit(const char* delim, unsigned int bytes, int count, custring_view** strs)
 {
-    if(delim == 0 || bytes == 0)
-        return 0;
     char* sptr = data();
     unsigned int sz = size();
     if(sz == 0)
@@ -1294,13 +1361,37 @@ __device__ unsigned int custring_view::rsplit(const char* delim, unsigned int by
         return 1;
     }
 
+    auto whitespace_rfind = [sptr,sz] __device__ (int& pos) {
+        int rtn = -1;
+        while( pos >= 0 )
+        {
+            unsigned char ch = (unsigned char)sptr[pos--];
+            if( ch <= ' ' )
+            {
+                rtn = chars_in_string(sptr,pos+1);
+                break;
+            }
+        }
+        return rtn;
+    };
+
     unsigned int delimCount = 0;
-    int pos = find(delim, bytes);
-    while(pos >= 0)
+    int pos = 0;
+    if( delim && bytes )
     {
-        ++delimCount;
-        pos = find(delim, bytes, (unsigned int)pos + bytes);
+        pos = find(delim, bytes);
+        while(pos >= 0)
+        {
+            ++delimCount;
+            pos = find(delim, bytes, (unsigned int)pos + bytes);
+        }
     }
+    else
+    {
+        while( pos < sz )
+            delimCount += (int)((unsigned char)sptr[pos++] <= ' ');
+    }
+
     unsigned int strsCount = delimCount + 1;
     unsigned int rtn = strsCount;
     if((count > 0) && (rtn > count))
@@ -1311,19 +1402,32 @@ __device__ unsigned int custring_view::rsplit(const char* delim, unsigned int by
     if(strsCount < count)
         count = strsCount;
     //
+    unsigned int dchars = 1;
+    if( delim && bytes )
+        dchars = chars_in_string(delim,bytes);
     int epos = (int)chars_count(); // end pos is not inclusive
     int sidx = count - 1;          // index for strs array
-    pos = rfind(delim, bytes);
-    while(pos >= 0)
+    int spos = 0;
+    if( delim && bytes )
+        spos = rfind(delim, bytes);
+    else
+    {
+        pos = sz-1;
+        spos = whitespace_rfind(pos);
+    }
+    while(spos >= 0)
     {
         if(sidx <= 0)
             break;
-        int spos = pos + (int)bytes;
-        int len = epos - spos;
+        //int spos = pos + (int)bytes;
+        int len = epos - spos - dchars;
         void* str = (void*)strs[sidx--];
-        substr((unsigned int)spos, (unsigned int)len, 1, str);
-        epos = pos;
-        pos = rfind(delim, bytes, 0, (unsigned int)epos);
+        substr((unsigned int)spos+dchars, (unsigned int)len, 1, str);
+        epos = spos;
+        if( delim && bytes )
+            spos = rfind(delim, bytes, 0, (unsigned int)epos);
+        else
+            spos = whitespace_rfind(pos);
     }
     if(epos >= 0)
     {
@@ -1336,8 +1440,6 @@ __device__ unsigned int custring_view::rsplit(const char* delim, unsigned int by
 
 __device__ unsigned int custring_view::rsplit_size(const char* delim, unsigned int bytes, int *sizes, int count) const
 {
-    if(delim == 0 || bytes == 0)
-        return 0;
     char* sptr = (char*)data();
     unsigned int sz = size();
     if(sz == 0)
@@ -1351,13 +1453,37 @@ __device__ unsigned int custring_view::rsplit_size(const char* delim, unsigned i
         return 1;
     }
 
+    auto whitespace_rfind = [sptr,sz] __device__ (int& pos) {
+        int rtn = -1;
+        while( pos >= 0 )
+        {
+            unsigned char ch = (unsigned char)sptr[pos--];
+            if( ch <= ' ' )
+            {
+                rtn = chars_in_string(sptr,pos+1);
+                break;
+            }
+        }
+        return rtn;
+    };
+
     unsigned int delimCount = 0;
-    int pos = find(delim, bytes);
-    while(pos >= 0)
+    int pos = 0;
+    if( delim && bytes )
     {
-        ++delimCount;
-        pos = find(delim, bytes, (unsigned int)pos + bytes);
+        pos = find(delim, bytes);
+        while(pos >= 0)
+        {
+            ++delimCount;
+            pos = find(delim, bytes, (unsigned int)pos + bytes);
+        }
     }
+    else
+    {
+        while( pos < sz )
+            delimCount += (int)((unsigned char)sptr[pos++] <= ' ');
+    }
+
     unsigned int strsCount = delimCount + 1;
     unsigned int rtn = strsCount;
     if((count > 0) && (rtn > count))
@@ -1368,21 +1494,34 @@ __device__ unsigned int custring_view::rsplit_size(const char* delim, unsigned i
     if(strsCount < count)
         count = strsCount;
     //
+    unsigned int dchars = 1;
+    if( delim && bytes )
+        dchars = chars_in_string(delim,bytes);
     unsigned int total = 0;        // total size of potential memory array
     int epos = (int)chars_count(); // end pos is not inclusive
     int sidx = count - 1;          // index for sizes array
-    pos = rfind(delim, bytes);
-    while(pos >= 0)
+    int spos = 0;
+    if( delim && bytes )
+        spos = rfind(delim, bytes);
+    else
+    {
+        pos = sz-1;
+        spos = whitespace_rfind(pos);
+    }
+    while(spos >= 0)
     {
         if(sidx <= 0)
             break;
-        int spos = pos + (int)bytes;
-        int len = epos - spos;
-        unsigned int ssz = substr_size((unsigned int)spos, (unsigned int)len);
+        //int spos = pos + (int)bytes;
+        int len = epos - spos - dchars;
+        unsigned int ssz = substr_size((unsigned int)spos+dchars, (unsigned int)len);
         sizes[sidx--] = ssz;
         total += ALIGN_SIZE(ssz);
-        epos = pos;
-        pos = rfind(delim, bytes, 0, (unsigned int)epos);
+        epos = spos;
+        if( delim && bytes )
+            spos = rfind(delim, bytes, 0, (unsigned int)epos);
+        else
+            spos = whitespace_rfind(pos);
     }
     if(epos >= 0)
     {

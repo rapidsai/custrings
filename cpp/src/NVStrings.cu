@@ -1691,13 +1691,12 @@ NVStrings* NVStrings::cat( NVStrings* others, const char* separator, const char*
         cudaMemcpy(d_sep,separator,seplen,cudaMemcpyHostToDevice);
     }
     unsigned int narlen = 0;
-    if( narep )
-        narlen = (unsigned int)strlen(narep);
     char* d_narep = 0;
-    if( narlen )
+    if( narep )
     {
-        RMM_ALLOC(&d_narep,narlen,0);
-        cudaMemcpy(d_narep,narep,narlen,cudaMemcpyHostToDevice);
+        narlen = (unsigned int)strlen(narep);
+        RMM_ALLOC(&d_narep,narlen+1,0);
+        cudaMemcpy(d_narep,narep,narlen+1,cudaMemcpyHostToDevice);
     }
 
     custring_view_array d_strings = pImpl->getStringsPtr();
@@ -1804,16 +1803,15 @@ NVStrings* NVStrings::cat( NVStrings* others, const char* separator, const char*
 //
 int NVStrings::split( const char* delimiter, int maxsplit, std::vector<NVStrings*>& results)
 {
-    if( delimiter==0 )
-        return 0;
-    unsigned int bytes = (unsigned int)strlen(delimiter);
-    if( bytes==0 )
-        return 0; // just return original list?
-
     auto execpol = rmm::exec_policy(0);
     char* d_delimiter = 0;
-    RMM_ALLOC(&d_delimiter,bytes,0);
-    cudaMemcpy(d_delimiter,delimiter,bytes,cudaMemcpyHostToDevice);
+    unsigned int dellen = 0;
+    if( delimiter )
+    {
+        dellen = (unsigned int)strlen(delimiter);
+        RMM_ALLOC(&d_delimiter,dellen+1,0);
+        cudaMemcpy(d_delimiter,delimiter,dellen+1,cudaMemcpyHostToDevice);
+    }
 
     // need to count how many output strings per string
     unsigned int count = size();
@@ -1821,10 +1819,10 @@ int NVStrings::split( const char* delimiter, int maxsplit, std::vector<NVStrings
     rmm::device_vector<int> counts(count,0);
     int* d_counts = counts.data().get();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-        [d_strings, d_delimiter, bytes, maxsplit, d_counts] __device__(unsigned int idx){
+        [d_strings, d_delimiter, dellen, maxsplit, d_counts] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
             if( dstr )
-                d_counts[idx] = dstr->split_size(d_delimiter,bytes,0,maxsplit);
+                d_counts[idx] = dstr->split_size(d_delimiter,dellen,0,maxsplit);
         });
     //cudaDeviceSynchronize();
 
@@ -1836,13 +1834,13 @@ int NVStrings::split( const char* delimiter, int maxsplit, std::vector<NVStrings
     int* d_sizes = sizes.data().get();
     int* d_totals = totals.data().get();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-        [d_strings, d_delimiter, bytes, d_counts, d_offsets, d_sizes, d_totals] __device__(unsigned int idx){
+        [d_strings, d_delimiter, dellen, d_counts, d_offsets, d_sizes, d_totals] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
             if( !dstr )
                 return;
             int* dsizes = d_sizes + d_offsets[idx];
             int dcount = d_counts[idx];
-            d_totals[idx] = dstr->split_size(d_delimiter,bytes,dsizes,dcount);
+            d_totals[idx] = dstr->split_size(d_delimiter,dellen,dsizes,dcount);
             //printf("[%s]=%d split bytes\n",dstr->data(),d_totals[idx]);
         });
     //
@@ -1884,7 +1882,7 @@ int NVStrings::split( const char* delimiter, int maxsplit, std::vector<NVStrings
 
     // do the splits and fill in the arrays
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-        [d_strings, d_delimiter, bytes, d_counts, d_buffers, d_sizes, d_offsets, d_splits] __device__(unsigned int idx){
+        [d_strings, d_delimiter, dellen, d_counts, d_buffers, d_sizes, d_offsets, d_splits] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
             if( !dstr )
                 return;
@@ -1900,7 +1898,7 @@ int NVStrings::split( const char* delimiter, int maxsplit, std::vector<NVStrings
                 d_strs[i] = (custring_view*)buffer;
                 buffer += size;
             }
-            dstr->split(d_delimiter,bytes,d_count,d_strs);
+            dstr->split(d_delimiter,dellen,d_count,d_strs);
         });
     //
     printCudaError(cudaDeviceSynchronize(),"nvs-split");
@@ -1912,16 +1910,15 @@ int NVStrings::split( const char* delimiter, int maxsplit, std::vector<NVStrings
 //
 int NVStrings::rsplit( const char* delimiter, int maxsplit, std::vector<NVStrings*>& results)
 {
-    if( delimiter==0 )
-        return 0;
-    unsigned int bytes = (unsigned int)strlen(delimiter);
-    if( bytes==0 )
-        return 0; // just return original list?
-
     auto execpol = rmm::exec_policy(0);
     char* d_delimiter = 0;
-    RMM_ALLOC(&d_delimiter,bytes,0);
-    cudaMemcpy(d_delimiter,delimiter,bytes,cudaMemcpyHostToDevice);
+    unsigned int dellen = 0;
+    if( delimiter )
+    {
+        dellen = (unsigned int)strlen(delimiter);
+        RMM_ALLOC(&d_delimiter,dellen+1,0);
+        cudaMemcpy(d_delimiter,delimiter,dellen+1,cudaMemcpyHostToDevice);
+    }
 
     // need to count how many output strings per string
     unsigned int count = size();
@@ -1930,10 +1927,10 @@ int NVStrings::rsplit( const char* delimiter, int maxsplit, std::vector<NVString
     int* d_counts = counts.data().get();
 
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-        [d_strings, d_delimiter, bytes, maxsplit, d_counts] __device__(unsigned int idx){
+        [d_strings, d_delimiter, dellen, maxsplit, d_counts] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
             if( dstr )
-                d_counts[idx] = dstr->rsplit_size(d_delimiter,bytes,0,maxsplit);
+                d_counts[idx] = dstr->rsplit_size(d_delimiter,dellen,0,maxsplit);
         });
 
     // build int arrays to hold each string's split size
@@ -1944,13 +1941,13 @@ int NVStrings::rsplit( const char* delimiter, int maxsplit, std::vector<NVString
     int* d_sizes = sizes.data().get();
     int* d_totals = totals.data().get();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-        [d_strings, d_delimiter, bytes, d_counts, d_offsets, d_sizes, d_totals] __device__(unsigned int idx){
+        [d_strings, d_delimiter, dellen, d_counts, d_offsets, d_sizes, d_totals] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
             if( !dstr )
                 return;
             int dcount = d_counts[idx];
             int* dsizes = d_sizes + d_offsets[idx];
-            d_totals[idx] = dstr->rsplit_size(d_delimiter,bytes,dsizes,dcount);
+            d_totals[idx] = dstr->rsplit_size(d_delimiter,dellen,dsizes,dcount);
         });
 
     cudaDeviceSynchronize();
@@ -1990,7 +1987,7 @@ int NVStrings::rsplit( const char* delimiter, int maxsplit, std::vector<NVString
 
     // do the splits and fill in the arrays
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-        [d_strings, d_delimiter, bytes, d_counts, d_buffers, d_sizes, d_offsets, d_splits] __device__(unsigned int idx){
+        [d_strings, d_delimiter, dellen, d_counts, d_buffers, d_sizes, d_offsets, d_splits] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
             if( !dstr )
                 return;
@@ -2007,7 +2004,7 @@ int NVStrings::rsplit( const char* delimiter, int maxsplit, std::vector<NVString
                 buffer += size;
                 //printf("%d:%d=%d\n",(int)idx,i,size);
             }
-            dstr->rsplit(d_delimiter,bytes,d_count,d_strs);
+            dstr->rsplit(d_delimiter,dellen,d_count,d_strs);
         });
     //
     printCudaError(cudaDeviceSynchronize(),"nvs-rsplit");
@@ -2020,16 +2017,15 @@ int NVStrings::rsplit( const char* delimiter, int maxsplit, std::vector<NVString
 // All the first tokens go in the first column, all the second tokens go in the second column, etc.
 unsigned int NVStrings::split_column( const char* delimiter, int maxsplit, std::vector<NVStrings*>& results)
 {
-    if( delimiter==0 )
-        return 0;
-    int bytes = (int)strlen(delimiter);
-    if( bytes==0 )
-        return 0; // just return original list?
-
     auto execpol = rmm::exec_policy(0);
     char* d_delimiter = 0;
-    RMM_ALLOC(&d_delimiter,bytes,0);
-    cudaMemcpy(d_delimiter,delimiter,bytes,cudaMemcpyHostToDevice);
+    unsigned int dellen = 0;
+    if( delimiter )
+    {
+        dellen = (unsigned int)strlen(delimiter);
+        RMM_ALLOC(&d_delimiter,dellen+1,0);
+        cudaMemcpy(d_delimiter,delimiter,dellen+1,cudaMemcpyHostToDevice);
+    }
 
     // need to count how many output strings per string
     //double st = GetTime();
@@ -2038,10 +2034,10 @@ unsigned int NVStrings::split_column( const char* delimiter, int maxsplit, std::
     rmm::device_vector<int> counts(count,0);
     int* d_counts = counts.data().get();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-        [d_strings, d_delimiter, bytes, maxsplit, d_counts] __device__(unsigned int idx){
+        [d_strings, d_delimiter, dellen, maxsplit, d_counts] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
             if( dstr )
-                d_counts[idx] = dstr->split_size(d_delimiter,bytes,0,maxsplit);
+                d_counts[idx] = dstr->split_size(d_delimiter,dellen,0,maxsplit);
         });
     int columnsCount = *thrust::max_element(execpol->on(0), counts.begin(), counts.end() );
     //double et = GetTime();
@@ -2056,7 +2052,7 @@ unsigned int NVStrings::split_column( const char* delimiter, int maxsplit, std::
         rmm::device_vector< thrust::pair<const char*,size_t> > indexes(count);
         thrust::pair<const char*,size_t>* d_indexes = indexes.data().get();
         thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-            [d_strings, col, d_delimiter, bytes, d_counts, d_indexes] __device__(unsigned int idx){
+            [d_strings, col, d_delimiter, dellen, d_counts, d_indexes] __device__(unsigned int idx){
                 custring_view* dstr = d_strings[idx];
                 d_indexes[idx].first = 0;   // initialize to
                 d_indexes[idx].second = 0;  // null string
@@ -2067,11 +2063,29 @@ unsigned int NVStrings::split_column( const char* delimiter, int maxsplit, std::
                 if( col >= dcount )
                     return; // passed the end for this string
                 // skip delimiters until we reach this column
+                int dchars = 1;
+                if( d_delimiter && dellen )
+                    dchars = custring_view::chars_in_string(d_delimiter,dellen);
                 int spos = 0, nchars = dstr->chars_count();
-                int epos = nchars;
+                int epos = nchars, pos = 0;
                 for( int c=0; c < (dcount-1); ++c )
                 {
-                    epos = dstr->find(d_delimiter,bytes,spos);
+                    if( d_delimiter && dellen )
+                        epos = dstr->find(d_delimiter,dellen,spos);
+                    else
+                    {
+                        epos = -1;
+                        char* sptr = dstr->data();
+                        while(pos < dstr->size())
+                        {
+                            unsigned char ch = (unsigned char)sptr[pos++];
+                            if( ch <= ' ')
+                            {
+                                epos = custring_view::chars_in_string(sptr,pos-1);
+                                break;
+                            }
+                        }
+                    }
                     if( epos < 0 )
                     {
                         epos = nchars;
@@ -2079,7 +2093,7 @@ unsigned int NVStrings::split_column( const char* delimiter, int maxsplit, std::
                     }
                     if( c==col )  // found our column
                         break;
-                    spos = epos + bytes;
+                    spos = epos + dchars;
                     epos = nchars;
                 }
                 // this will be the string for this column
@@ -2114,16 +2128,15 @@ unsigned int NVStrings::split_column( const char* delimiter, int maxsplit, std::
 // split-from-the-right version of split_column
 unsigned int NVStrings::rsplit_column( const char* delimiter, int maxsplit, std::vector<NVStrings*>& results)
 {
-    if( delimiter==0 )
-        return 0;
-    int bytes = (int)strlen(delimiter);
-    if( bytes==0 )
-        return 0; // just return original list?
-
     auto execpol = rmm::exec_policy(0);
     char* d_delimiter = 0;
-    RMM_ALLOC(&d_delimiter,bytes,0);
-    cudaMemcpy(d_delimiter,delimiter,bytes,cudaMemcpyHostToDevice);
+    unsigned int dellen = 0;
+    if( delimiter )
+    {
+        dellen = (unsigned int)strlen(delimiter);
+        RMM_ALLOC(&d_delimiter,dellen+1,0);
+        cudaMemcpy(d_delimiter,delimiter,dellen+1,cudaMemcpyHostToDevice);
+    }
 
     // need to count how many output strings per string
     unsigned int count = size();
@@ -2131,10 +2144,10 @@ unsigned int NVStrings::rsplit_column( const char* delimiter, int maxsplit, std:
     rmm::device_vector<int> counts(count,0);
     int* d_counts = counts.data().get();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-        [d_strings, d_delimiter, bytes, maxsplit, d_counts] __device__(unsigned int idx){
+        [d_strings, d_delimiter, dellen, maxsplit, d_counts] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
             if( dstr )
-                d_counts[idx] = dstr->rsplit_size(d_delimiter,bytes,0,maxsplit);
+                d_counts[idx] = dstr->rsplit_size(d_delimiter,dellen,0,maxsplit);
         });
 
     //int columnsCount = thrust::transform_reduce(execpol->on(0),d_counts,d_counts+count,thrust::identity<int>(),0,thrust::maximum<int>());
@@ -2149,7 +2162,7 @@ unsigned int NVStrings::rsplit_column( const char* delimiter, int maxsplit, std:
         rmm::device_vector< thrust::pair<const char*,size_t> > indexes(count);
         thrust::pair<const char*,size_t>* d_indexes = indexes.data().get();
         thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-            [d_strings, col, columnsCount, d_delimiter, bytes, d_counts, d_indexes] __device__(unsigned int idx){
+            [d_strings, col, columnsCount, d_delimiter, dellen, d_counts, d_indexes] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
             d_indexes[idx].first = 0;   // initialize to
             d_indexes[idx].second = 0;  // null string
@@ -2160,11 +2173,29 @@ unsigned int NVStrings::rsplit_column( const char* delimiter, int maxsplit, std:
             if( col >= dcount )
                 return; // passed the end for this string
             // skip delimiters until we reach this column
+            int dchars = 1;
+            if( d_delimiter && dellen )
+                dchars = custring_view::chars_in_string(d_delimiter,dellen);
             int spos = 0, nchars = dstr->chars_count();
-            int epos = nchars;
+            int epos = nchars, pos = dstr->size()-1;
             for( int c=(dcount-1); c > 0; --c )
             {
-                spos = dstr->rfind(d_delimiter,bytes,0,epos);
+                if( d_delimiter && dellen )
+                    spos = dstr->rfind(d_delimiter,dellen,0,epos);
+                else
+                {
+                    spos = -1;
+                    char* sptr = dstr->data();
+                    while( pos >=0 )
+                    {
+                        unsigned char ch = (unsigned char)sptr[pos--];
+                        if( ch <= ' ')
+                        {
+                            spos = custring_view::chars_in_string(sptr,pos+1);
+                            break;
+                        }
+                    }
+                }
                 if( spos < 0 )
                 {
                     spos = 0;
@@ -2172,7 +2203,7 @@ unsigned int NVStrings::rsplit_column( const char* delimiter, int maxsplit, std:
                 }
                 if( c==col ) // found our column
                 {
-                    spos += bytes;  // do not include delimiter
+                    spos += dchars;  // do not include delimiter
                     break;
                 }
                 epos = spos;
@@ -5335,13 +5366,12 @@ NVStrings* NVStrings::join( const char* delimiter, const char* narep )
         cudaMemcpy(d_delim,delimiter,dellen,cudaMemcpyHostToDevice);
     }
     unsigned int narlen = 0;
-    if( narep )
-        narlen = (unsigned int)strlen(narep);
     char* d_narep = 0;
-    if( narlen > 0 )
+    if( narep )
     {
-        RMM_ALLOC(&d_narep,narlen,0);
-        cudaMemcpy(d_narep,narep,narlen,cudaMemcpyHostToDevice);
+        narlen = (unsigned int)strlen(narep);
+        RMM_ALLOC(&d_narep,narlen+1,0);
+        cudaMemcpy(d_narep,narep,narlen+1,cudaMemcpyHostToDevice);
     }
 
     unsigned int count = size();
