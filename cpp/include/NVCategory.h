@@ -132,4 +132,6 @@ public:
     NVStrings* to_strings();
     // create a new strings instance identified by the specified index values
     NVStrings* gather_strings( int* pos, unsigned int elems, bool devmem=true );
+    // create new category instance identified by the specified index values
+    NVCategory* gather( int* pos, unsigned int elems, bool devmem=true );
 };
