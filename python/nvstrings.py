@@ -66,7 +66,11 @@ def from_strings(*args):
     """
     strs = []
     for arg in args:
-        strs.append(arg)
+        if isinstance(arg, list):
+            for s in arg:
+                strs.append(s)
+        else:
+            strs.append(arg)
     rtn = pyniNVStrings.n_createFromNVStrings(strs)
     if rtn is not None:
         rtn = nvstrings(rtn)
