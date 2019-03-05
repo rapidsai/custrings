@@ -320,7 +320,10 @@ static PyObject* n_createFromIPv4Integers( PyObject* self, PyObject* args )
         for( unsigned int idx=0; idx < elems; ++idx )
         {
             PyObject* pyidx = PyList_GetItem(pyvals,idx);
-            values.push_back((unsigned int)PyLong_AsLong(pyidx));
+            if( pyidx == Py_None )
+                values.push_back(0);
+            else
+                values.push_back((unsigned int)PyLong_AsLong(pyidx));
         }
         //
         rtn = NVStrings::int2ip(values.data(),elems,false);
@@ -529,11 +532,17 @@ static PyObject* n_compare( PyObject* self, PyObject* args )
     //
     int* rtn = new int[count];
     tptr->compare(str,rtn,false);
+    std::vector<unsigned char> nulls(((count+7)/8),0);
+    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
     for(size_t idx=0; idx < count; idx++)
     {
-        int val = rtn[idx];
-        //PyList_SetItem(ret, idx, Py_None);
-        PyList_SetItem(ret, idx, PyLong_FromLong((long)val));
+        if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
+        {
+            Py_INCREF(Py_None);
+            PyList_SetItem(ret, idx, Py_None);
+            continue;
+        }
+        PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));
     }
     delete rtn;
     return ret;
@@ -557,8 +566,18 @@ static PyObject* n_hash( PyObject* self, PyObject* args )
     // copy to host option
     unsigned int* rtn = new unsigned int[count];
     tptr->hash(rtn,false);
+    std::vector<unsigned char> nulls(((count+7)/8),0);
+    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
     for(size_t idx=0; idx < count; idx++)
+    {
+        if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
+        {
+            Py_INCREF(Py_None);
+            PyList_SetItem(ret, idx, Py_None);
+            continue;
+        }
         PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));
+    }
     delete rtn;
     return ret;
 }
@@ -582,8 +601,18 @@ static PyObject* n_stoi( PyObject* self, PyObject* args )
     // copy to host option
     int* rtn = new int[count];
     tptr->stoi(rtn,false);
+    std::vector<unsigned char> nulls(((count+7)/8),0);
+    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
     for(size_t idx=0; idx < count; idx++)
+    {
+        if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
+        {
+            Py_INCREF(Py_None);
+            PyList_SetItem(ret, idx, Py_None);
+            continue;
+        }
         PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));
+    }
     delete rtn;
     return ret;
 }
@@ -605,8 +634,18 @@ static PyObject* n_stof( PyObject* self, PyObject* args )
     }
     float* rtn = new float[count];
     tptr->stof(rtn,false);
+    std::vector<unsigned char> nulls(((count+7)/8),0);
+    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
     for(size_t idx=0; idx < count; idx++)
+    {
+        if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
+        {
+            Py_INCREF(Py_None);
+            PyList_SetItem(ret, idx, Py_None);
+            continue;
+        }
         PyList_SetItem(ret, idx, PyFloat_FromDouble((double)rtn[idx]));
+    }
     delete rtn;
     return ret;
 }
@@ -630,8 +669,18 @@ static PyObject* n_htoi( PyObject* self, PyObject* args )
     // copy to host option
     unsigned int* rtn = new unsigned int[count];
     tptr->htoi(rtn,false);
+    std::vector<unsigned char> nulls(((count+7)/8),0);
+    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
     for(size_t idx=0; idx < count; idx++)
+    {
+        if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
+        {
+            Py_INCREF(Py_None);
+            PyList_SetItem(ret, idx, Py_None);
+            continue;
+        }
         PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));
+    }
     delete rtn;
     return ret;
 }
@@ -655,8 +704,18 @@ static PyObject* n_ip2int( PyObject* self, PyObject* args )
     // copy to host option
     unsigned int* rtn = new unsigned int[count];
     tptr->ip2int(rtn,false);
+    std::vector<unsigned char> nulls(((count+7)/8),0);
+    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
     for(size_t idx=0; idx < count; idx++)
+    {
+        if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
+        {
+            Py_INCREF(Py_None);
+            PyList_SetItem(ret, idx, Py_None);
+            continue;
+        }
         PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));
+    }
     delete rtn;
     return ret;
 }
@@ -1055,11 +1114,7 @@ static PyObject* n_replace( PyObject* self, PyObject* args )
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
     NVStrings* rtn = 0;
     if( bregex )
-    {
         rtn = tptr->replace_re(pat,repl,(int)maxrepl);
-        if( rtn==0 )
-            PyErr_Format(PyExc_ValueError,"nvstrings.replace regex pattern is too long");
-    }
     else
         rtn = tptr->replace(pat,repl,(int)maxrepl);
     if( rtn )
@@ -1481,12 +1536,7 @@ static PyObject* n_findall( PyObject* self, PyObject* args )
     const char* pat = PyUnicode_AsUTF8(PyTuple_GetItem(args,1));
 
     std::vector<NVStrings*> results;
-    int rc = tptr->findall(pat,results);
-    if( rc==-2 )
-    {
-        PyErr_Format(PyExc_ValueError,"nvstrings.findall regex pattern is too long");
-        Py_RETURN_NONE;
-    }
+    tptr->findall(pat,results);
     //
     PyObject* ret = PyList_New(results.size());
     int idx=0;
@@ -1502,12 +1552,7 @@ static PyObject* n_findall_column( PyObject* self, PyObject* args )
     const char* pat = PyUnicode_AsUTF8(PyTuple_GetItem(args,1));
 
     std::vector<NVStrings*> results;
-    int rc = tptr->findall_column(pat,results);
-    if( rc==-2 )
-    {
-        PyErr_Format(PyExc_ValueError,"nvstrings.findall_column regex pattern is too long");
-        Py_RETURN_NONE;
-    }
+    tptr->findall_column(pat,results);
     //
     PyObject* ret = PyList_New(results.size());
     int idx=0;
@@ -1530,11 +1575,7 @@ static PyObject* n_contains( PyObject* self, PyObject* args )
     if( devptr )
     {
         if( bregex )
-        {
             rc = tptr->contains_re(str,devptr);
-            if( rc==-2 )
-                PyErr_Format(PyExc_ValueError,"nvstrings.contains regex pattern is too long");
-        }
         else
             rc = tptr->contains(str,devptr);
         if( rc < 0 )
@@ -1547,11 +1588,7 @@ static PyObject* n_contains( PyObject* self, PyObject* args )
         return PyList_New(0);
     bool* rtn = new bool[count];
     if( bregex )
-    {
         rc = tptr->contains_re(str,rtn,false);
-        if( rc==-2 )
-            PyErr_Format(PyExc_ValueError,"nvstrings.contains regex pattern is too long");
-    }
     else
         rc = tptr->contains(str,rtn,false);
     if( rc < 0 )
@@ -1560,8 +1597,18 @@ static PyObject* n_contains( PyObject* self, PyObject* args )
         Py_RETURN_NONE;
     }
     PyObject* ret = PyList_New(count);
+    std::vector<unsigned char> nulls(((count+7)/8),0);
+    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
     for(size_t idx=0; idx < count; idx++)
+    {
+        if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
+        {
+            Py_INCREF(Py_None);
+            PyList_SetItem(ret, idx, Py_None);
+            continue;
+        }
         PyList_SetItem(ret, idx, PyBool_FromLong((long)rtn[idx]));
+    }
     delete rtn;
     return ret;
 }
@@ -1576,8 +1623,6 @@ static PyObject* n_match( PyObject* self, PyObject* args )
     if( devptr )
     {
         rc = tptr->match(str,devptr);
-        if( rc==-2 )
-            PyErr_Format(PyExc_ValueError,"nvstrings.match regex pattern is too long");
         if( rc < 0 )
             Py_RETURN_NONE;
         return PyLong_FromVoidPtr((void*)devptr);
@@ -1588,16 +1633,24 @@ static PyObject* n_match( PyObject* self, PyObject* args )
         return PyList_New(0);
     bool* rtn = new bool[count];
     rc = tptr->match(str,rtn,false);
-    if( rc==-2 )
-        PyErr_Format(PyExc_ValueError,"nvstrings.match regex pattern is too long");
     if( rc < 0 )
     {
         delete rtn;
         Py_RETURN_NONE;
     }
     PyObject* ret = PyList_New(count);
+    std::vector<unsigned char> nulls(((count+7)/8),0);
+    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
     for(size_t idx=0; idx < count; idx++)
+    {
+        if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
+        {
+            Py_INCREF(Py_None);
+            PyList_SetItem(ret, idx, Py_None);
+            continue;
+        }
         PyList_SetItem(ret, idx, PyBool_FromLong((long)rtn[idx]));
+    }
     delete rtn;
     return ret;
 }
@@ -1620,8 +1673,18 @@ static PyObject* n_startswith( PyObject* self, PyObject* args )
         return ret;
     bool* rtn = new bool[count];
     tptr->startswith(str,rtn,false);
+    std::vector<unsigned char> nulls(((count+7)/8),0);
+    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
     for(size_t idx=0; idx < count; idx++)
+    {
+        if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
+        {
+            Py_INCREF(Py_None);
+            PyList_SetItem(ret, idx, Py_None);
+            continue;
+        }
         PyList_SetItem(ret, idx, PyBool_FromLong((long)rtn[idx]));
+    }
     delete rtn;
     return ret;
 }
@@ -1644,8 +1707,18 @@ static PyObject* n_endswith( PyObject* self, PyObject* args )
         return ret;
     bool* rtn = new bool[count];
     tptr->endswith(str,rtn,false);
+    std::vector<unsigned char> nulls(((count+7)/8),0);
+    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
     for(size_t idx=0; idx < count; idx++)
+    {
+        if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
+        {
+            Py_INCREF(Py_None);
+            PyList_SetItem(ret, idx, Py_None);
+            continue;
+        }
         PyList_SetItem(ret, idx, PyBool_FromLong((long)rtn[idx]));
+    }
     delete rtn;
     return ret;
 }
@@ -1659,8 +1732,6 @@ static PyObject* n_count( PyObject* self, PyObject* args )
     if( devptr )
     {
         int rc = tptr->count_re(str,devptr);
-        if( rc==-2 )
-            PyErr_Format(PyExc_ValueError,"nvstrings.count regex pattern is too long");
         if( rc < 0 )
             Py_RETURN_NONE;
         return PyLong_FromVoidPtr((void*)devptr);
@@ -1671,8 +1742,6 @@ static PyObject* n_count( PyObject* self, PyObject* args )
         return PyList_New(0);
     int* rtn = new int[count];
     int rc = tptr->count_re(str,rtn,false);
-    if( rc==-2 )
-        PyErr_Format(PyExc_ValueError,"nvstrings.count regex pattern is too long");
     if( rc < 0 )
     {
         delete rtn;
@@ -1702,12 +1771,7 @@ static PyObject* n_extract( PyObject* self, PyObject* args )
     const char* pat = PyUnicode_AsUTF8(PyTuple_GetItem(args,1));
 
     std::vector<NVStrings*> results;
-    int rc = tptr->extract(pat,results);
-    if( rc==-2 )
-    {
-        PyErr_Format(PyExc_ValueError,"nvstrings.extract regex pattern is too long");
-        Py_RETURN_NONE;
-    }
+    tptr->extract(pat,results);
     //
     PyObject* ret = PyList_New(results.size());
     int idx=0;
@@ -1723,12 +1787,7 @@ static PyObject* n_extract_column( PyObject* self, PyObject* args )
     const char* pat = PyUnicode_AsUTF8(PyTuple_GetItem(args,1));
 
     std::vector<NVStrings*> results;
-    int rc = tptr->extract_column(pat,results);
-    if( rc==-2 )
-    {
-        PyErr_Format(PyExc_ValueError,"nvstrings.extract_column regex pattern is too long");
-        Py_RETURN_NONE;
-    }
+    tptr->extract_column(pat,results);
     //
     PyObject* ret = PyList_New(results.size());
     int idx=0;
@@ -2026,8 +2085,18 @@ static PyObject* n_isalnum( PyObject* self, PyObject* args )
         return ret;
     bool* rtn = new bool[count];
     tptr->isalnum(rtn,false);
+    std::vector<unsigned char> nulls(((count+7)/8),0);
+    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
     for(size_t idx=0; idx < count; idx++)
+    {
+        if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
+        {
+            Py_INCREF(Py_None);
+            PyList_SetItem(ret, idx, Py_None);
+            continue;
+        }
         PyList_SetItem(ret, idx, PyBool_FromLong((long)rtn[idx]));
+    }
     delete rtn;
     return ret;
 }
@@ -2048,8 +2117,18 @@ static PyObject* n_isalpha( PyObject* self, PyObject* args )
         return ret;
     bool* rtn = new bool[count];
     tptr->isalpha(rtn,false);
+    std::vector<unsigned char> nulls(((count+7)/8),0);
+    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
     for(size_t idx=0; idx < count; idx++)
+    {
+        if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
+        {
+            Py_INCREF(Py_None);
+            PyList_SetItem(ret, idx, Py_None);
+            continue;
+        }
         PyList_SetItem(ret, idx, PyBool_FromLong((long)rtn[idx]));
+    }
     delete rtn;
     return ret;
 }
@@ -2070,8 +2149,18 @@ static PyObject* n_isdigit( PyObject* self, PyObject* args )
         return ret;
     bool* rtn = new bool[count];
     tptr->isdigit(rtn,false);
+    std::vector<unsigned char> nulls(((count+7)/8),0);
+    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
     for(size_t idx=0; idx < count; idx++)
+    {
+        if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
+        {
+            Py_INCREF(Py_None);
+            PyList_SetItem(ret, idx, Py_None);
+            continue;
+        }
         PyList_SetItem(ret, idx, PyBool_FromLong((long)rtn[idx]));
+    }
     delete rtn;
     return ret;
 }
@@ -2092,8 +2181,18 @@ static PyObject* n_isspace( PyObject* self, PyObject* args )
         return ret;
     bool* rtn = new bool[count];
     tptr->isspace(rtn,false);
+    std::vector<unsigned char> nulls(((count+7)/8),0);
+    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
     for(size_t idx=0; idx < count; idx++)
+    {
+        if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
+        {
+            Py_INCREF(Py_None);
+            PyList_SetItem(ret, idx, Py_None);
+            continue;
+        }
         PyList_SetItem(ret, idx, PyBool_FromLong((long)rtn[idx]));
+    }
     delete rtn;
     return ret;
 }
@@ -2114,8 +2213,18 @@ static PyObject* n_isdecimal( PyObject* self, PyObject* args )
         return ret;
     bool* rtn = new bool[count];
     tptr->isdecimal(rtn,false);
+    std::vector<unsigned char> nulls(((count+7)/8),0);
+    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
     for(size_t idx=0; idx < count; idx++)
+    {
+        if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
+        {
+            Py_INCREF(Py_None);
+            PyList_SetItem(ret, idx, Py_None);
+            continue;
+        }
         PyList_SetItem(ret, idx, PyBool_FromLong((long)rtn[idx]));
+    }
     delete rtn;
     return ret;
 }
@@ -2136,8 +2245,18 @@ static PyObject* n_isnumeric( PyObject* self, PyObject* args )
         return ret;
     bool* rtn = new bool[count];
     tptr->isnumeric(rtn,false);
+    std::vector<unsigned char> nulls(((count+7)/8),0);
+    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
     for(size_t idx=0; idx < count; idx++)
+    {
+        if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
+        {
+            Py_INCREF(Py_None);
+            PyList_SetItem(ret, idx, Py_None);
+            continue;
+        }
         PyList_SetItem(ret, idx, PyBool_FromLong((long)rtn[idx]));
+    }
     delete rtn;
     return ret;
 }
@@ -2158,8 +2277,18 @@ static PyObject* n_islower( PyObject* self, PyObject* args )
         return ret;
     bool* rtn = new bool[count];
     tptr->islower(rtn,false);
+    std::vector<unsigned char> nulls(((count+7)/8),0);
+    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
     for(size_t idx=0; idx < count; idx++)
+    {
+        if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
+        {
+            Py_INCREF(Py_None);
+            PyList_SetItem(ret, idx, Py_None);
+            continue;
+        }
         PyList_SetItem(ret, idx, PyBool_FromLong((long)rtn[idx]));
+    }
     delete rtn;
     return ret;
 }
@@ -2180,8 +2309,18 @@ static PyObject* n_isupper( PyObject* self, PyObject* args )
         return ret;
     bool* rtn = new bool[count];
     tptr->isupper(rtn,false);
+    std::vector<unsigned char> nulls(((count+7)/8),0);
+    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
     for(size_t idx=0; idx < count; idx++)
+    {
+        if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
+        {
+            Py_INCREF(Py_None);
+            PyList_SetItem(ret, idx, Py_None);
+            continue;
+        }
         PyList_SetItem(ret, idx, PyBool_FromLong((long)rtn[idx]));
+    }
     delete rtn;
     return ret;
 }
