@@ -304,6 +304,64 @@ static PyObject* n_createFromIntegers( PyObject* self, PyObject* args )
     Py_RETURN_NONE;
 }
 
+static PyObject* n_createFromIPv4Integers( PyObject* self, PyObject* args )
+{
+    PyObject* pyvals = PyTuple_GetItem(args,0);
+    PyObject* pycount = PyTuple_GetItem(args,1);
+    PyObject* pybmem = PyTuple_GetItem(args,2);
+
+    bool bdevmem = (bool)PyObject_IsTrue(pybmem);
+    NVStrings* rtn = 0;
+    std::string cname = pyvals->ob_type->tp_name;
+    if( cname.compare("list")==0 )
+    {
+        unsigned int elems = (unsigned int)PyList_Size(pyvals);
+        std::vector<unsigned int> values;
+        for( unsigned int idx=0; idx < elems; ++idx )
+        {
+            PyObject* pyidx = PyList_GetItem(pyvals,idx);
+            values.push_back((unsigned int)PyLong_AsLong(pyidx));
+        }
+        //
+        rtn = NVStrings::int2ip(values.data(),elems,false);
+    }
+    else if( cname.compare("DeviceNDArray")==0 )
+    {
+        PyObject* pysize = PyObject_GetAttr(pyvals,PyUnicode_FromString("alloc_size"));
+        PyObject* pydcp = PyObject_GetAttr(pyvals,PyUnicode_FromString("device_ctypes_pointer"));
+        PyObject* pyptr = PyObject_GetAttr(pydcp,PyUnicode_FromString("value"));
+        unsigned int count = (unsigned int)(PyLong_AsLong(pysize)/sizeof(unsigned int));
+        unsigned int* values = 0;
+        if( pyptr != Py_None )
+            values = (unsigned int*)PyLong_AsVoidPtr(pyptr);
+        rtn = NVStrings::int2ip(values,count);
+    }
+    else if( PyObject_CheckBuffer(pyvals) )
+    {
+        Py_buffer mbuf;
+        PyObject_GetBuffer(pyvals,&mbuf,PyBUF_SIMPLE);
+        unsigned int* values = (unsigned int*)mbuf.buf;
+        unsigned int count = (unsigned int)(mbuf.len/sizeof(int));
+        rtn = NVStrings::int2ip(values,count,bdevmem);
+        PyBuffer_Release(&mbuf);
+    }
+    else if( cname.compare("int")==0 ) // device pointer directly
+    {                                  // for consistency with other methods
+        unsigned int* values = (unsigned int*)PyLong_AsVoidPtr(pyvals);
+        unsigned int count = (unsigned int)PyLong_AsLong(pycount);
+        rtn = NVStrings::int2ip(values,count,bdevmem);
+    }
+    else
+    {
+        //printf("%s\n",cname.c_str());
+        PyErr_Format(PyExc_TypeError,"nvstrings: unknown type %s",cname.c_str());
+    }
+    //
+    if( rtn )
+        return PyLong_FromVoidPtr((void*)rtn);
+    Py_RETURN_NONE;
+}
+
 // called by from_offsets() method in python class
 static PyObject* n_create_offsets( PyObject* self, PyObject* args )
 {
@@ -547,6 +605,31 @@ static PyObject* n_htoi( PyObject* self, PyObject* args )
     // copy to host option
     unsigned int* rtn = new unsigned int[count];
     tptr->htoi(rtn,false);
+    for(size_t idx=0; idx < count; idx++)
+        PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));
+    delete rtn;
+    return ret;
+}
+
+// convert the strings with ip address to integers
+static PyObject* n_ip2int( PyObject* self, PyObject* args )
+{
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    unsigned int count = tptr->size();
+    PyObject* ret = PyList_New(count);
+    if( count==0 )
+        return ret;
+    //
+    unsigned int* devptr = (unsigned int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,1));
+    if( devptr )
+    {
+        tptr->ip2int(devptr);
+        return PyLong_FromVoidPtr((void*)devptr);
+    }
+
+    // copy to host option
+    unsigned int* rtn = new unsigned int[count];
+    tptr->ip2int(rtn,false);
     for(size_t idx=0; idx < count; idx++)
         PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));
     delete rtn;
@@ -2087,6 +2170,7 @@ static PyMethodDef s_Methods[] = {
     { "n_createFromOffsets", n_createFromOffsets, METH_VARARGS, "" },
     { "n_createFromNVStrings", n_createFromNVStrings, METH_VARARGS, "" },
     { "n_createFromIntegers", n_createFromIntegers, METH_VARARGS, "" },
+    { "n_createFromIPv4Integers", n_createFromIPv4Integers, METH_VARARGS, "" },
     { "n_create_offsets", n_create_offsets, METH_VARARGS, "" },
     { "n_size", n_size, METH_VARARGS, "" },
     { "n_hash", n_hash, METH_VARARGS, "" },
@@ -2098,6 +2182,7 @@ static PyMethodDef s_Methods[] = {
     { "n_stoi", n_stoi, METH_VARARGS, "" },
     { "n_stof", n_stof, METH_VARARGS, "" },
     { "n_htoi", n_htoi, METH_VARARGS, "" },
+    { "n_ip2int", n_ip2int, METH_VARARGS, "" },
     { "n_cat", n_cat, METH_VARARGS, "" },
     { "n_split", n_split, METH_VARARGS, "" },
     { "n_rsplit", n_rsplit, METH_VARARGS, "" },
