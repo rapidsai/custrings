@@ -380,7 +380,6 @@ static PyObject* n_create_offsets( PyObject* self, PyObject* args )
     char* sbuffer = 0;
     int* obuffer = 0;
     unsigned char* nbuffer = 0;
-    int ncount = 0;
 
     Py_buffer sbuf, obuf, nbuf;
     if( PyObject_CheckBuffer(pysbuf) )
@@ -410,8 +409,6 @@ static PyObject* n_create_offsets( PyObject* self, PyObject* args )
     PyObject* pybmem = PyTuple_GetItem(args,4);
     bool bdevmem = (bool)PyObject_IsTrue(pybmem);
 
-    //printf(" ptrs=%p,%p,%p\n",sbuffer,obuffer,nbuffer);
-    //printf(" scount=%d,ncount=%d\n",scount,ncount);
     // create strings object from these buffers
     tptr->create_offsets(sbuffer,obuffer,nbuffer,bdevmem);
 
@@ -482,6 +479,34 @@ static PyObject* n_null_count( PyObject* self, PyObject* args )
     bool ben = (bool)PyObject_IsTrue(PyTuple_GetItem(args,1));
     unsigned int nulls = tptr->get_nulls(0,ben,false);
     return PyLong_FromLong((long)nulls);
+}
+
+static PyObject* n_set_null_bitmask( PyObject* self, PyObject* args )
+{
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    PyObject* pynbuf = PyTuple_GetItem(args,1);
+    if( pynbuf == Py_None )
+    {
+        PyErr_Format(PyExc_ValueError,"nvstrings: missing parameter");
+        Py_RETURN_NONE;
+    }
+    PyObject* pybmem = PyTuple_GetItem(args,2);
+    bool bdevmem = (bool)PyObject_IsTrue(pybmem);
+
+    if( PyObject_CheckBuffer(pynbuf) )
+    {
+        Py_buffer nbuf;
+        PyObject_GetBuffer(pynbuf,&nbuf,PyBUF_SIMPLE);
+        unsigned char* nbuffer = (unsigned char*)nbuf.buf;
+        tptr->set_null_bitarray(nbuffer,false,bdevmem);
+        PyBuffer_Release(&nbuf);
+    }
+    else
+    {
+        unsigned char* nbuffer = (unsigned char*)PyLong_AsVoidPtr(pynbuf);
+        tptr->set_null_bitarray(nbuffer,false,bdevmem);
+    }
+    Py_RETURN_NONE;
 }
 
 // compare a string to the list of strings
@@ -2174,6 +2199,7 @@ static PyMethodDef s_Methods[] = {
     { "n_create_offsets", n_create_offsets, METH_VARARGS, "" },
     { "n_size", n_size, METH_VARARGS, "" },
     { "n_hash", n_hash, METH_VARARGS, "" },
+    { "n_set_null_bitmask", n_set_null_bitmask, METH_VARARGS, "" },
     { "n_null_count", n_null_count, METH_VARARGS, "" },
     { "n_copy", n_copy, METH_VARARGS, "" },
     { "n_remove_strings", n_remove_strings, METH_VARARGS, "" },

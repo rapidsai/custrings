@@ -482,6 +482,41 @@ class nvstrings:
         rtn = pyniNVStrings.n_byte_count(self.m_cptr, vals, bdevmem)
         return rtn
 
+    def set_null_bitmask(self, nbuf, bdevmem=False):
+        """
+        Store null-bitmask into provided memory.
+
+        Parameters
+        ----------
+
+          nbuf: memory address or buffer
+            Stores null bitmask in arrow format.
+
+          bdevmem: boolean
+            Default (False) interprets nbuf as CPU memory.
+
+          Examples
+          --------
+
+          .. code-block:: python
+
+          import numpy as np
+          import nvstrings
+
+          s = nvstrings.to_device(['a',None,'p','l','e'])
+          nulls = np.empty(int(s.size()/8)+1, dtype=np.int8)
+          s.set_null_bitmask(nulls)
+          print("nulls",nulls.tobytes())
+
+          Output:
+
+          .. code-block:: python
+
+          nulls b'\x1d'
+
+        """
+        return pyniNVStrings.n_set_null_bitmask(self.m_cptr, nbuf, bdevmem)
+
     def null_count(self, emptyisnull=False):
         """
         Returns the number of null strings in this instance.
