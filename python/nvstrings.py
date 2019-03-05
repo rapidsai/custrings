@@ -206,6 +206,29 @@ def itos(values, count=0, bdevmem=False):
     return rtn
 
 
+def int2ip(values, count=0, bdevmem=False):
+    """
+    Create ip address strings from an array of uint32 values.
+
+    Parameters
+    ----------
+      values : list, memory address or buffer
+        Array of uint32 values (IPv4) to convert to strings.
+
+      count: int
+        Number of integers in values.
+        This is only required if values is a memptr.
+
+      bdevmem: boolean
+        Default (False) interprets memory pointers as CPU memory.
+
+    """
+    rtn = pyniNVStrings.n_createFromIPv4Integers(values, count, bdevmem)
+    if rtn is not None:
+        rtn = nvstrings(rtn)
+    return rtn
+
+
 def free(dstrs):
     """Force free resources for the specified instance."""
     if dstrs is not None:
@@ -642,6 +665,35 @@ class nvstrings:
 
         """
         rtn = pyniNVStrings.n_htoi(self.m_cptr, devptr)
+        return rtn
+
+    def ip2int(self, devptr=0):
+        """
+        Returns integer value represented by each string.
+        String is interpretted to be IPv4 format.
+
+        Parameters
+        ----------
+            devptr : GPU memory pointer
+                Where resulting integer values will be written.
+                Memory must be able to hold at least size() of uint32 values.
+
+        Examples
+        --------
+        .. code-block:: python
+
+          import nvstrings
+          s = nvstrings.to_device(["192.168.0.1","10.0.0.1"])
+          print(s.ip2int())
+
+        Output:
+
+        .. code-block:: python
+
+          [3232235521, 167772161]
+
+        """
+        rtn = pyniNVStrings.n_ip2int(self.m_cptr, devptr)
         return rtn
 
     def cat(self, others=None, sep=None, na_rep=None):

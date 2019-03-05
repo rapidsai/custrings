@@ -221,6 +221,10 @@ public:
     unsigned int hash( unsigned int* results, bool todevice=true );
     // return string representation for provided integers
     static NVStrings* itos(const int* values, unsigned int count, bool todevice=true);
+    // return integer representation of IPv4 address
+    unsigned int ip2int( unsigned int* results, bool todevice=true );
+    // return string representation of IPv4 address (v4) for provided integer values
+    static NVStrings* int2ip( const unsigned int* values, unsigned int count, bool todevice=true);
 
     // sorts the strings managed by this instance
     NVStrings* sort( sorttype st, bool ascending=true );

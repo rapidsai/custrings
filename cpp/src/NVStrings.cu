@@ -1671,6 +1671,135 @@ NVStrings* NVStrings::itos(const int* values, unsigned int count, bool bdevmem)
     return rtn;
 }
 
+unsigned int NVStrings::ip2int( unsigned int* results, bool bdevmem )
+{
+    unsigned int count = size();
+    if( count==0 || results==0 )
+        return count;
+    auto execpol = rmm::exec_policy(0);
+    unsigned int* d_rtn = results;
+    if( !bdevmem )
+        RMM_ALLOC(&d_rtn,count*sizeof(unsigned int),0);
+
+    custring_view** d_strings = pImpl->getStringsPtr();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_strings, d_rtn] __device__(unsigned int idx){
+            custring_view* dstr = d_strings[idx];
+            if( !dstr || dstr->empty() )
+            {
+                d_rtn[idx] = 0;
+                return; // empty or null string
+            }
+            int tokens = dstr->split_size(".",1,0,-1);
+            if( tokens != 4 )
+            {
+                d_rtn[idx] = 0;
+                return; // invalid format
+            }
+            unsigned int vals[4];
+            unsigned int* pval = vals;
+            const char* str = dstr->data();
+            int len = dstr->size();
+            for( int i=0; i < len; ++i )
+            {
+                char ch = str[i];
+                if( ch >= '0' && ch <= '9' )
+                {
+                    *pval *= 10;
+                    *pval += (unsigned int)(ch-'0');
+                }
+                else if( ch=='.' )
+                {
+                    ++pval;
+                    *pval = 0;
+                }
+            }
+            unsigned int result = (vals[0] * 16777216) + (vals[1] * 65536) + (vals[2] * 256) + vals[3];
+            d_rtn[idx] = result;
+        });
+    //
+    printCudaError(cudaDeviceSynchronize(),"nvs-ip2int");
+    if( !bdevmem )
+    {
+        cudaMemcpy(results,d_rtn,sizeof(unsigned int)*count,cudaMemcpyDeviceToHost);
+        RMM_FREE(d_rtn,0);
+    }
+    return count;
+}
+
+NVStrings* NVStrings::int2ip( const unsigned int* values, unsigned int count, bool bdevmem )
+{
+    if( values==0 || count==0 )
+        return 0;
+    auto execpol = rmm::exec_policy(0);
+    NVStrings* rtn = new NVStrings(count);
+
+    unsigned int* d_values = (unsigned int*)values;
+    if( !bdevmem )
+    {
+        RMM_ALLOC(&d_values,count*sizeof(unsigned int),0);
+        cudaMemcpy(d_values,values,count*sizeof(unsigned int),cudaMemcpyHostToDevice);
+    }
+
+    // compute size of memory we'll need
+    rmm::device_vector<size_t> sizes(count,0);
+    size_t* d_sizes = sizes.data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_values, d_sizes] __device__ (unsigned int idx) {
+            unsigned int ipnum = d_values[idx];
+            int bytes = 3; // 3 dots: xxx.xxx.xxx.xxx
+            for( int j=0; j < 4; ++j )
+            {
+                unsigned int value = (ipnum & 255)+1; // don't want log(0)
+                bytes += (int)log10((double)value)+1; // number of base10 digits
+                ipnum = ipnum >> 8;
+            }
+            int size = custring_view::alloc_size(bytes,bytes);
+            d_sizes[idx] = ALIGN_SIZE(size);
+        });
+
+    rmm::device_vector<size_t> offsets(count,0);
+    size_t* d_offsets = offsets.data().get();
+    thrust::exclusive_scan(execpol->on(0),sizes.begin(),sizes.end(),offsets.begin());
+    // build strings from integers
+    char* d_buffer = rtn->pImpl->createMemoryFor(d_sizes);
+    custring_view_array d_strings = rtn->pImpl->getStringsPtr();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_buffer, d_offsets, d_values, d_strings] __device__(unsigned int idx){
+            unsigned int ipnum = d_values[idx];
+            char* str = d_buffer + d_offsets[idx];
+            char* ptr = str;
+            for( int j=0; j < 4; ++j )
+            {
+                int value = ipnum & 255;
+                do {
+                    char ch = '0' + (value % 10);
+                    *ptr++ = ch;
+                    value = value/10;
+                } while( value > 0 );
+                if( j < 3 )
+                    *ptr++ = '.';
+                ipnum = ipnum >> 8;
+            }
+            int len = (int)(ptr-str);
+            for( int j=0; j<(len/2); ++j )
+            {
+                char ch1 = str[j];
+                char ch2 = str[len-j-1];
+                str[j] = ch2;
+                str[len-j-1] = ch1;
+            }
+            d_strings[idx] = custring_view::create_from(str,str,len);
+        });
+    //
+    cudaError_t err = cudaDeviceSynchronize();
+    if( err != cudaSuccess )
+        printCudaError(err,"nvs-itos");
+    // done
+    if( !bdevmem )
+        RMM_FREE(d_values,0);
+    return rtn;
+}
 //
 NVStrings* NVStrings::cat( NVStrings* others, const char* separator, const char* narep )
 {

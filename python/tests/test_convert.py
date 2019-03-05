@@ -79,4 +79,9 @@ print(".htoi(devptr)",d_arr.copy_to_host())
 s = nvstrings.itos(d_arr)
 print(s)
 
+s = nvstrings.to_device(["192.168.0.1","10.0.0.1",None,"","hello"])
+print(s)
+print(".ip2int()",s.ip2int())
+print(nvstrings.int2ip(s.ip2int()))
+
 s = None
