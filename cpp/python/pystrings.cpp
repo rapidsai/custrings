@@ -19,6 +19,91 @@
 // since they may use different allocators and could be risky down the line.
 //
 
+// we handle alot of different data inputs
+// this class handles them all and cleans them up appropriately
+template<typename T>
+class DataBuffer
+{
+    PyObject* pyobj;
+    void* pdata;
+    std::string name;
+    enum datatype { none, error, list, device_ndarray, buffer, pointer };
+    datatype dtype;
+
+    T* values;
+    unsigned int count;
+
+public:
+    //
+    DataBuffer( PyObject* obj ) : pyobj(obj), pdata(0), values(0), count(0), dtype(none)
+    {
+        if( pyobj == Py_None )
+            return;
+        dtype = error;
+        name = pyobj->ob_type->tp_name;
+        if( name.compare("list")==0 )
+        {
+            dtype = list;
+            count = (unsigned int)PyList_Size(pyobj);
+            std::vector<T>* data = new std::vector<T>();
+            for( unsigned int idx=0; idx < count; ++idx )
+            {
+                PyObject* pyidx = PyList_GetItem(pyobj,idx);
+                if( pyidx == Py_None )
+                    data->push_back(0);
+                else
+                    data->push_back((T)PyLong_AsLong(pyidx));
+            }
+            values = data->data();
+            pdata = data;
+        }
+        else if( name.compare("DeviceNDArray")==0 )
+        {
+            dtype = device_ndarray;
+            PyObject* pysize = PyObject_GetAttr(pyobj,PyUnicode_FromString("alloc_size"));
+            PyObject* pydcp = PyObject_GetAttr(pyobj,PyUnicode_FromString("device_ctypes_pointer"));
+            pyobj = PyObject_GetAttr(pydcp,PyUnicode_FromString("value"));
+            count = (unsigned int)(PyLong_AsLong(pysize)/sizeof(int));
+            if( pyobj != Py_None )
+                values = (T*)PyLong_AsVoidPtr(pyobj);
+        }
+        else if( PyObject_CheckBuffer(pyobj) )
+        {
+            dtype = buffer;
+            Py_buffer* pybuf = new Py_buffer;
+            PyObject_GetBuffer(pyobj,pybuf,PyBUF_SIMPLE);
+            values = (T*)pybuf->buf;
+            count = (unsigned int)(pybuf->len/sizeof(T));
+            pdata = pybuf;
+        }
+        else if( name.compare("int")==0 )
+        {
+            dtype = pointer;
+            values = (T*)PyLong_AsVoidPtr(pyobj);
+        }
+    }
+
+    //
+    ~DataBuffer()
+    {
+        if( dtype==list )
+            delete (std::vector<T>*)pdata;
+        else if( dtype==buffer )
+        {
+            PyBuffer_Release((Py_buffer*)pdata);
+            delete (Py_buffer*)pdata;
+        }
+    }
+
+    //
+    bool is_error()          { return dtype==error; }
+    const char* get_name()   { return name.c_str(); }
+    bool is_device_type()    { return (dtype==device_ndarray) || (dtype==pointer); }
+
+    T* get_values()          { return values; }
+    unsigned int get_count() { return count; }
+};
+
 // PyArg_VaParse format types are documented here:
 // https://docs.python.org/3/c-api/arg.html
 bool parse_args( const char* fn, PyObject* pyargs, const char* pyfmt, ... )
@@ -250,55 +335,38 @@ static PyObject* n_createFromIntegers( PyObject* self, PyObject* args )
 {
     PyObject* pyvals = PyTuple_GetItem(args,0);
     PyObject* pycount = PyTuple_GetItem(args,1);
-    PyObject* pybmem = PyTuple_GetItem(args,2);
+    PyObject* pynulls = PyTuple_GetItem(args,2);
+    PyObject* pybmem = PyTuple_GetItem(args,3);
 
     bool bdevmem = (bool)PyObject_IsTrue(pybmem);
-    NVStrings* rtn = 0;
-    std::string cname = pyvals->ob_type->tp_name;
-    if( cname.compare("list")==0 )
+
+    DataBuffer<int> dbvalues(pyvals);
+    if( dbvalues.is_error() )
     {
-        unsigned int elems = (unsigned int)PyList_Size(pyvals);
-        std::vector<int> values;
-        for( unsigned int idx=0; idx < elems; ++idx )
+        PyErr_Format(PyExc_TypeError,"nvstrings.itos(): unknown type %s",dbvalues.get_name());
+        Py_RETURN_NONE;
+    }
+
+    int* values = dbvalues.get_values();
+    unsigned int count = dbvalues.get_count();
+    if( count==0 )
+        count = (unsigned int)PyLong_AsLong(pycount);
+
+    // get the nulls
+    unsigned char* nulls = 0;
+    if( pynulls != Py_None )
+    {
+        DataBuffer<unsigned char> dbnulls(pynulls);
+        if( dbnulls.is_error() )
         {
-            PyObject* pyidx = PyList_GetItem(pyvals,idx);
-            values.push_back((int)PyLong_AsLong(pyidx));
+            PyErr_Format(PyExc_TypeError,"nvstrings.itos(): unknown type %s",dbnulls.get_name());
+            Py_RETURN_NONE;
         }
-        //
-        rtn = NVStrings::itos(values.data(),elems,false);
+        nulls = dbnulls.get_values();
     }
-    else if( cname.compare("DeviceNDArray")==0 )
-    {
-        PyObject* pysize = PyObject_GetAttr(pyvals,PyUnicode_FromString("alloc_size"));
-        PyObject* pydcp = PyObject_GetAttr(pyvals,PyUnicode_FromString("device_ctypes_pointer"));
-        PyObject* pyptr = PyObject_GetAttr(pydcp,PyUnicode_FromString("value"));
-        unsigned int count = (unsigned int)(PyLong_AsLong(pysize)/sizeof(int));
-        int* values = 0;
-        if( pyptr != Py_None )
-            values = (int*)PyLong_AsVoidPtr(pyptr);
-        rtn = NVStrings::itos(values,count);
-    }
-    else if( PyObject_CheckBuffer(pyvals) )
-    {
-        Py_buffer mbuf;
-        PyObject_GetBuffer(pyvals,&mbuf,PyBUF_SIMPLE);
-        int* values = (int*)mbuf.buf;
-        unsigned int count = (unsigned int)(mbuf.len/sizeof(int));
-        rtn = NVStrings::itos(values,count,bdevmem);
-        PyBuffer_Release(&mbuf);
-    }
-    else if( cname.compare("int")==0 ) // device pointer directly
-    {                                  // for consistency with other methods
-        int* values = (int*)PyLong_AsVoidPtr(pyvals);
-        unsigned int count = (unsigned int)PyLong_AsLong(pycount);
-        rtn = NVStrings::itos(values,count,bdevmem);
-    }
-    else
-    {
-        //printf("%s\n",cname.c_str());
-        PyErr_Format(PyExc_TypeError,"nvstrings: unknown type %s",cname.c_str());
-    }
+
     //
+    NVStrings* rtn = NVStrings::itos(values,count,nulls,bdevmem);
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -308,58 +376,35 @@ static PyObject* n_createFromIPv4Integers( PyObject* self, PyObject* args )
 {
     PyObject* pyvals = PyTuple_GetItem(args,0);
     PyObject* pycount = PyTuple_GetItem(args,1);
-    PyObject* pybmem = PyTuple_GetItem(args,2);
+    PyObject* pynulls = PyTuple_GetItem(args,2);
+    PyObject* pybmem = PyTuple_GetItem(args,3);
 
     bool bdevmem = (bool)PyObject_IsTrue(pybmem);
-    NVStrings* rtn = 0;
-    std::string cname = pyvals->ob_type->tp_name;
-    if( cname.compare("list")==0 )
+    DataBuffer<unsigned int> dbvalues(pyvals);
+    if( dbvalues.is_error() )
     {
-        unsigned int elems = (unsigned int)PyList_Size(pyvals);
-        std::vector<unsigned int> values;
-        for( unsigned int idx=0; idx < elems; ++idx )
+        PyErr_Format(PyExc_TypeError,"nvstrings.int2ip(): unknown type %s",dbvalues.get_name());
+        Py_RETURN_NONE;
+    }
+    unsigned int* values = dbvalues.get_values();
+    unsigned int count = dbvalues.get_count();
+    if( count==0 )
+        count = (unsigned int)PyLong_AsLong(pycount);
+    //bdevmem = dbvalues.is_device_type();
+
+    // get the nulls
+    unsigned char* nulls = 0;
+    if( pynulls != Py_None )
+    {
+        DataBuffer<unsigned char> dbnulls(pynulls);
+        if( dbnulls.is_error() )
         {
-            PyObject* pyidx = PyList_GetItem(pyvals,idx);
-            if( pyidx == Py_None )
-                values.push_back(0);
-            else
-                values.push_back((unsigned int)PyLong_AsLong(pyidx));
+            PyErr_Format(PyExc_TypeError,"nvstrings.int2ip(): unknown type %s",dbnulls.get_name());
+            Py_RETURN_NONE;
         }
-        //
-        rtn = NVStrings::int2ip(values.data(),elems,false);
+        nulls = dbnulls.get_values();
     }
-    else if( cname.compare("DeviceNDArray")==0 )
-    {
-        PyObject* pysize = PyObject_GetAttr(pyvals,PyUnicode_FromString("alloc_size"));
-        PyObject* pydcp = PyObject_GetAttr(pyvals,PyUnicode_FromString("device_ctypes_pointer"));
-        PyObject* pyptr = PyObject_GetAttr(pydcp,PyUnicode_FromString("value"));
-        unsigned int count = (unsigned int)(PyLong_AsLong(pysize)/sizeof(unsigned int));
-        unsigned int* values = 0;
-        if( pyptr != Py_None )
-            values = (unsigned int*)PyLong_AsVoidPtr(pyptr);
-        rtn = NVStrings::int2ip(values,count);
-    }
-    else if( PyObject_CheckBuffer(pyvals) )
-    {
-        Py_buffer mbuf;
-        PyObject_GetBuffer(pyvals,&mbuf,PyBUF_SIMPLE);
-        unsigned int* values = (unsigned int*)mbuf.buf;
-        unsigned int count = (unsigned int)(mbuf.len/sizeof(int));
-        rtn = NVStrings::int2ip(values,count,bdevmem);
-        PyBuffer_Release(&mbuf);
-    }
-    else if( cname.compare("int")==0 ) // device pointer directly
-    {                                  // for consistency with other methods
-        unsigned int* values = (unsigned int*)PyLong_AsVoidPtr(pyvals);
-        unsigned int count = (unsigned int)PyLong_AsLong(pycount);
-        rtn = NVStrings::int2ip(values,count,bdevmem);
-    }
-    else
-    {
-        //printf("%s\n",cname.c_str());
-        PyErr_Format(PyExc_TypeError,"nvstrings: unknown type %s",cname.c_str());
-    }
-    //
+    NVStrings* rtn = NVStrings::int2ip(values,count,nulls,bdevmem);
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
