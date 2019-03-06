@@ -2233,6 +2233,10 @@ unsigned int NVStrings::split( const char* delimiter, int maxsplit, std::vector<
                     d_indexes[idx].first = dstr->data() + spos;
                     d_indexes[idx].second = (epos-spos);
                 }
+                else
+                {   // this will create empty string instead of null one
+                    d_indexes[idx].first = dstr->data();
+                }
             });
         cudaError_t err = cudaDeviceSynchronize();
         if( err != cudaSuccess )
@@ -2292,61 +2296,65 @@ unsigned int NVStrings::rsplit( const char* delimiter, int maxsplit, std::vector
         thrust::pair<const char*,size_t>* d_indexes = indexes.data().get();
         thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
             [d_strings, col, columnsCount, d_delimiter, dellen, d_counts, d_indexes] __device__(unsigned int idx){
-            custring_view* dstr = d_strings[idx];
-            d_indexes[idx].first = 0;   // initialize to
-            d_indexes[idx].second = 0;  // null string
-            if( !dstr )
-                return;
-            // dcount already accounts for the maxsplit value
-            int dcount = d_counts[idx];
-            if( col >= dcount )
-                return; // passed the end for this string
-            // skip delimiters until we reach this column
-            int dchars = 1;
-            if( d_delimiter && dellen )
-                dchars = custring_view::chars_in_string(d_delimiter,dellen);
-            int spos = 0, nchars = dstr->chars_count();
-            int epos = nchars, pos = dstr->size()-1;
-            for( int c=(dcount-1); c > 0; --c )
-            {
+                custring_view* dstr = d_strings[idx];
+                d_indexes[idx].first = 0;   // initialize to
+                d_indexes[idx].second = 0;  // null string
+                if( !dstr )
+                    return;
+                // dcount already accounts for the maxsplit value
+                int dcount = d_counts[idx];
+                if( col >= dcount )
+                    return; // passed the end for this string
+                // skip delimiters until we reach this column
+                int dchars = 1;
                 if( d_delimiter && dellen )
-                    spos = dstr->rfind(d_delimiter,dellen,0,epos);
-                else
+                    dchars = custring_view::chars_in_string(d_delimiter,dellen);
+                int spos = 0, nchars = dstr->chars_count();
+                int epos = nchars, pos = dstr->size()-1;
+                for( int c=(dcount-1); c > 0; --c )
                 {
-                    spos = -1;
-                    char* sptr = dstr->data();
-                    while( pos >=0 )
+                    if( d_delimiter && dellen )
+                        spos = dstr->rfind(d_delimiter,dellen,0,epos);
+                    else
                     {
-                        unsigned char ch = (unsigned char)sptr[pos--];
-                        if( ch <= ' ')
+                        spos = -1;
+                        char* sptr = dstr->data();
+                        while( pos >=0 )
                         {
-                            spos = custring_view::chars_in_string(sptr,pos+1);
-                            break;
+                            unsigned char ch = (unsigned char)sptr[pos--];
+                            if( ch <= ' ')
+                            {
+                                spos = custring_view::chars_in_string(sptr,pos+1);
+                                break;
+                            }
                         }
                     }
-                }
-                if( spos < 0 )
-                {
+                    if( spos < 0 )
+                    {
+                        spos = 0;
+                        break;
+                    }
+                    if( c==col ) // found our column
+                    {
+                        spos += dchars;  // do not include delimiter
+                        break;
+                    }
+                    epos = spos;
                     spos = 0;
-                    break;
                 }
-                if( c==col ) // found our column
+                // this will be the string for this column
+                if( spos < epos )
                 {
-                    spos += dchars;  // do not include delimiter
-                    break;
+                    spos = dstr->byte_offset_for(spos); // convert char pos
+                    epos = dstr->byte_offset_for(epos); // to byte offset
+                    d_indexes[idx].first = dstr->data() + spos;
+                    d_indexes[idx].second = (epos-spos);
                 }
-                epos = spos;
-                spos = 0;
-            }
-            // this will be the string for this column
-            if( spos < epos )
-            {
-                spos = dstr->byte_offset_for(spos); // convert char pos
-                epos = dstr->byte_offset_for(epos); // to byte offset
-                d_indexes[idx].first = dstr->data() + spos;
-                d_indexes[idx].second = (epos-spos);
-            }
-        });
+                else
+                {   // this will create empty string instead of null one
+                    d_indexes[idx].first = dstr->data();
+                }
+            });
         cudaError_t err = cudaDeviceSynchronize();
         if( err != cudaSuccess )
         {
@@ -4490,6 +4498,11 @@ int NVStrings::findall( const char* pattern, std::vector<NVStrings*>& results )
                     d_indexes[idx].first = dstr->data() + spos;
                     d_indexes[idx].second = (epos-spos);
                 }
+                else
+                {   // create empty string instead of a null one
+                    d_indexes[idx].first = dstr->data();
+                }
+
             });
         cudaError_t err = cudaDeviceSynchronize();
         if( err != cudaSuccess )
