@@ -183,7 +183,7 @@ def from_offsets(sbuf, obuf, scount, nbuf=None, ncount=0):
     return rtn
 
 
-def itos(values, count=0, bdevmem=False):
+def itos(values, count=0, nulls=None, bdevmem=False):
     """
     Create strings from an array of int32 values.
 
@@ -196,17 +196,21 @@ def itos(values, count=0, bdevmem=False):
         Number of integers in values.
         This is only required if values is a memptr.
 
+      nulls: list, memory address or buffer
+        Bit array indicating which values should be considered null.
+        Uses the arrow format for valid bitmask.
+
       bdevmem: boolean
         Default (False) interprets memory pointers as CPU memory.
 
     """
-    rtn = pyniNVStrings.n_createFromIntegers(values, count, bdevmem)
+    rtn = pyniNVStrings.n_createFromIntegers(values, count, nulls, bdevmem)
     if rtn is not None:
         rtn = nvstrings(rtn)
     return rtn
 
 
-def int2ip(values, count=0, bdevmem=False):
+def int2ip(values, count=0, nulls=None, bdevmem=False):
     """
     Create ip address strings from an array of uint32 values.
 
@@ -219,11 +223,15 @@ def int2ip(values, count=0, bdevmem=False):
         Number of integers in values.
         This is only required if values is a memptr.
 
+      nulls: list, memory address or buffer
+        Bit array indicating which values should be considered null.
+        Uses the arrow format for valid bitmask.
+
       bdevmem: boolean
         Default (False) interprets memory pointers as CPU memory.
 
     """
-    rtn = pyniNVStrings.n_createFromIPv4Integers(values, count, bdevmem)
+    rtn = pyniNVStrings.n_createFromIPv4Integers(values, count, nulls, bdevmem)
     if rtn is not None:
         rtn = nvstrings(rtn)
     return rtn

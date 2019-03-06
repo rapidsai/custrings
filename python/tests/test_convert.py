@@ -75,9 +75,11 @@ arr = np.arange(s.size(),dtype=np.uint32)
 d_arr = rmm.to_device(arr)
 s.htoi(d_arr.device_ctypes_pointer.value)
 print(".htoi(devptr)",d_arr.copy_to_host())
-
-s = nvstrings.itos(d_arr)
-print(s)
+print("itos():",nvstrings.itos(d_arr))
+nulls = np.empty(int(s.size()/8)+1, dtype=np.int8)
+nulls[0] = 11
+arr = d_arr.copy_to_host()
+print("itos(nulls=\\b1011):",nvstrings.itos(arr,nulls=nulls))
 
 s = nvstrings.to_device(["192.168.0.1","10.0.0.1",None,"","hello"])
 print(s)

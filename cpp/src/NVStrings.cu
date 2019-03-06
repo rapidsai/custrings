@@ -1583,7 +1583,7 @@ unsigned int NVStrings::htoi(unsigned int* results, bool todevice)
 }
 
 // build strings from given integers
-NVStrings* NVStrings::itos(const int* values, unsigned int count, bool bdevmem)
+NVStrings* NVStrings::itos(const int* values, unsigned int count, const unsigned char* nullbitmask, bool bdevmem)
 {
     if( values==0 || count==0 )
         return 0;
@@ -1591,17 +1591,28 @@ NVStrings* NVStrings::itos(const int* values, unsigned int count, bool bdevmem)
     NVStrings* rtn = new NVStrings(count);
 
     int* d_values = (int*)values;
+    unsigned char* d_nulls = (unsigned char*)nullbitmask;
     if( !bdevmem )
     {
         RMM_ALLOC(&d_values,count*sizeof(int),0);
         cudaMemcpy(d_values,values,count*sizeof(int),cudaMemcpyHostToDevice);
+        if( nullbitmask )
+        {
+            RMM_ALLOC(&d_nulls,((count+7)/8)*sizeof(unsigned char),0);
+            cudaMemcpy(d_nulls,nullbitmask,((count+7)/8)*sizeof(unsigned char),cudaMemcpyHostToDevice);
+        }
     }
 
     // compute size of memory we'll need
     rmm::device_vector<size_t> sizes(count,0);
     size_t* d_sizes = sizes.data().get();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-        [d_values, d_sizes] __device__ (unsigned int idx) {
+        [d_values, d_nulls, d_sizes] __device__ (unsigned int idx) {
+            if( d_nulls && ((d_nulls[idx/8] & (1 << (idx % 8)))==0) )
+            {
+                d_sizes[idx] = 0;
+                return;
+            }
             int value = d_values[idx];
             if( value==0 )
             {   // yes, zero is a digit man
@@ -1629,7 +1640,12 @@ NVStrings* NVStrings::itos(const int* values, unsigned int count, bool bdevmem)
     char* d_buffer = rtn->pImpl->createMemoryFor(d_sizes);
     custring_view_array d_strings = rtn->pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-        [d_buffer, d_offsets, d_values, d_strings] __device__(unsigned int idx){
+        [d_buffer, d_offsets, d_nulls, d_values, d_strings] __device__(unsigned int idx){
+            if( d_nulls && ((d_nulls[idx/8] & (1 << (idx % 8)))==0) ) // from arrow spec
+            {
+                d_strings[idx] = 0;
+                return;
+            }
             char* str = d_buffer + d_offsets[idx];
             int value = d_values[idx];
             if( value==0 )
@@ -1727,7 +1743,7 @@ unsigned int NVStrings::ip2int( unsigned int* results, bool bdevmem )
     return count;
 }
 
-NVStrings* NVStrings::int2ip( const unsigned int* values, unsigned int count, bool bdevmem )
+NVStrings* NVStrings::int2ip( const unsigned int* values, unsigned int count, const unsigned char* nullbitmask, bool bdevmem )
 {
     if( values==0 || count==0 )
         return 0;
@@ -1735,17 +1751,28 @@ NVStrings* NVStrings::int2ip( const unsigned int* values, unsigned int count, bo
     NVStrings* rtn = new NVStrings(count);
 
     unsigned int* d_values = (unsigned int*)values;
+    unsigned char* d_nulls = (unsigned char*)nullbitmask;
     if( !bdevmem )
     {
         RMM_ALLOC(&d_values,count*sizeof(unsigned int),0);
         cudaMemcpy(d_values,values,count*sizeof(unsigned int),cudaMemcpyHostToDevice);
+        if( nullbitmask )
+        {
+            RMM_ALLOC(&d_nulls,((count+7)/8)*sizeof(unsigned char),0);
+            cudaMemcpy(d_nulls,nullbitmask,((count+7)/8)*sizeof(unsigned char),cudaMemcpyHostToDevice);
+        }
     }
 
     // compute size of memory we'll need
     rmm::device_vector<size_t> sizes(count,0);
     size_t* d_sizes = sizes.data().get();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-        [d_values, d_sizes] __device__ (unsigned int idx) {
+        [d_values, d_nulls, d_sizes] __device__ (unsigned int idx) {
+            if( d_nulls && ((d_nulls[idx/8] & (1 << (idx % 8)))==0) )
+            {
+                d_sizes[idx] = 0;
+                return;
+            }
             unsigned int ipnum = d_values[idx];
             int bytes = 3; // 3 dots: xxx.xxx.xxx.xxx
             for( int j=0; j < 4; ++j )
@@ -1765,7 +1792,12 @@ NVStrings* NVStrings::int2ip( const unsigned int* values, unsigned int count, bo
     char* d_buffer = rtn->pImpl->createMemoryFor(d_sizes);
     custring_view_array d_strings = rtn->pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-        [d_buffer, d_offsets, d_values, d_strings] __device__(unsigned int idx){
+        [d_buffer, d_offsets, d_nulls, d_values, d_strings] __device__(unsigned int idx){
+            if( d_nulls && ((d_nulls[idx/8] & (1 << (idx % 8)))==0) )
+            {
+                d_strings[idx] = 0;
+                return;
+            }
             unsigned int ipnum = d_values[idx];
             char* str = d_buffer + d_offsets[idx];
             char* ptr = str;
