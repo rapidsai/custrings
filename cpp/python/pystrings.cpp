@@ -810,7 +810,7 @@ static PyObject* n_cat( PyObject* self, PyObject* args )
 
 // split each string into newer strings
 // this will return an array of NVStrings to be wrapped in nvstrings
-static PyObject* n_split( PyObject* self, PyObject* args )
+static PyObject* n_split_record( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     const char* delimiter = 0;
@@ -823,7 +823,7 @@ static PyObject* n_split( PyObject* self, PyObject* args )
         maxsplit = (int)PyLong_AsLong(argOpt);
 
     std::vector<NVStrings*> results;
-    tptr->split(delimiter,maxsplit,results);
+    tptr->split_record(delimiter,maxsplit,results);
     //
     PyObject* ret = PyList_New(tptr->size());
     int idx=0;
@@ -833,7 +833,7 @@ static PyObject* n_split( PyObject* self, PyObject* args )
 }
 
 // another split but from the right
-static PyObject* n_rsplit( PyObject* self, PyObject* args )
+static PyObject* n_rsplit_record( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     const char* delimiter = 0;
@@ -846,7 +846,7 @@ static PyObject* n_rsplit( PyObject* self, PyObject* args )
         maxsplit = (int)PyLong_AsLong(argOpt);
 
     std::vector<NVStrings*> results;
-    tptr->rsplit(delimiter,maxsplit,results);
+    tptr->rsplit_record(delimiter,maxsplit,results);
     //
     PyObject* ret = PyList_New(tptr->size());
     int idx=0;
@@ -887,7 +887,7 @@ static PyObject* n_rpartition( PyObject* self, PyObject* args )
     return ret;
 }
 
-static PyObject* n_split_column( PyObject* self, PyObject* args )
+static PyObject* n_split( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     const char* delimiter = 0;
@@ -900,7 +900,7 @@ static PyObject* n_split_column( PyObject* self, PyObject* args )
         maxsplit = (int)PyLong_AsLong(argOpt);
 
     std::vector<NVStrings*> results;
-    int columns = (int)tptr->split_column(delimiter,maxsplit,results);
+    int columns = (int)tptr->split(delimiter,maxsplit,results);
     //
     PyObject* ret = PyList_New(columns);
     int idx=0;
@@ -909,7 +909,7 @@ static PyObject* n_split_column( PyObject* self, PyObject* args )
     return ret;
 }
 
-static PyObject* n_rsplit_column( PyObject* self, PyObject* args )
+static PyObject* n_rsplit( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     const char* delimiter = 0;
@@ -922,7 +922,7 @@ static PyObject* n_rsplit_column( PyObject* self, PyObject* args )
         maxsplit = (int)PyLong_AsLong(argOpt);
 
     std::vector<NVStrings*> results;
-    int columns = (int)tptr->rsplit_column(delimiter,maxsplit,results);
+    int columns = (int)tptr->rsplit(delimiter,maxsplit,results);
     //
     PyObject* ret = PyList_New(columns);
     int idx=0;
@@ -1530,13 +1530,13 @@ static PyObject* n_rindex( PyObject* self, PyObject* args )
 }
 
 // this will return an array of NVStrings to be wrapped in nvstrings
-static PyObject* n_findall( PyObject* self, PyObject* args )
+static PyObject* n_findall_record( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     const char* pat = PyUnicode_AsUTF8(PyTuple_GetItem(args,1));
 
     std::vector<NVStrings*> results;
-    tptr->findall(pat,results);
+    tptr->findall_record(pat,results);
     //
     PyObject* ret = PyList_New(results.size());
     int idx=0;
@@ -1546,13 +1546,13 @@ static PyObject* n_findall( PyObject* self, PyObject* args )
 }
 
 // same but column-major groupings of results
-static PyObject* n_findall_column( PyObject* self, PyObject* args )
+static PyObject* n_findall( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     const char* pat = PyUnicode_AsUTF8(PyTuple_GetItem(args,1));
 
     std::vector<NVStrings*> results;
-    tptr->findall_column(pat,results);
+    tptr->findall(pat,results);
     //
     PyObject* ret = PyList_New(results.size());
     int idx=0;
@@ -1765,13 +1765,13 @@ static PyObject* n_count( PyObject* self, PyObject* args )
 }
 
 // this will return an array of NVStrings to be wrapped in nvstrings
-static PyObject* n_extract( PyObject* self, PyObject* args )
+static PyObject* n_extract_record( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     const char* pat = PyUnicode_AsUTF8(PyTuple_GetItem(args,1));
 
     std::vector<NVStrings*> results;
-    tptr->extract(pat,results);
+    tptr->extract_record(pat,results);
     //
     PyObject* ret = PyList_New(results.size());
     int idx=0;
@@ -1781,13 +1781,13 @@ static PyObject* n_extract( PyObject* self, PyObject* args )
 }
 
 // same but column-major groupings of results
-static PyObject* n_extract_column( PyObject* self, PyObject* args )
+static PyObject* n_extract( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     const char* pat = PyUnicode_AsUTF8(PyTuple_GetItem(args,1));
 
     std::vector<NVStrings*> results;
-    tptr->extract_column(pat,results);
+    tptr->extract(pat,results);
     //
     PyObject* ret = PyList_New(results.size());
     int idx=0;
@@ -2353,8 +2353,8 @@ static PyMethodDef s_Methods[] = {
     { "n_rsplit", n_rsplit, METH_VARARGS, "" },
     { "n_partition", n_partition, METH_VARARGS, "" },
     { "n_rpartition", n_rpartition, METH_VARARGS, "" },
-    { "n_split_column", n_split_column, METH_VARARGS, "" },
-    { "n_rsplit_column", n_rsplit_column, METH_VARARGS, "" },
+    { "n_split_record", n_split_record, METH_VARARGS, "" },
+    { "n_rsplit_record", n_rsplit_record, METH_VARARGS, "" },
     { "n_get", n_get, METH_VARARGS, "" },
     { "n_repeat", n_repeat, METH_VARARGS, "" },
     { "n_pad", n_pad, METH_VARARGS, "" },
@@ -2388,12 +2388,12 @@ static PyMethodDef s_Methods[] = {
     { "n_rindex", n_rindex, METH_VARARGS, "" },
     { "n_rindex", n_rindex, METH_VARARGS, "" },
     { "n_findall", n_findall, METH_VARARGS, "" },
-    { "n_findall_column", n_findall_column, METH_VARARGS, "" },
+    { "n_findall_record", n_findall_record, METH_VARARGS, "" },
     { "n_contains", n_contains, METH_VARARGS, "" },
     { "n_match", n_match, METH_VARARGS, "" },
     { "n_count", n_count, METH_VARARGS, "" },
     { "n_extract", n_extract, METH_VARARGS, "" },
-    { "n_extract_column", n_extract_column, METH_VARARGS, "" },
+    { "n_extract_record", n_extract_record, METH_VARARGS, "" },
     { "n_startswith", n_startswith, METH_VARARGS, "" },
     { "n_endswith", n_endswith, METH_VARARGS, "" },
     { "n_sort", n_sort, METH_VARARGS, "" },

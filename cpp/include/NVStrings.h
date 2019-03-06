@@ -122,11 +122,11 @@ public:
     NVStrings* join( const char* delimiter, const char* narep=0 );
 
     // each string is split into a list of new strings
-    int split( const char* delimiter, int maxsplit, std::vector<NVStrings*>& results);
-    int rsplit( const char* delimiter, int maxsplit, std::vector<NVStrings*>& results);
+    int split_record( const char* delimiter, int maxsplit, std::vector<NVStrings*>& results);
+    int rsplit_record( const char* delimiter, int maxsplit, std::vector<NVStrings*>& results);
     // split each string into a new column -- number of columns = string with the most delimiters
-    unsigned int split_column( const char* delimiter, int maxsplit, std::vector<NVStrings*>& results);
-    unsigned int rsplit_column( const char* delimiter, int maxsplit, std::vector<NVStrings*>& results);
+    unsigned int split( const char* delimiter, int maxsplit, std::vector<NVStrings*>& results);
+    unsigned int rsplit( const char* delimiter, int maxsplit, std::vector<NVStrings*>& results);
     // each string is split into two strings on the first delimiter found
     // three strings are returned for each string: left-half, delimiter itself, right-half
     int partition( const char* delimiter, std::vector<NVStrings*>& results);
@@ -185,7 +185,7 @@ public:
     unsigned int find_multiple( NVStrings& strs, int* results, bool todevice=true );
     // return all occurrences of the specified regex pattern in each string
     int findall( const char* ptn, std::vector<NVStrings*>& results );
-    int findall_column( const char* ptn, std::vector<NVStrings*>& results );
+    int findall_record( const char* ptn, std::vector<NVStrings*>& results );
     // search for string or regex pattern within each string
     int contains( const char* str, bool* results, bool todevice=true );
     int contains_re( const char* ptn, bool* results, bool todevice=true );
@@ -201,7 +201,7 @@ public:
     // returns a list of strings for each group specified in the specified regex pattern
     int extract( const char* ptn, std::vector<NVStrings*>& results );
     // same as extract() but group results are returned in column-major
-    int extract_column( const char* ptn, std::vector<NVStrings*>& results );
+    int extract_record( const char* ptn, std::vector<NVStrings*>& results );
     //
     unsigned int isalnum( bool* results, bool todevice=true );
     unsigned int isalpha( bool* results, bool todevice=true );

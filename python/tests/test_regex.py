@@ -55,27 +55,27 @@ print(".count(a):", strs.count('a'))
 print(".count([aA]):", strs.count('[aA]'))
 print(".match('[bB][aA]'):", strs.match('[bB][aA]'))
 print(".findall('[aA]'):")
-rows = strs.findall('[aA]')
-for row in rows:
-	print(" ",row)
-print(".findall_column('[aA]'):")
-columns = strs.findall_column('[aA]')
+columns = strs.findall('[aA]')
 for col in columns:
 	print(" ",col)
+print(".findall_record('[aA]'):")
+rows = strs.findall_record('[aA]')
+for row in rows:
+	print(" ",row)
 
 print("----------------------")
 strs = nvstrings.to_device(['ALA-PEK Flight:HU7934', 'HKT-PEK Flight:CA822', 'FRA-PEK Flight:LA8769', 'FRA-PEK Flight:LH7332', '', None, 'Flight:ZZ'])
 print(strs)
 print(".extract(r'Flight:([A-Z]+)(\d+)'):")
-rows = strs.extract(r'Flight:([A-Z]+)(\d+)')
-for row in rows:
-	print(" ",row)
-	nvstrings.free(row)
-print(".extract_column(r'Flight:([A-Z]+)(\d+)'):")
-columns = strs.extract_column(r'Flight:([A-Z]+)(\d+)')
+columns = strs.extract(r'Flight:([A-Z]+)(\d+)')
 for col in columns:
 	print(" ",col)
 	nvstrings.free(col)
+print(".extract_record(r'Flight:([A-Z]+)(\d+)'):")
+rows = strs.extract_record(r'Flight:([A-Z]+)(\d+)')
+for row in rows:
+	print(" ",row)
+	nvstrings.free(row)
 
 print("----------------------")
 strs = nvstrings.to_device('word [[wikt:anarchism|anarchism]] is')

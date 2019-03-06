@@ -806,7 +806,7 @@ class nvstrings:
             rtn = nvstrings(rtn)
         return rtn
 
-    def split(self, delimiter=None, n=-1):
+    def split_record(self, delimiter=None, n=-1):
         """
         Returns an array of nvstrings each representing the split
         of each individual string.
@@ -827,7 +827,7 @@ class nvstrings:
           import nvstrings
 
           s = nvstrings.to_device(["hello world","goodbye","well said"])
-          for result in s.split(' '):
+          for result in s.split_record(' '):
             print(result)
 
 
@@ -840,7 +840,7 @@ class nvstrings:
           ["well","said"]
 
         """
-        strs = pyniNVStrings.n_split(self.m_cptr, delimiter, n)
+        strs = pyniNVStrings.n_split_record(self.m_cptr, delimiter, n)
         rtn = []
         for cptr in strs:
             if cptr != 0:
@@ -849,7 +849,7 @@ class nvstrings:
                 rtn.append(None)
         return rtn
 
-    def rsplit(self, delimiter=None, n=-1):
+    def rsplit_record(self, delimiter=None, n=-1):
         """
         Returns an array of nvstrings each representing the split of each
         individual string. The delimiter is searched for from the end of
@@ -871,7 +871,7 @@ class nvstrings:
           import nvstrings
 
           strs = nvstrings.to_device(["hello world","goodbye","up in arms"])
-          for s in strs.rsplit(' ',2):
+          for s in strs.rsplit_record(' ',2):
             print(s)
 
 
@@ -884,7 +884,7 @@ class nvstrings:
           ['up in', 'arms']
 
         """
-        strs = pyniNVStrings.n_rsplit(self.m_cptr, delimiter, n)
+        strs = pyniNVStrings.n_rsplit_record(self.m_cptr, delimiter, n)
         rtn = []
         for cptr in strs:
             if cptr != 0:
@@ -977,7 +977,7 @@ class nvstrings:
                 rtn.append(None)
         return rtn
 
-    def split_column(self, delimiter=' ', n=-1):
+    def split(self, delimiter=None, n=-1):
         """
         A new set of columns (nvstrings) is created by splitting
         the strings vertically.
@@ -996,7 +996,7 @@ class nvstrings:
           import nvstrings
 
           s = nvstrings.to_device(["hello world","goodbye","well said"])
-          for result in s.split_column(' '):
+          for result in s.split(' '):
             print(result)
 
 
@@ -1008,7 +1008,7 @@ class nvstrings:
           ["world",None,"said"]
 
         """
-        strs = pyniNVStrings.n_split_column(self.m_cptr, delimiter, n)
+        strs = pyniNVStrings.n_split(self.m_cptr, delimiter, n)
         rtn = []
         for cptr in strs:
             if cptr != 0:
@@ -1017,7 +1017,7 @@ class nvstrings:
                 rtn.append(None)
         return rtn
 
-    def rsplit_column(self, delimiter=' ', n=-1):
+    def rsplit(self, delimiter=None, n=-1):
         """
         A new set of columns (nvstrings) is created by splitting
         the strings vertically. Delimiter is searched from the end.
@@ -1035,7 +1035,7 @@ class nvstrings:
           import nvstrings
 
           s = nvstrings.to_device(["hello world","goodbye","well said"])
-          for result in s.rsplit_column(' '):
+          for result in s.rsplit(' '):
             print(result)
 
 
@@ -1047,7 +1047,7 @@ class nvstrings:
           ["world",None,"said"]
 
         """
-        strs = pyniNVStrings.n_rsplit_column(self.m_cptr, delimiter, n)
+        strs = pyniNVStrings.n_rsplit(self.m_cptr, delimiter, n)
         rtn = []
         for cptr in strs:
             if cptr != 0:
@@ -1961,7 +1961,7 @@ class nvstrings:
         rtn = pyniNVStrings.n_rfind(self.m_cptr, sub, start, end, devptr)
         return rtn
 
-    def findall(self, pat):
+    def findall_record(self, pat):
         """
         Find all occurrences of regular expression pattern in each string.
         A new array of nvstrings is created for each string in this instance.
@@ -1979,7 +1979,7 @@ class nvstrings:
           import nvstrings
 
           s = nvstrings.to_device(["hare","bunny","rabbit"])
-          for result in s.findall('[ab]'):
+          for result in s.findall_record('[ab]'):
             print(result)
 
 
@@ -1992,7 +1992,7 @@ class nvstrings:
           ["a","b","b"]
 
         """
-        strs = pyniNVStrings.n_findall(self.m_cptr, pat)
+        strs = pyniNVStrings.n_findall_record(self.m_cptr, pat)
         rtn = []
         for cptr in strs:
             if cptr != 0:
@@ -2001,7 +2001,7 @@ class nvstrings:
                 rtn.append(None)
         return rtn
 
-    def findall_column(self, pat):
+    def findall(self, pat):
         """
         A new set of nvstrings is created by organizing substring
         results vertically.
@@ -2019,7 +2019,7 @@ class nvstrings:
           import nvstrings
 
           s = nvstrings.to_device(["hare","bunny","rabbit"])
-          for result in s.findall_column('[ab]'):
+          for result in s.findall('[ab]'):
             print(result)
 
 
@@ -2032,7 +2032,7 @@ class nvstrings:
           [None,None,"b"]
 
         """
-        strs = pyniNVStrings.n_findall_column(self.m_cptr, pat)
+        strs = pyniNVStrings.n_findall(self.m_cptr, pat)
         rtn = []
         for cptr in strs:
             if cptr != 0:
@@ -2200,10 +2200,51 @@ class nvstrings:
         rtn = pyniNVStrings.n_endswith(self.m_cptr, pat, devptr)
         return rtn
 
-    def extract(self, pat):
+    def extract_record(self, pat):
         """
         Extract string from the first match of regular expression pat.
         A new array of nvstrings is created for each string in this instance.
+
+        Parameters
+        ----------
+            pat : str
+                The regex pattern with group capture syntax
+
+        Examples
+        --------
+
+        .. code-block:: python
+
+          import nvstrings
+
+          s = nvstrings.to_device(["a1","b2","c3"])
+          for result in s.extract_record('([ab])(\\d)'):
+            print(result)
+
+
+        Output:
+
+        .. code-block:: python
+
+          ["a","1"]
+          ["b","2"]
+          [None,None]
+
+        """
+        strs = pyniNVStrings.n_extract_record(self.m_cptr, pat)
+        rtn = []
+        for cptr in strs:
+            if cptr != 0:
+                rtn.append(nvstrings(cptr))
+            else:
+                rtn.append(None)
+        return rtn
+
+    def extract(self, pat):
+        """
+        Extract string from the first match of regular expression pat.
+        A new array of nvstrings is created by organizing group results
+        vertically.
 
         Parameters
         ----------
@@ -2226,53 +2267,12 @@ class nvstrings:
 
         .. code-block:: python
 
-          ["a","1"]
-          ["b","2"]
-          [None,None]
-
-        """
-        strs = pyniNVStrings.n_extract(self.m_cptr, pat)
-        rtn = []
-        for cptr in strs:
-            if cptr != 0:
-                rtn.append(nvstrings(cptr))
-            else:
-                rtn.append(None)
-        return rtn
-
-    def extract_column(self, pat):
-        """
-        Extract string from the first match of regular expression pat.
-        A new array of nvstrings is created by organizing group results
-        vertically.
-
-        Parameters
-        ----------
-            pat : str
-                The regex pattern with group capture syntax
-
-        Examples
-        --------
-
-        .. code-block:: python
-
-          import nvstrings
-
-          s = nvstrings.to_device(["a1","b2","c3"])
-          for result in s.extract_column('([ab])(\\d)'):
-            print(result)
-
-
-        Output:
-
-        .. code-block:: python
-
           ["a","b"]
           ["1","2"]
           [None,None]
 
         """
-        strs = pyniNVStrings.n_extract_column(self.m_cptr, pat)
+        strs = pyniNVStrings.n_extract(self.m_cptr, pat)
         rtn = []
         for cptr in strs:
             if cptr != 0:

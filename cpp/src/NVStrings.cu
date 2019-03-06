@@ -1930,7 +1930,7 @@ NVStrings* NVStrings::cat( NVStrings* others, const char* separator, const char*
 }
 
 //
-int NVStrings::split( const char* delimiter, int maxsplit, std::vector<NVStrings*>& results)
+int NVStrings::split_record( const char* delimiter, int maxsplit, std::vector<NVStrings*>& results)
 {
     auto execpol = rmm::exec_policy(0);
     char* d_delimiter = 0;
@@ -2030,14 +2030,14 @@ int NVStrings::split( const char* delimiter, int maxsplit, std::vector<NVStrings
             dstr->split(d_delimiter,dellen,d_count,d_strs);
         });
     //
-    printCudaError(cudaDeviceSynchronize(),"nvs-split");
+    printCudaError(cudaDeviceSynchronize(),"nvs-split_record");
     RMM_FREE(d_delimiter,0);
     //
     return totalNewStrings;
 }
 
 //
-int NVStrings::rsplit( const char* delimiter, int maxsplit, std::vector<NVStrings*>& results)
+int NVStrings::rsplit_record( const char* delimiter, int maxsplit, std::vector<NVStrings*>& results)
 {
     auto execpol = rmm::exec_policy(0);
     char* d_delimiter = 0;
@@ -2136,7 +2136,7 @@ int NVStrings::rsplit( const char* delimiter, int maxsplit, std::vector<NVString
             dstr->rsplit(d_delimiter,dellen,d_count,d_strs);
         });
     //
-    printCudaError(cudaDeviceSynchronize(),"nvs-rsplit");
+    printCudaError(cudaDeviceSynchronize(),"nvs-rsplit_record");
     RMM_FREE(d_delimiter,0);
 
     return totalNewStrings;
@@ -2144,7 +2144,7 @@ int NVStrings::rsplit( const char* delimiter, int maxsplit, std::vector<NVString
 
 // This will create new columns by splitting the array of strings vertically.
 // All the first tokens go in the first column, all the second tokens go in the second column, etc.
-unsigned int NVStrings::split_column( const char* delimiter, int maxsplit, std::vector<NVStrings*>& results)
+unsigned int NVStrings::split( const char* delimiter, int maxsplit, std::vector<NVStrings*>& results)
 {
     auto execpol = rmm::exec_policy(0);
     char* d_delimiter = 0;
@@ -2237,7 +2237,7 @@ unsigned int NVStrings::split_column( const char* delimiter, int maxsplit, std::
         cudaError_t err = cudaDeviceSynchronize();
         if( err != cudaSuccess )
         {
-            fprintf(stderr,"nvs-split_column(%s,%d), col=%d\n",delimiter,maxsplit,col);
+            fprintf(stderr,"nvs-split(%s,%d), col=%d\n",delimiter,maxsplit,col);
             printCudaError(err);
         }
         //et = GetTime();
@@ -2254,8 +2254,8 @@ unsigned int NVStrings::split_column( const char* delimiter, int maxsplit, std::
     return (unsigned int)columnsCount;
 }
 
-// split-from-the-right version of split_column
-unsigned int NVStrings::rsplit_column( const char* delimiter, int maxsplit, std::vector<NVStrings*>& results)
+// split-from-the-right version of split
+unsigned int NVStrings::rsplit( const char* delimiter, int maxsplit, std::vector<NVStrings*>& results)
 {
     auto execpol = rmm::exec_policy(0);
     char* d_delimiter = 0;
@@ -2350,7 +2350,7 @@ unsigned int NVStrings::rsplit_column( const char* delimiter, int maxsplit, std:
         cudaError_t err = cudaDeviceSynchronize();
         if( err != cudaSuccess )
         {
-            fprintf(stderr,"nvs-rsplit_column(%s,%d)\n",delimiter,maxsplit);
+            fprintf(stderr,"nvs-rsplit(%s,%d)\n",delimiter,maxsplit);
             printCudaError(err);
         }
         //
@@ -4326,7 +4326,7 @@ unsigned int NVStrings::find_multiple( NVStrings& strs, int* results, bool todev
 }
 
 // for each string, return substring(s) which match specified pattern
-int NVStrings::findall( const char* pattern, std::vector<NVStrings*>& results )
+int NVStrings::findall_record( const char* pattern, std::vector<NVStrings*>& results )
 {
     if( pattern==0 )
         return -1;
@@ -4417,12 +4417,12 @@ int NVStrings::findall( const char* pattern, std::vector<NVStrings*>& results )
             }
         });
     //
-    printCudaError(cudaDeviceSynchronize(),"nvs-findall");
+    printCudaError(cudaDeviceSynchronize(),"nvs-findall_record");
     return count;
 }
 
 // same as findall but strings are returned organized in column-major
-int NVStrings::findall_column( const char* pattern, std::vector<NVStrings*>& results )
+int NVStrings::findall( const char* pattern, std::vector<NVStrings*>& results )
 {
     if( pattern==0 )
         return -1;
@@ -4494,7 +4494,7 @@ int NVStrings::findall_column( const char* pattern, std::vector<NVStrings*>& res
         cudaError_t err = cudaDeviceSynchronize();
         if( err != cudaSuccess )
         {
-            fprintf(stderr,"nvs-findall_column(%s): col=%d\n",pattern,col);
+            fprintf(stderr,"nvs-findall(%s): col=%d\n",pattern,col);
             printCudaError(err);
         }
         // build new instance from the index
@@ -4818,7 +4818,7 @@ unsigned int NVStrings::endswith( const char* str, bool* results, bool todevice 
 }
 
 //
-int NVStrings::extract( const char* pattern, std::vector<NVStrings*>& results)
+int NVStrings::extract_record( const char* pattern, std::vector<NVStrings*>& results)
 {
     if( pattern==0 )
         return -1;
@@ -4906,14 +4906,14 @@ int NVStrings::extract( const char* pattern, std::vector<NVStrings*>& results)
     cudaError_t err = cudaDeviceSynchronize();
     if( err != cudaSuccess )
     {
-        fprintf(stderr,"nvs-extract(%s): groups=%d\n",pattern,groups);
+        fprintf(stderr,"nvs-extract_record(%s): groups=%d\n",pattern,groups);
         printCudaError(err);
     }
     return groups;
 }
 
 // column-major version of extract() method above
-int NVStrings::extract_column( const char* pattern, std::vector<NVStrings*>& results)
+int NVStrings::extract( const char* pattern, std::vector<NVStrings*>& results)
 {
     if( pattern==0 )
         return -1;
@@ -4991,7 +4991,7 @@ int NVStrings::extract_column( const char* pattern, std::vector<NVStrings*>& res
         cudaError_t err = cudaDeviceSynchronize();
         if( err != cudaSuccess )
         {
-            fprintf(stderr,"nvs-extract_column(%s): col=%d\n",pattern,col);
+            fprintf(stderr,"nvs-extract(%s): col=%d\n",pattern,col);
             printCudaError(err);
         }
         // column already added to results above
