@@ -2179,7 +2179,6 @@ unsigned int NVStrings::split( const char* delimiter, int maxsplit, std::vector<
     }
 
     // need to count how many output strings per string
-    //double st = GetTime();
     unsigned int count = size();
     custring_view_array d_strings = pImpl->getStringsPtr();
     rmm::device_vector<int> counts(count,0);
@@ -2191,8 +2190,9 @@ unsigned int NVStrings::split( const char* delimiter, int maxsplit, std::vector<
                 d_counts[idx] = dstr->split_size(d_delimiter,dellen,0,maxsplit);
         });
     int columnsCount = *thrust::max_element(execpol->on(0), counts.begin(), counts.end() );
-    //double et = GetTime();
-    //printf("%d columns: %gs\n",columnsCount,(et-st));
+    // boundary case: if no columns, return one null column (issue #119)
+    if( columnsCount==0 )
+        results.push_back(new NVStrings(count));
 
     // create each column
     for( int col=0; col < columnsCount; ++col )
@@ -2266,18 +2266,14 @@ unsigned int NVStrings::split( const char* delimiter, int maxsplit, std::vector<
             fprintf(stderr,"nvs-split(%s,%d), col=%d\n",delimiter,maxsplit,col);
             printCudaError(err);
         }
-        //et = GetTime();
-        //printf("%3d split-index = %gs, ",col,(et-st));
         //
-        //st = GetTime();
         NVStrings* column = NVStrings::create_from_index((std::pair<const char*,size_t>*)d_indexes,count);
         results.push_back(column);
-        //et = GetTime();
-        //printf("create = %gs\n",(et-st));
     }
     //
-    RMM_FREE(d_delimiter,0);
-    return (unsigned int)columnsCount;
+    if( d_delimiter )
+        RMM_FREE(d_delimiter,0);
+    return (unsigned int)results.size();
 }
 
 // split-from-the-right version of split
@@ -2305,9 +2301,10 @@ unsigned int NVStrings::rsplit( const char* delimiter, int maxsplit, std::vector
                 d_counts[idx] = dstr->rsplit_size(d_delimiter,dellen,0,maxsplit);
         });
 
-    //int columnsCount = thrust::transform_reduce(execpol->on(0),d_counts,d_counts+count,thrust::identity<int>(),0,thrust::maximum<int>());
     int columnsCount = *thrust::max_element(execpol->on(0), counts.begin(), counts.end() );
-    //printf("columns=%d\n",columnsCount);
+    // boundary case: if no columns, return one null column (issue #119)
+    if( columnsCount==0 )
+        results.push_back(new NVStrings(count));
 
     // create each column
     for( int col = 0; col < columnsCount; ++col )
@@ -2388,8 +2385,9 @@ unsigned int NVStrings::rsplit( const char* delimiter, int maxsplit, std::vector
         results.push_back(column);
     }
     //
-    RMM_FREE(d_delimiter,0);
-    return (unsigned int)columnsCount;
+    if( d_delimiter )
+        RMM_FREE(d_delimiter,0);
+    return (unsigned int)results.size();
 }
 
 //
@@ -4448,6 +4446,7 @@ int NVStrings::findall_record( const char* pattern, std::vector<NVStrings*>& res
         });
     //
     printCudaError(cudaDeviceSynchronize(),"nvs-findall_record");
+    dreprog::destroy(prog);
     return count;
 }
 
@@ -4488,8 +4487,10 @@ int NVStrings::findall( const char* pattern, std::vector<NVStrings*>& results )
             d_counts[idx] = fnd;
         });
     int columns = *thrust::max_element(execpol->on(0), counts.begin(), counts.end() );
-    //printf("%d columns\n",columns);
-    //
+    // boundary case: if no columns, return one null column (issue #119)
+    if( columns==0 )
+        results.push_back(new NVStrings(count));
+
     // create columns of nvstrings
     for( int col=0; col < columns; ++col )
     {
@@ -4536,8 +4537,8 @@ int NVStrings::findall( const char* pattern, std::vector<NVStrings*>& results )
         NVStrings* column = NVStrings::create_from_index((std::pair<const char*,size_t>*)d_indexes,count);
         results.push_back(column);
     }
-
-    return columns;
+    dreprog::destroy(prog);
+    return (unsigned int)results.size();
 }
 
 // does specified string occur in each string
@@ -4944,6 +4945,7 @@ int NVStrings::extract_record( const char* pattern, std::vector<NVStrings*>& res
         fprintf(stderr,"nvs-extract_record(%s): groups=%d\n",pattern,groups);
         printCudaError(err);
     }
+    dreprog::destroy(prog);
     return groups;
 }
 
@@ -5031,7 +5033,7 @@ int NVStrings::extract( const char* pattern, std::vector<NVStrings*>& results)
         }
         // column already added to results above
     }
-
+    dreprog::destroy(prog);
     return groups;
 }
 
