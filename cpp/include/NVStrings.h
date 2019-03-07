@@ -227,9 +227,9 @@ public:
     static NVStrings* int2ip( const unsigned int* values, unsigned int count, const unsigned char* nullbitmask=0, bool todevice=true);
 
     // sorts the strings managed by this instance
-    NVStrings* sort( sorttype st, bool ascending=true );
+    NVStrings* sort( sorttype st, bool ascending=true, bool nullfirst=true );
     // returns new row index positions only; strings order is not modified
-    int order( sorttype st, bool ascending, unsigned int* indexes, bool todevice=true );
+    int order( sorttype st, bool ascending, unsigned int* indexes, bool nullfirst=true, bool todevice=true );
 
     // output strings to stdout
     void print( int pos=0, int end=-1, int maxwidth=-1, const char* delimiter = "\n" );

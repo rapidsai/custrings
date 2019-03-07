@@ -5726,7 +5726,7 @@ NVStrings* NVStrings::wrap( unsigned int width )
 
 // this now sorts the strings into a new instance;
 // a sorted strings list can improve performance by reducing divergence
-NVStrings* NVStrings::sort( sorttype stype, bool ascending )
+NVStrings* NVStrings::sort( sorttype stype, bool ascending, bool nullfirst )
 {
     unsigned int count = size();
     custring_view_array d_strings = pImpl->getStringsPtr();
@@ -5750,9 +5750,9 @@ NVStrings* NVStrings::sort( sorttype stype, bool ascending )
     custring_view_array d_sortvector = sortvector.data().get();
     cudaMemcpy(d_sortvector,d_strings,sizeof(custring_view*)*count,cudaMemcpyDeviceToDevice);
     thrust::sort_by_key(execpol->on(0), d_sortvector, d_sortvector+count, d_lengths,
-        [ stype, ascending ] __device__( custring_view*& lhs, custring_view*& rhs ) {
+        [stype, ascending, nullfirst] __device__( custring_view*& lhs, custring_view*& rhs ) {
             if( lhs==0 || rhs==0 )
-                return (ascending ? rhs!=0 : lhs!=0); // null < non-null
+                return (nullfirst ? rhs!=0 : lhs!=0); // null < non-null
             // allow sorting by name and length
             int diff = 0;
             if( stype & NVStrings::length )
@@ -5794,7 +5794,7 @@ NVStrings* NVStrings::sort( sorttype stype, bool ascending )
 }
 
 // just provide the index order and leave the strings intact
-int NVStrings::order( sorttype stype, bool ascending, unsigned int* indexes, bool todevice )
+int NVStrings::order( sorttype stype, bool ascending, unsigned int* indexes, bool nullfirst, bool todevice )
 {
     unsigned int count = size();
     unsigned int* d_indexes = indexes;
@@ -5805,11 +5805,11 @@ int NVStrings::order( sorttype stype, bool ascending, unsigned int* indexes, boo
     //
     custring_view_array d_strings = pImpl->getStringsPtr();
     thrust::sort(execpol->on(0), d_indexes, d_indexes+count,
-        [ d_strings, stype, ascending ] __device__( unsigned int& lidx, unsigned int& ridx ) {
+        [d_strings, stype, ascending, nullfirst] __device__( unsigned int& lidx, unsigned int& ridx ) {
             custring_view* lhs = d_strings[lidx];
             custring_view* rhs = d_strings[ridx];
             if( lhs==0 || rhs==0 )
-                return (ascending ? rhs!=0 : lhs!=0); // null < non-null
+                return (nullfirst ? rhs!=0 : lhs!=0);
             // allow sorting by name and length
             int diff = 0;
             if( stype & NVStrings::length )

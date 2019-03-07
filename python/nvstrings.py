@@ -2529,7 +2529,7 @@ class nvstrings:
             rtn = nvstrings(rtn)
         return rtn
 
-    def sort(self, stype, asc=True):
+    def sort(self, stype, asc=True, nullfirst=True):
         """
         Sort this list by name (2) or length (1) or both (3).
         Sorting can help improve performance for other operations.
@@ -2549,6 +2549,9 @@ class nvstrings:
           asc : bool
             Whether to sort ascending (True) or descending (False)
 
+          nullfirst : bool
+            Null strings are sorted to the beginning by default
+
         Examples
         --------
         .. code-block:: python
@@ -2565,12 +2568,12 @@ class nvstrings:
           ['bb', 'aaa', 'aaaabb']
 
         """
-        rtn = pyniNVStrings.n_sort(self.m_cptr, stype, asc)
+        rtn = pyniNVStrings.n_sort(self.m_cptr, stype, asc, nullfirst)
         if rtn is not None:
             rtn = nvstrings(rtn)
         return rtn
 
-    def order(self, stype, asc=True, devptr=0):
+    def order(self, stype, asc=True, nullfirst=True, devptr=0):
         """
         Sort this list by name (2) or length (1) or both (3).
         This sort only provides the new indexes and does not reorder the
@@ -2590,6 +2593,9 @@ class nvstrings:
 
           asc : bool
             Whether to sort ascending (True) or descending (False)
+
+          nullfirst : bool
+            Null strings are sorted to the beginning by default
 
           devptr : GPU memory pointer
                 Where index values will be written.
@@ -2611,7 +2617,7 @@ class nvstrings:
           [1, 0, 2]
 
         """
-        rtn = pyniNVStrings.n_order(self.m_cptr, stype, asc, devptr)
+        rtn = pyniNVStrings.n_order(self.m_cptr, stype, asc, nullfirst, devptr)
         return rtn
 
     def sublist(self, indexes, count=0):
