@@ -1011,7 +1011,11 @@ NVCategory* NVCategory::gather( int* pos, unsigned int count, bool bdevmem )
     int invalidcount = thrust::count_if(execpol->on(0), d_v, d_v+count,
         [kcount] __device__ (int v) { return ((v < 0) || (v >= kcount)); } );
     if( invalidcount )
+    {
+        if( !bdevmem )
+            RMM_FREE(d_v,0);
         throw std::out_of_range("");
+    }
 
     // build x vector which has 1s for each value in v
     rmm::device_vector<int> x(kcount,0);

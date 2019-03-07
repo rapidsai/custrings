@@ -1,6 +1,7 @@
 
 #include <memory.h>
 #include <cuda_runtime.h>
+#include <rmm/rmm.h>
 #include "regex.cuh"
 #include "regcomp.h"
 #include "../custring_view.cuh"
@@ -212,7 +213,7 @@ dreprog* dreprog::create_from(const char32_t* pattern, unsigned char* uflags, un
         int rsz = Relist::size_for(insts_count);
         size_t rlmsz = rsz*2*strscount; // Reljunk has 2 Relist ptrs
         void* rmem = 0;
-        cudaMalloc(&rmem,rlmsz);
+        RMM_ALLOC(&rmem,rlmsz,0);//cudaMalloc(&rmem,rlmsz);
         rtn->relists_mem = rmem;
     }
 
@@ -221,7 +222,7 @@ dreprog* dreprog::create_from(const char32_t* pattern, unsigned char* uflags, un
 
     // copy flat prog to device memory
     dreprog* d_rtn = 0;
-    cudaMalloc(&d_rtn,memsize);
+    RMM_ALLOC(&d_rtn,memsize,0);//cudaMalloc(&d_rtn,memsize);
     cudaMemcpy(d_rtn,rtn,memsize,cudaMemcpyHostToDevice);
     free(rtn);
     return d_rtn;
@@ -230,7 +231,7 @@ dreprog* dreprog::create_from(const char32_t* pattern, unsigned char* uflags, un
 void dreprog::destroy(dreprog* prog)
 {
     prog->free_relists();
-    cudaFree(prog);
+    RMM_FREE(prog,0);//cudaFree(prog);
 }
 
 void dreprog::free_relists()
@@ -238,7 +239,7 @@ void dreprog::free_relists()
     void* cptr = 0; // this magic works but only as member function
     cudaMemcpy(&cptr,&relists_mem,sizeof(void*),cudaMemcpyDeviceToHost);
     if( cptr )
-        cudaFree(cptr);
+        RMM_FREE(cptr,0);//cudaFree(cptr);
 }
 
 int dreprog::inst_counts()
