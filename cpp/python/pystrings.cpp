@@ -1921,8 +1921,9 @@ static PyObject* n_sort( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     NVStrings::sorttype stype = (NVStrings::sorttype)PyLong_AsLong(PyTuple_GetItem(args,1));
-    int asc = (int)PyLong_AsLong(PyTuple_GetItem(args,2));
-    NVStrings* rtn = tptr->sort(stype,(bool)asc);
+    bool asc = (bool)PyObject_IsTrue(PyTuple_GetItem(args,2));
+    bool nullfirst = (bool)PyObject_IsTrue(PyTuple_GetItem(args,3));
+    NVStrings* rtn = tptr->sort(stype,asc,nullfirst);
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -1933,11 +1934,12 @@ static PyObject* n_order( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     NVStrings::sorttype stype = (NVStrings::sorttype)PyLong_AsLong(PyTuple_GetItem(args,1));
-    int asc = (int)PyLong_AsLong(PyTuple_GetItem(args,2));
-    unsigned int* devptr = (unsigned int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,3));
+    bool asc = (bool)PyObject_IsTrue(PyTuple_GetItem(args,2));
+    bool nullfirst = (bool)PyObject_IsTrue(PyTuple_GetItem(args,3));
+    unsigned int* devptr = (unsigned int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,4));
     if( devptr )
     {
-        tptr->order(stype,(bool)asc,devptr);
+        tptr->order(stype,asc,devptr,nullfirst);
         return PyLong_FromVoidPtr((void*)devptr);
     }
 
@@ -1947,7 +1949,7 @@ static PyObject* n_order( PyObject* self, PyObject* args )
     if( count==0 )
         return ret;
     unsigned int* rtn = new unsigned int[count];
-    tptr->order(stype,(bool)asc,rtn,false);
+    tptr->order(stype,asc,rtn,nullfirst,false);
     for(unsigned int idx=0; idx < count; idx++)
         PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));
     delete rtn;
