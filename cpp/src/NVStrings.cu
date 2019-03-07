@@ -308,31 +308,21 @@ int NVStrings_init_from_indexes( NVStringsImpl* pImpl, std::pair<const char*,siz
         RMM_ALLOC(&d_indexes,sizeof(std::pair<const char*,size_t>)*count,0);
         cudaMemcpy(d_indexes,indexes,sizeof(std::pair<const char*,size_t>)*count,cudaMemcpyHostToDevice);
     }
-    //printf("nvs: indexes=%p, count=%'lu\n",d_indexes,count);
 
     // sort the list - helps reduce divergence
     if( stype )
     {
         thrust::sort(execpol->on(0), d_indexes, d_indexes + count,
             [stype] __device__( thrust::pair<const char*,size_t>& lhs, thrust::pair<const char*,size_t>& rhs ) {
-                //if( lhs.first==0 || rhs.first==0 )
-                //    return lhs.first==0; // non-null > null
-                //return custr::compare(lhs.first,(unsigned int)lhs.second,rhs.first,(unsigned int)rhs.second) < 0;
-                //return lhs.second > rhs.second;
-                bool cmp = false;
                 if( lhs.first==0 || rhs.first==0 )
-                    cmp = lhs.first==0; // null < non-null
-                else
-                {   // allow sorting by name and length
-                    int diff = 0;
-                    if( stype & NVStrings::length )
-                        diff = (unsigned int)(rhs.second - lhs.second);
-                    if( diff==0 && (stype & NVStrings::name) )
-                        diff = custr::compare(lhs.first,(unsigned int)lhs.second,rhs.first,(unsigned int)rhs.second) > 0;
-                    cmp = (diff > 0);
-                }
-                return cmp;
-        });
+                    return rhs.first!=0; // null < non-null
+                int diff = 0;
+                if( stype & NVStrings::length )
+                    diff = (unsigned int)(lhs.second - rhs.second);
+                if( diff==0 && (stype & NVStrings::name) )
+                    diff = custr::compare(lhs.first,(unsigned int)lhs.second,rhs.first,(unsigned int)rhs.second);
+                return (diff < 0);
+            });
         err = cudaDeviceSynchronize();
         if( err != cudaSuccess )
         {
@@ -5759,19 +5749,15 @@ NVStrings* NVStrings::sort( sorttype stype, bool ascending )
     cudaMemcpy(d_sortvector,d_strings,sizeof(custring_view*)*count,cudaMemcpyDeviceToDevice);
     thrust::sort_by_key(execpol->on(0), d_sortvector, d_sortvector+count, d_lengths,
         [ stype, ascending ] __device__( custring_view*& lhs, custring_view*& rhs ) {
-            bool cmp = false;
             if( lhs==0 || rhs==0 )
-                cmp = lhs==0; // non-null > null
-            else
-            {   // allow sorting by name and length
-                int diff = 0;
-                if( stype & NVStrings::length )
-                    diff = rhs->size() - lhs->size();
-                if( diff==0 && (stype & NVStrings::name) )
-                    diff = rhs->compare(*lhs) > 0;
-                cmp = (diff > 0);
-            }
-            return ( ascending ? cmp : !cmp );
+                return (ascending ? rhs!=0 : lhs!=0); // null < non-null
+            // allow sorting by name and length
+            int diff = 0;
+            if( stype & NVStrings::length )
+                diff = lhs->size() - rhs->size();
+            if( diff==0 && (stype & NVStrings::name) )
+                diff = lhs->compare(*rhs);
+            return (ascending ? (diff < 0) : (diff > 0));
         });
     //
     cudaError_t err = cudaDeviceSynchronize();
@@ -5820,19 +5806,15 @@ int NVStrings::order( sorttype stype, bool ascending, unsigned int* indexes, boo
         [ d_strings, stype, ascending ] __device__( unsigned int& lidx, unsigned int& ridx ) {
             custring_view* lhs = d_strings[lidx];
             custring_view* rhs = d_strings[ridx];
-            bool cmp = false;
             if( lhs==0 || rhs==0 )
-                cmp = lhs==0; // non-null > null
-            else
-            {   // allow sorting by name and length
-                int diff = 0;
-                if( stype & NVStrings::length )
-                    diff = rhs->size() - lhs->size();
-                if( diff==0 && (stype & NVStrings::name) )
-                    diff = rhs->compare(*lhs) > 0;
-                cmp = (diff > 0);
-            }
-            return ( ascending ? cmp : !cmp );
+                return (ascending ? rhs!=0 : lhs!=0); // null < non-null
+            // allow sorting by name and length
+            int diff = 0;
+            if( stype & NVStrings::length )
+                diff = lhs->size() - rhs->size();
+            if( diff==0 && (stype & NVStrings::name) )
+                diff = lhs->compare(*rhs);
+            return (ascending ? (diff < 0) : (diff > 0));
         });
     cudaError_t err = cudaDeviceSynchronize();
     if( err != cudaSuccess )
