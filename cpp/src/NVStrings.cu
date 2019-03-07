@@ -81,7 +81,8 @@ unsigned char* get_unicode_flags()
 {
     if( !d_unicode_flags )
     {
-        cudaMalloc(&d_unicode_flags,65536); // leave this out of RMM since it is never freed
+        // leave this out of RMM since it is never freed
+        cudaMalloc(&d_unicode_flags,65536);
         cudaMemcpy(d_unicode_flags,unicode_flags,65536,cudaMemcpyHostToDevice);
     }
     return d_unicode_flags;
@@ -92,7 +93,8 @@ unsigned short* get_charcases()
 {
     if( !d_charcases )
     {
-        cudaMalloc(&d_charcases,65536*sizeof(unsigned short)); // leave this out of RMM since it is never freed
+        // leave this out of RMM since it is never freed
+        cudaMalloc(&d_charcases,65536*sizeof(unsigned short));
         cudaMemcpy(d_charcases,charcases,65536*sizeof(unsigned short),cudaMemcpyHostToDevice);
     }
     return d_charcases;
