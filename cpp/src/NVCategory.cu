@@ -208,7 +208,7 @@ void NVCategoryImpl_init(NVCategoryImpl* pImpl, std::pair<const char*,size_t>* p
     thrust::sort_by_key(execpol->on(0), d_pairs, d_pairs+count, d_indexes,
         [] __device__( thrust::pair<const char*,size_t>& lhs, thrust::pair<const char*,size_t>& rhs ) {
             if( lhs.first==0 || rhs.first==0 )
-                return lhs.first==0; // non-null > null
+                return rhs.first!=0; // null < non-null
             return custr::compare(lhs.first,(unsigned int)lhs.second,rhs.first,(unsigned int)rhs.second) < 0;
         });
 
@@ -765,7 +765,7 @@ std::pair<int,int> NVCategory::get_value_bounds(const char* str)
     thrust::sort_by_key(execpol->on(0), d_indexes, d_indexes+(count+1), d_seqdata,
         [] __device__( thrust::pair<const char*,size_t>& lhs, thrust::pair<const char*,size_t>& rhs ) {
             if( lhs.first==0 || rhs.first==0 )
-                return lhs.first==0; // non-null > null
+                return rhs.first!=0;
             return custr::compare(lhs.first,(unsigned int)lhs.second,rhs.first,(unsigned int)rhs.second) < 0;
         });
     // now find the new position of the argument
@@ -1177,7 +1177,7 @@ NVCategory* NVCategory::merge_category(NVCategory& cat2)
     cudaMemcpy( keySort.data().get(), d_keys, ucount * sizeof(custring_view*), cudaMemcpyDeviceToDevice);
     thrust::sort_by_key( execpol->on(0), keySort.begin(), keySort.end(), d_sws,
         [] __device__ (custring_view*& lhs, custring_view*& rhs ) {
-            return ((lhs && rhs) ? (lhs->compare(*rhs)<0) : (lhs==0));
+            return ((lhs && rhs) ? (lhs->compare(*rhs)<0) : (rhs!=0));
         }); // sws is now key index values for the new keyset
     //printDeviceInts("d_sws",d_sws,ucount);
     {
@@ -1266,7 +1266,7 @@ NVCategory* NVCategory::add_keys_and_remap(NVStrings& strs)
     {
         // just take the keys; values are not effected
         // need to sort and unique them
-        thrust::sort(execpol->on(0), d_addKeys, d_addKeys + count, [] __device__( custring_view*& lhs, custring_view*& rhs ) { return ( (lhs && rhs) ? (lhs->compare(*rhs)<0) : (lhs==0) ); });
+        thrust::sort(execpol->on(0), d_addKeys, d_addKeys + count, [] __device__( custring_view*& lhs, custring_view*& rhs ) { return ( (lhs && rhs) ? (lhs->compare(*rhs)<0) : (rhs!=0) ); });
         // now remove duplicates from string list
         auto nend = thrust::unique(execpol->on(0), d_addKeys, d_addKeys + count, [] __device__ (custring_view* lhs, custring_view* rhs) { return ((lhs && rhs) ? (lhs->compare(*rhs)==0) : (lhs==rhs)); });
         unsigned int ucount = nend - d_addKeys;
@@ -1586,7 +1586,7 @@ NVCategory* NVCategory::set_keys_and_remap(NVStrings& strs)
     if( kcount==0 )
     {
         // just take the new keys
-        thrust::sort(execpol->on(0), d_newKeys, d_newKeys + count, [] __device__( custring_view*& lhs, custring_view*& rhs ) { return ( (lhs && rhs) ? (lhs->compare(*rhs)<0) : (lhs==0) ); });
+        thrust::sort(execpol->on(0), d_newKeys, d_newKeys + count, [] __device__( custring_view*& lhs, custring_view*& rhs ) { return ( (lhs && rhs) ? (lhs->compare(*rhs)<0) : (rhs!=0) ); });
         // now remove duplicates from string list
         auto nend = thrust::unique(execpol->on(0), d_newKeys, d_newKeys + count, [] __device__ (custring_view* lhs, custring_view* rhs) { return ((lhs && rhs) ? (lhs->compare(*rhs)==0) : (lhs==rhs)); });
         unsigned int ucount = nend - d_newKeys;
