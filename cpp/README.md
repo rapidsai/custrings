@@ -1,6 +1,10 @@
 NVStrings
 ===========
 
+### API Design
+
+[cuStrings API](cuStrings-API.pdf)
+
 ### Dependecies
 
 The following has been used to build and test library.
