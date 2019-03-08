@@ -51,6 +51,18 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda -gencode=arch=c
 
 add_library(NVStrings SHARED 
             src/NVStrings.cu
+            src/NVStringsImpl.cu
+            src/NVStrings_array.cu
+            src/NVStrings_attrs.cu
+            src/NVStrings_combine.cu
+            src/NVStrings_split.cu
+            src/NVStrings_pad.cu
+            src/NVStrings_substr.cu
+            src/NVStrings_modify.cu
+            src/NVStrings_strip.cu
+            src/NVStrings_case.cu
+            src/NVStrings_find.cu
+            src/NVStrings_convert.cu
             src/custring_view.cu
             src/custring.cu
             src/util.cu
