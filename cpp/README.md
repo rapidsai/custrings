@@ -1,10 +1,6 @@
 NVStrings
 ===========
 
-## API documentation
-
-Current active code is following the API design: [https://confluence.nvidia.com/pages/viewpage.action?spaceKey=DL&title=NVStrings+class](https://confluence.nvidia.com/pages/viewpage.action?spaceKey=DL&title=NVStrings+class)
-
 ### Dependecies
 
 The following has been used to build and test library.
