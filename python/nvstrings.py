@@ -244,11 +244,12 @@ def free(dstrs):
         dstrs.m_cptr = 0
 
 
-def bind_cpointer(cptr):
+def bind_cpointer(cptr, own=True):
     """Bind an NVStrings C-pointer to a new instance."""
     rtn = None
     if cptr != 0:
         rtn = nvstrings(cptr)
+        rtn._own = own
     return rtn
 
 
@@ -269,9 +270,11 @@ class nvstrings:
         Use to_device() to create new instance from Python array of strings.
         """
         self.m_cptr = cptr
+        self._own = True
 
     def __del__(self):
-        pyniNVStrings.n_destroyStrings(self.m_cptr)
+        if self._own:
+            pyniNVStrings.n_destroyStrings(self.m_cptr)
         self.m_cptr = 0
 
     def __str__(self):
@@ -294,7 +297,7 @@ class nvstrings:
         if isinstance(key, slice):
             start = 0 if key.start is None else key.start
             end = self.size() if key.stop is None else key.stop
-            step = 1 if key.step is None or key.step is 0 else key.step
+            step = 1 if key.step is None or key.step == 0 else key.step
             rtn = pyniNVStrings.n_sublist(self.m_cptr, start, end, step)
             if rtn is not None:
                 rtn = nvstrings(rtn)
