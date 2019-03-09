@@ -166,6 +166,15 @@ def from_strings_list(list):
     return rtn
 
 
+def bind_cpointer(cptr, own=True):
+    """Bind an NVCategory C-pointer to a new instance."""
+    rtn = None
+    if cptr != 0:
+        rtn = nvcategory(cptr)
+        rtn._own = own
+    return rtn
+
+
 class nvcategory:
     """
     Instance manages a dictionary of strings (keys) in device memory
@@ -178,9 +187,12 @@ class nvcategory:
     def __init__(self, cptr):
         """For internal use only."""
         self.m_cptr = cptr
+        self._own = True
 
     def __del__(self):
-        pyniNVCategory.n_destroyCategory(self.m_cptr)
+        if self._own:
+            pyniNVCategory.n_destroyCategory(self.m_cptr)
+        self.m_cptr = 0
 
     def __str__(self):
         return str(self.keys())
