@@ -83,6 +83,37 @@ print("cat1", cat1.keys(), cat1.values())
 print("cat2", cat2.keys(), cat2.values())
 ncat = cat1.merge_category(cat2)
 print("cat1.merge_category(cat2)\n", ncat.keys(), ncat.values())
+ncat = cat1.merge_and_remap(cat2)
+print("cat1.merge_and_remap(cat2)\n", ncat.keys(), ncat.values())
+
+# updating keys
+print("-------------------------")
+strs1 = nvstrings.to_device(["a","b","b","f","c","f"])
+cat = nvcategory.from_strings(strs1)
+print(cat.keys(),cat.values())
+
+strs2 = nvstrings.to_device(["a","b","c","d"])
+print("add keys",strs2)
+cat1 = cat.add_keys(strs2)
+print(cat1.keys(),cat1.values())
+
+strs2 = nvstrings.to_device(["b","d"])
+print("remove keys",strs2)
+cat1 = cat.remove_keys(strs2)
+print(cat1.keys(),cat1.values())
+
+strs2 = nvstrings.to_device(["b","c","e","d"])
+print("set keys",strs2)
+cat1 = cat.set_keys(strs2)
+print(cat1.keys(),cat1.values())
+
+print("remove unused keys")
+cat1 = cat1.remove_unused_keys()
+print(cat1.keys(),cat1.values())
+
+print("gather")
+cat1 = cat.gather([1,3,2,3,1,2])
+print(cat1.keys(),cat1.values())
 
 strs = None
 strs1 = None

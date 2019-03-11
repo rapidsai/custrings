@@ -66,11 +66,11 @@ class NVCategory
 public:
 
     // create instance from array of null-terminated host strings
-    static NVCategory* create_from_array(const char** strs, int count);
+    static NVCategory* create_from_array(const char** strs, unsigned int count);
     // create instance from array of strings/length pairs
-    static NVCategory* create_from_index(std::pair<const char*,size_t>* strs, size_t count, bool devmem=true);
+    static NVCategory* create_from_index(std::pair<const char*,size_t>* strs, unsigned int count, bool devmem=true);
     // create instance from host buffer with offsets; null-bitmask is arrow-ordered
-    static NVCategory* create_from_offsets(const char* strs, int count, const int* offsets, const unsigned char* nullbitmask=0, int nulls=0);
+    static NVCategory* create_from_offsets(const char* strs, unsigned int count, const int* offsets, const unsigned char* nullbitmask=0, int nulls=0);
     // create instance from NVStrings instance
     static NVCategory* create_from_strings(NVStrings& strs);
     static NVCategory* create_from_strings(std::vector<NVStrings*>& strs);
@@ -131,7 +131,7 @@ public:
     // convert to original strings list
     NVStrings* to_strings();
     // create a new strings instance identified by the specified index values
-    NVStrings* gather_strings( int* pos, unsigned int elems, bool devmem=true );
+    NVStrings* gather_strings( const int* pos, unsigned int elems, bool devmem=true );
     // create new category instance identified by the specified index values
-    NVCategory* gather( int* pos, unsigned int elems, bool devmem=true );
+    NVCategory* gather( const int* pos, unsigned int elems, bool devmem=true );
 };

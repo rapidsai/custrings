@@ -85,9 +85,9 @@ static PyObject* n_createCategoryFromHostStrings( PyObject* self, PyObject* args
     }
 
     // handle array of strings
-    int count = (int)PyList_Size(pystrs);
+    unsigned int count = (unsigned int)PyList_Size(pystrs);
     const char** list = new const char*[count];
-    for( int idx=0; idx < count; ++idx )
+    for( unsigned int idx=0; idx < count; ++idx )
     {
         PyObject* pystr = PyList_GetItem(pystrs,idx);
         if( (pystr == Py_None) || !PyObject_TypeCheck(pystr,&PyUnicode_Type) )
@@ -120,8 +120,8 @@ static PyObject* n_createFromOffsets( PyObject* self, PyObject* args )
     const char* sbuffer = 0;
     const int* obuffer = 0;
     const unsigned char* nbuffer = 0;
-    int scount = (int)PyLong_AsLong(pyscount);
-    int ncount = 0;
+    unsigned int scount = (unsigned int)PyLong_AsLong(pyscount);
+    unsigned int ncount = 0;
 
     Py_buffer sbuf, obuf, nbuf;
     if( PyObject_CheckBuffer(pysbuf) )
@@ -148,7 +148,7 @@ static PyObject* n_createFromOffsets( PyObject* self, PyObject* args )
     else if( pynbuf != Py_None )
     {
         nbuffer = (const unsigned char*)PyLong_AsVoidPtr(pynbuf);
-        ncount = (int)PyLong_AsLong(pyncount);
+        ncount = (unsigned int)PyLong_AsLong(pyncount);
     }
 
     //printf(" ptrs=%p,%p,%p\n",sbuffer,obuffer,nbuffer);
@@ -222,7 +222,7 @@ static PyObject* n_get_value_for_string( PyObject* self, PyObject* args )
 static PyObject* n_get_values( PyObject* self, PyObject* args )
 {
     NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    size_t count = tptr->size();
+    unsigned int count = tptr->size();
     PyObject* ret = PyList_New(count);
     if( count==0 )
         return ret;
@@ -236,7 +236,7 @@ static PyObject* n_get_values( PyObject* self, PyObject* args )
     // copy to host option
     int* rtn = new int[count];
     tptr->get_values(rtn,false);
-    for(size_t idx=0; idx < count; idx++)
+    for(unsigned idx=0; idx < count; idx++)
         PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));
     delete rtn;
     return ret;
@@ -277,7 +277,7 @@ static PyObject* n_get_indexes_for_key( PyObject* self, PyObject* args )
     // copy to host option
     int* rtn = new int[count];
     tptr->get_indexes_for(str,rtn,false);
-    for(size_t idx=0; idx < count; idx++)
+    for(int idx=0; idx < count; idx++)
         PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));
     delete rtn;
     return ret;
