@@ -98,7 +98,8 @@ NVCategory::~NVCategory()
 }
 
 // utility to create keys from array of string pointers
-void NVCategoryImpl_keys_from_index( NVCategoryImpl* pImpl, thrust::pair<const char*,size_t>* d_pairs, size_t ucount )
+// pImpl must exist but it's pList should be null -- this method will create it
+void NVCategoryImpl_keys_from_index( NVCategoryImpl* pImpl, thrust::pair<const char*,size_t>* d_pairs, unsigned int ucount )
 {
     auto execpol = rmm::exec_policy(0);
     // add up the lengths
@@ -115,13 +116,13 @@ void NVCategoryImpl_keys_from_index( NVCategoryImpl* pImpl, thrust::pair<const c
     size_t outsize = thrust::reduce(execpol->on(0), lengths.begin(), lengths.end());
     char* d_buffer = 0;
     RMM_ALLOC(&d_buffer,outsize,0);
+    pImpl->addMemoryBuffer(d_buffer,outsize);
     rmm::device_vector<size_t> offsets(ucount,0);
     thrust::exclusive_scan(execpol->on(0),lengths.begin(),lengths.end(),offsets.begin());
     size_t* d_offsets = offsets.data().get();
     // create the vector to hold the pointers
     rmm::device_vector<custring_view*>* pList = new rmm::device_vector<custring_view*>(ucount,nullptr);
     custring_view_array d_results = pList->data().get();
-    pImpl->addMemoryBuffer(d_buffer,outsize);
     // copy keys strings to new memory buffer
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<size_t>(0), ucount,
         [d_pairs, d_buffer, d_offsets, d_results] __device__ (size_t idx) {
@@ -134,7 +135,8 @@ void NVCategoryImpl_keys_from_index( NVCategoryImpl* pImpl, thrust::pair<const c
 }
 
 // utility to create keys from array of custrings
-void NVCategoryImpl_keys_from_custringarray( NVCategoryImpl* pImpl, custring_view_array d_keys, size_t ucount )
+// pImpl must exist but it's pList should be null -- this method will create it
+void NVCategoryImpl_keys_from_custringarray( NVCategoryImpl* pImpl, custring_view_array d_keys, unsigned int ucount )
 {
     auto execpol = rmm::exec_policy(0);
     // add up the lengths
@@ -150,13 +152,13 @@ void NVCategoryImpl_keys_from_custringarray( NVCategoryImpl* pImpl, custring_vie
     size_t outsize = thrust::reduce(execpol->on(0), lengths.begin(), lengths.end());
     char* d_buffer = 0;
     RMM_ALLOC(&d_buffer,outsize,0);
+    pImpl->addMemoryBuffer(d_buffer,outsize);
     rmm::device_vector<size_t> offsets(ucount,0);
     thrust::exclusive_scan(execpol->on(0),lengths.begin(),lengths.end(),offsets.begin());
     size_t* d_offsets = offsets.data().get();
     // create the vector to hold the pointers
     rmm::device_vector<custring_view*>* pList = new rmm::device_vector<custring_view*>(ucount,nullptr);
     custring_view_array d_results = pList->data().get();
-    pImpl->addMemoryBuffer(d_buffer,outsize);
     // copy keys strings to new memory buffer
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<size_t>(0), ucount,
         [d_keys, d_buffer, d_offsets, d_results] __device__ (size_t idx) {
@@ -174,7 +176,7 @@ void NVCategoryImpl_keys_from_custringarray( NVCategoryImpl* pImpl, custring_vie
 //
 // Should investigating converting this use custring pointers instead of index pairs.
 // It would likely save some processing since we can create custrings from custrings.
-void NVCategoryImpl_init(NVCategoryImpl* pImpl, std::pair<const char*,size_t>* pairs, size_t count, bool bdevmem, bool bindexescopied=false )
+void NVCategoryImpl_init(NVCategoryImpl* pImpl, std::pair<const char*,size_t>* pairs, unsigned int count, bool bdevmem, bool bindexescopied=false )
 {
     cudaError_t err = cudaSuccess;
     auto execpol = rmm::exec_policy(0);
@@ -261,7 +263,7 @@ void NVCategoryImpl_init(NVCategoryImpl* pImpl, std::pair<const char*,size_t>* p
         RMM_FREE(d_pairs,0);
 }
 
-NVCategory* NVCategory::create_from_index(std::pair<const char*,size_t>* strs, size_t count, bool devmem )
+NVCategory* NVCategory::create_from_index(std::pair<const char*,size_t>* strs, unsigned int count, bool devmem )
 {
     NVCategory* rtn = new NVCategory;
     if( count )
@@ -269,10 +271,10 @@ NVCategory* NVCategory::create_from_index(std::pair<const char*,size_t>* strs, s
     return rtn;
 }
 
-NVCategory* NVCategory::create_from_array(const char** strs, int count)
+NVCategory* NVCategory::create_from_array(const char** strs, unsigned int count)
 {
     NVCategory* rtn = new NVCategory;
-    if( count<=0 )
+    if( count==0 )
         return rtn;
     NVStrings* dstrs = NVStrings::create_from_array(strs,count);
     std::pair<const char*,size_t>* indexes = 0;
@@ -287,8 +289,8 @@ NVCategory* NVCategory::create_from_array(const char** strs, int count)
 NVCategory* NVCategory::create_from_strings(NVStrings& strs)
 {
     NVCategory* rtn = new NVCategory;
-    int count = strs.size();
-    if( count<=0 )
+    unsigned int count = strs.size();
+    if( count==0 )
         return rtn;
     std::pair<const char*,size_t>* indexes = 0;
     RMM_ALLOC(&indexes, count * sizeof(std::pair<const char*,size_t>),0);
@@ -304,7 +306,7 @@ NVCategory* NVCategory::create_from_strings(std::vector<NVStrings*>& strs)
     unsigned int count = 0;
     for( unsigned int idx=0; idx < (unsigned int)strs.size(); idx++ )
         count += strs[idx]->size();
-    if( count<=0 )
+    if( count==0 )
         return rtn;
     std::pair<const char*,size_t>* indexes = 0;
     RMM_ALLOC(&indexes, count * sizeof(std::pair<const char*,size_t>),0);
@@ -320,10 +322,10 @@ NVCategory* NVCategory::create_from_strings(std::vector<NVStrings*>& strs)
 }
 
 // bitmask is in arrow format
-NVCategory* NVCategory::create_from_offsets(const char* strs, int count, const int* offsets, const unsigned char* nullbitmask, int nulls)
+NVCategory* NVCategory::create_from_offsets(const char* strs, unsigned int count, const int* offsets, const unsigned char* nullbitmask, int nulls)
 {
     NVCategory* rtn = new NVCategory;
-    if( count<=0 )
+    if( count==0 )
         return rtn;
     NVStrings* dstrs = NVStrings::create_from_offsets(strs,count,offsets,nullbitmask,nulls);
     std::pair<const char*,size_t>* indexes = 0;
@@ -370,9 +372,9 @@ NVCategory* NVCategory::create_from_categories(std::vector<NVCategory*>& cats)
     NVCategory* rtn = new NVCategory();
     if( cats.empty() )
         return rtn;
-    int count = 0;
-    int mcount = 0;
-    for( int idx=0; idx < (int)cats.size(); ++idx )
+    unsigned int count = 0;
+    unsigned int mcount = 0;
+    for( unsigned int idx=0; idx < cats.size(); ++idx )
     {
         NVCategory* cat = cats[idx];
         count += cat->keys_size();
@@ -385,11 +387,11 @@ NVCategory* NVCategory::create_from_categories(std::vector<NVCategory*>& cats)
     // first combine the keys into one array
     rmm::device_vector<custring_view*> wstrs(count);
     custring_view_array d_w = wstrs.data().get();
-    for( int idx=0; idx < (int)cats.size(); ++idx )
+    for( unsigned int idx=0; idx < cats.size(); ++idx )
     {
         NVCategory* cat = cats[idx];
         custring_view_array d_keys = cat->pImpl->getStringsPtr();
-        int ksize = cat->keys_size();
+        unsigned int ksize = cat->keys_size();
         if( ksize )
             cudaMemcpy(d_w, d_keys, ksize*sizeof(custring_view*),cudaMemcpyDeviceToDevice);
         d_w += ksize;
@@ -399,7 +401,7 @@ NVCategory* NVCategory::create_from_categories(std::vector<NVCategory*>& cats)
     int* d_x = x.data().get(); // [0:count)
     thrust::sequence( execpol->on(0), d_x, d_x+count );
     thrust::stable_sort_by_key( execpol->on(0), d_w, d_w+count, d_x,
-        [] __device__ (custring_view*& lhs, custring_view*& rhs) { return ((lhs && rhs) ? (lhs->compare(*rhs)<0) : (lhs==0)); });
+        [] __device__ (custring_view*& lhs, custring_view*& rhs) { return ((lhs && rhs) ? (lhs->compare(*rhs)<0) : (rhs!=0)); });
     // x-vector is sorted sequence we'll use to remap values
     rmm::device_vector<int> y(count,0); // y-vector will identify unique keys
     int* d_y = y.data().get();
@@ -412,7 +414,7 @@ NVCategory* NVCategory::create_from_categories(std::vector<NVCategory*>& cats)
             else
                 d_y[idx] = (int)(lhs!=rhs);
         });
-    int kcount = thrust::reduce( execpol->on(0), d_y, d_y+count )+1;
+    unsigned int kcount = (unsigned int)thrust::reduce( execpol->on(0), d_y, d_y+count )+1;
     // use gather to get unique keys
     // theory is that copy_if + gather on ints is faster than unique on strings
     //rmm::device_vector<int> nidxs(kcount);
@@ -433,7 +435,7 @@ NVCategory* NVCategory::create_from_categories(std::vector<NVCategory*>& cats)
     {
         NVCategory* cat = cats[idx];
         int* d_catmap = cat->pImpl->pMap->data().get();
-        int msize = cat->size();
+        unsigned int msize = cat->size();
         if( msize )
         {
             thrust::for_each_n( execpol->on(0), thrust::make_counting_iterator<int>(0), msize,
@@ -480,9 +482,11 @@ void NVCategoryImpl_copy( NVCategoryImpl& dest, NVCategoryImpl& src )
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<size_t>(0), ucount,
         [d_strings, d_buffer, d_newbuffer, d_results] __device__ (size_t idx) {
             custring_view* dstr = d_strings[idx];
-            char* buffer = d_newbuffer + (size_t)dstr - (size_t)d_buffer;
             if( dstr )
+            {
+                char* buffer = d_newbuffer + ((char*)dstr - d_buffer);
                 d_results[idx] = (custring_view*)buffer;
+            }
         });
     dest.pList = pNewList;
     dest.addMemoryBuffer( d_newbuffer, bufsize );
@@ -854,6 +858,7 @@ NVCategory* NVCategory::add_strings(NVStrings& strs)
 }
 
 // creates a new instance without the specified strings
+// deprecated by remove_keys?
 NVCategory* NVCategory::remove_strings(NVStrings& strs)
 {
     auto execpol = rmm::exec_policy(0);
@@ -922,14 +927,14 @@ NVStrings* NVCategory::to_strings()
 }
 
 // creates a new NVStrings instance using the specified index values
-NVStrings* NVCategory::gather_strings( int* pos, unsigned int count, bool bdevmem )
+NVStrings* NVCategory::gather_strings( const int* pos, unsigned int count, bool bdevmem )
 {
     auto execpol = rmm::exec_policy(0);
-    int* d_pos = pos;
+    const int* d_pos = pos;
     if( !bdevmem )
     {
-        RMM_ALLOC(&d_pos,count*sizeof(int),0);
-        cudaMemcpy(d_pos,pos,count*sizeof(int),cudaMemcpyHostToDevice);
+        RMM_ALLOC((void**)&d_pos,count*sizeof(int),0);
+        cudaMemcpy((void*)d_pos,pos,count*sizeof(int),cudaMemcpyHostToDevice);
     }
 
     custring_view** d_strings = pImpl->getStringsPtr();
@@ -965,7 +970,7 @@ NVStrings* NVCategory::gather_strings( int* pos, unsigned int count, bool bdevme
     //
     cudaDeviceSynchronize();
     if( !bdevmem )
-        RMM_FREE(d_pos,0);
+        RMM_FREE((void*)d_pos,0);
     int invalidcount = thrust::reduce( execpol->on(0), d_check, d_check+count );
     if( invalidcount )
         throw std::out_of_range("");
@@ -996,14 +1001,14 @@ NVStrings* NVCategory::gather_strings( int* pos, unsigned int count, bool bdevme
 //  v[idx] = y[v[idx]]  -> 021201
 // New key list is copy_if of keys where x==1  -> bcf
 //
-NVCategory* NVCategory::gather( int* pos, unsigned int count, bool bdevmem )
+NVCategory* NVCategory::gather( const int* pos, unsigned int count, bool bdevmem )
 {
     auto execpol = rmm::exec_policy(0);
-    int* d_v = pos;
+    const int* d_v = pos;
     if( !bdevmem )
     {
-        RMM_ALLOC(&d_v,count*sizeof(int),0);
-        cudaMemcpy(d_v,pos,count*sizeof(int),cudaMemcpyHostToDevice);
+        RMM_ALLOC((void**)&d_v,count*sizeof(int),0);
+        cudaMemcpy((void*)d_v,pos,count*sizeof(int),cudaMemcpyHostToDevice);
     }
 
     unsigned int kcount = keys_size();
@@ -1013,7 +1018,7 @@ NVCategory* NVCategory::gather( int* pos, unsigned int count, bool bdevmem )
     if( invalidcount )
     {
         if( !bdevmem )
-            RMM_FREE(d_v,0);
+            RMM_FREE((void*)d_v,0);
         throw std::out_of_range("");
     }
 
@@ -1050,7 +1055,7 @@ NVCategory* NVCategory::gather( int* pos, unsigned int count, bool bdevmem )
     NVCategoryImpl_keys_from_custringarray(rtn->pImpl,newkeys.data().get(),ucount);
     //
     if( !bdevmem )
-        RMM_FREE(d_v,0);
+        RMM_FREE((void*)d_v,0);
     return rtn;
 }
 
@@ -1140,7 +1145,7 @@ NVCategory* NVCategory::merge_category(NVCategory& cat2)
         [d_x, count2] __device__ (int idx) { d_x[idx+count2]= -idx-1; }); // 2nd half is -1...-count1
     thrust::stable_sort_by_key( execpol->on(0), d_w, d_w + count12, d_x,  // preserves order for
         [] __device__ (custring_view*& lhs, custring_view*& rhs) {        // strings that match
-            return ((lhs && rhs) ? (lhs->compare(*rhs)<0) : (lhs==0));
+            return ((lhs && rhs) ? (lhs->compare(*rhs)<0) : (rhs!=0));
         });
     rmm::device_vector<int> y(count12,0); // y-vector will identify overlapped keys
     int* d_y = y.data().get();
@@ -1296,7 +1301,7 @@ NVCategory* NVCategory::add_keys_and_remap(NVStrings& strs)
     thrust::sequence( execpol->on(0), d_x, d_x + kcount );   // first half is [0:kcount)
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<int>(0), count, [d_x, kcount] __device__ (int idx) { d_x[idx+kcount]= -idx-1; }); // 2nd half is [-1:-count]
     // stable-sort preserves order for strings that match
-    thrust::stable_sort_by_key( execpol->on(0), d_w, d_w + akcount, d_x, [] __device__ (custring_view*& lhs, custring_view*& rhs) { return ((lhs && rhs) ? (lhs->compare(*rhs)<0) : (lhs==0)); });
+    thrust::stable_sort_by_key( execpol->on(0), d_w, d_w + akcount, d_x, [] __device__ (custring_view*& lhs, custring_view*& rhs) { return ((lhs && rhs) ? (lhs->compare(*rhs)<0) : (rhs!=0)); });
     auto nend = thrust::unique_by_key( execpol->on(0), d_w, d_w + akcount, d_x, [] __device__ (custring_view* lhs, custring_view* rhs) { return ((lhs && rhs) ? (lhs->compare(*rhs)==0) : (lhs==rhs)); });
     int ucount = nend.second - d_x;
     // d_w,ucount are now the keys
@@ -1379,7 +1384,7 @@ NVCategory* NVCategory::remove_keys_and_remap(NVStrings& strs)
     thrust::sequence( execpol->on(0), d_x, d_x + kcount );   // [0:kcount)
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<int>(0), count, [d_x, kcount] __device__ (int idx) { d_x[idx+kcount]= -idx-1; }); // 2nd half is [-1:-count]
     // stable-sort preserves order for strings that match
-    thrust::stable_sort_by_key( execpol->on(0), d_w, d_w + akcount, d_x, [] __device__ (custring_view*& lhs, custring_view*& rhs) { return ((lhs && rhs) ? (lhs->compare(*rhs)<0) : (lhs==0)); });
+    thrust::stable_sort_by_key( execpol->on(0), d_w, d_w + akcount, d_x, [] __device__ (custring_view*& lhs, custring_view*& rhs) { return ((lhs && rhs) ? (lhs->compare(*rhs)<0) : (rhs!=0)); });
     rmm::device_vector<int> y(akcount,0); // matches resulting from
     int* d_y = y.data().get();            // sort are marked with '1'
     thrust::for_each_n( execpol->on(0), thrust::make_counting_iterator<int>(0), (akcount-1),
@@ -1482,7 +1487,7 @@ NVCategory* NVCategory::remove_unused_keys_and_remap()
     thrust::sequence( execpol->on(0), d_x, d_x + kcount );   // [0:kcount)
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<int>(0), count, [d_x, kcount] __device__ (int idx) { d_x[idx+kcount]= -idx-1; }); // 2nd half is [-1:-count]
     // stable-sort preserves order for strings that match
-    thrust::stable_sort_by_key( execpol->on(0), d_w, d_w + akcount, d_x, [] __device__ (custring_view*& lhs, custring_view*& rhs) { return ((lhs && rhs) ? (lhs->compare(*rhs)<0) : (lhs==0)); });
+    thrust::stable_sort_by_key( execpol->on(0), d_w, d_w + akcount, d_x, [] __device__ (custring_view*& lhs, custring_view*& rhs) { return ((lhs && rhs) ? (lhs->compare(*rhs)<0) : (rhs!=0)); });
     rmm::device_vector<int> y(akcount,0); // matches resulting from
     int* d_y = y.data().get();            // sort are marked with '1'
     thrust::for_each_n( execpol->on(0), thrust::make_counting_iterator<int>(0), (akcount-1),
@@ -1616,7 +1621,7 @@ NVCategory* NVCategory::set_keys_and_remap(NVStrings& strs)
     thrust::sequence( execpol->on(0), d_x, d_x + kcount );   // first half is [0:kcount)
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<int>(0), count, [d_x, kcount] __device__ (int idx) { d_x[idx+kcount]= -idx-1; }); // 2nd half is [-1:-count]
     // stable-sort preserves order for strings that match
-    thrust::stable_sort_by_key( execpol->on(0), d_w, d_w + akcount, d_x, [] __device__ (custring_view*& lhs, custring_view*& rhs) { return ((lhs && rhs) ? (lhs->compare(*rhs)<0) : (lhs==0)); });
+    thrust::stable_sort_by_key( execpol->on(0), d_w, d_w + akcount, d_x, [] __device__ (custring_view*& lhs, custring_view*& rhs) { return ((lhs && rhs) ? (lhs->compare(*rhs)<0) : (rhs!=0)); });
     rmm::device_vector<int> y(akcount,0); // holds matches resulting from
     int* d_y = y.data().get();            // sort are marked with '1'
     thrust::for_each_n( execpol->on(0), thrust::make_counting_iterator<int>(0), (akcount-1),
