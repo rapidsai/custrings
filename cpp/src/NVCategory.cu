@@ -1001,7 +1001,7 @@ NVStrings* NVCategory::gather_strings( const int* pos, unsigned int count, bool 
 //  v[idx] = y[v[idx]]  -> 021201
 // New key list is copy_if of keys where x==1  -> bcf
 //
-NVCategory* NVCategory::gather( const int* pos, unsigned int count, bool bdevmem )
+NVCategory* NVCategory::gather_and_remap( const int* pos, unsigned int count, bool bdevmem )
 {
     auto execpol = rmm::exec_policy(0);
     const int* d_v = pos;
@@ -1056,6 +1056,38 @@ NVCategory* NVCategory::gather( const int* pos, unsigned int count, bool bdevmem
     //
     if( !bdevmem )
         RMM_FREE((void*)d_v,0);
+    return rtn;
+}
+
+// this method simply copies the keys and the passed in values to create a new category instance
+NVCategory* NVCategory::gather( const int* pos, unsigned int count, bool bdevmem )
+{
+    if( count==0 )
+        return copy();
+
+    auto execpol = rmm::exec_policy(0);
+    auto pMap = new rmm::device_vector<int>(count,0);
+    auto d_pos = pMap->data().get();
+    if( bdevmem )
+        cudaMemcpy(d_pos,pos,count*sizeof(int),cudaMemcpyDeviceToDevice);
+    else
+        cudaMemcpy(d_pos,pos,count*sizeof(int),cudaMemcpyHostToDevice);
+
+    unsigned int kcount = keys_size();
+    // first, do bounds check on input values
+    int invalidcount = thrust::count_if(execpol->on(0), d_pos, d_pos+count,
+        [kcount] __device__ (int v) { return ((v < 0) || (v >= kcount)); } );
+    if( invalidcount )
+    {
+        delete pMap;
+        throw std::out_of_range("");
+    }
+
+    NVCategory* rtn = new NVCategory;
+    custring_view_array d_keys = pImpl->getStringsPtr();
+    NVCategoryImpl_keys_from_custringarray(rtn->pImpl,d_keys,kcount);
+    rtn->pImpl->pMap = pMap;
+    //
     return rtn;
 }
 
