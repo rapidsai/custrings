@@ -1,4 +1,4 @@
-NVStrings
+cuStrings
 ===========
 
 ### API Design

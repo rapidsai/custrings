@@ -59,7 +59,7 @@ with open('../LICENSE', encoding='UTF-8') as f:
 
 cuda_version = ''.join(os.environ.get('CUDA_VERSION', 'unknown').split('.')[:2])
 name = 'nvstrings-cuda{}'.format(cuda_version)
-version = os.environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev0').lstrip('v')
+version = os.environ.get('GIT_DESCRIBE_TAG', '0.3.0.dev0').lstrip('v')
 setup(name=name,
       description='CUDA strings Python bindings',
       version=version,
