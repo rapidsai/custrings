@@ -424,6 +424,44 @@ static PyObject* n_gather( PyObject* self, PyObject* args )
     Py_RETURN_NONE;
 }
 
+static PyObject* n_gather_and_remap( PyObject* self, PyObject* args )
+{
+    NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    PyObject* pyidxs = PyTuple_GetItem(args,1);
+    std::string cname = pyidxs->ob_type->tp_name;
+    NVCategory* rtn = 0;
+    try
+    {
+        if( cname.compare("list")==0 )
+        {
+            unsigned int count = (unsigned int)PyList_Size(pyidxs);
+            int* indexes = new int[count];
+            for( unsigned int idx=0; idx < count; ++idx )
+            {
+                PyObject* pyidx = PyList_GetItem(pyidxs,idx);
+                indexes[idx] = (int)PyLong_AsLong(pyidx);
+            }
+            //
+            rtn = tptr->gather_and_remap(indexes,count,false);
+            delete indexes;
+        }
+        else
+        {
+            // assume device pointer
+            int* indexes = (int*)PyLong_AsVoidPtr(pyidxs);
+            unsigned int count = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,2));
+            rtn = tptr->gather_and_remap(indexes,count);
+        }
+    }
+    catch(const std::out_of_range& eor)
+    {
+        PyErr_Format(PyExc_IndexError,"one or more indexes out of range [0:%u)",tptr->keys_size());
+    }
+    if( rtn )
+        return PyLong_FromVoidPtr((void*)rtn);
+    Py_RETURN_NONE;
+}
+
 static PyObject* n_merge_category( PyObject* self, PyObject* args )
 {
     NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
@@ -592,6 +630,7 @@ static PyMethodDef s_Methods[] = {
     { "n_to_strings", n_to_strings, METH_VARARGS, "" },
     { "n_gather_strings", n_gather_strings, METH_VARARGS, "" },
     { "n_gather", n_gather, METH_VARARGS, "" },
+    { "n_gather_and_remap", n_gather_and_remap, METH_VARARGS, "" },
     { "n_merge_category", n_merge_category, METH_VARARGS, "" },
     { "n_merge_and_remap", n_merge_and_remap, METH_VARARGS, "" },
     { "n_add_keys", n_add_keys, METH_VARARGS, "" },

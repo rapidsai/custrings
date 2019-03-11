@@ -132,6 +132,8 @@ public:
     NVStrings* to_strings();
     // create a new strings instance identified by the specified index values
     NVStrings* gather_strings( const int* pos, unsigned int elems, bool devmem=true );
-    // create new category instance identified by the specified index values
+    // create new category instance identified by the specified values and remap values to resulting keyset
+    NVCategory* gather_and_remap( const int* pos, unsigned int elems, bool devmem=true );
+    // create new category instance using the current keys but with the specified values
     NVCategory* gather( const int* pos, unsigned int elems, bool devmem=true );
 };

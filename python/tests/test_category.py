@@ -100,6 +100,9 @@ print("remove unused keys")
 cat1 = cat1.remove_unused_keys()
 print(cat1.keys(),cat1.values())
 
-print("gather")
+# gather
+print("-------------------------")
 cat1 = cat.gather([1,3,2,3,1,2])
-print(cat1.keys(),cat1.values())
+print("gather:",cat1.keys(),cat1.values())
+cat1 = cat.gather_and_remap([1,3,2,3,1,2])
+print("gather_and_remap:",cat1.keys(),cat1.values())
