@@ -20,6 +20,9 @@ export CUDACXX=/usr/local/cuda/bin/nvcc
 # Enable ABI builds
 export CMAKE_CXX11_ABI=ON
 
+# Define CUDA version env var for ./python/setup.py
+export CUDA_VERSION=$CUDA
+
 # Set home to the job's workspace
 export HOME=$WORKSPACE
 
