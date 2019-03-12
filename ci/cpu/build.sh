@@ -61,11 +61,11 @@ conda config --set ssl_verify False
 ################################################################################
 
 logger "Build conda pkg for custrings..."
-source ci/cpu/custrings/build-custrings.sh
+source ci/cpu/custrings/build_custrings.sh
 
 ################################################################################
 # UPLOAD - Conda packages
 ################################################################################
 
 logger "Upload conda pkgs for custrings..."
-source ci/cpu/custrings/upload-anaconda.sh
+source ci/cpu/custrings/upload_anaconda.sh
