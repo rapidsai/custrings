@@ -14,6 +14,9 @@ function logger() {
 export PATH=/conda/bin:/usr/local/cuda/bin:$PATH
 export PARALLEL_LEVEL=4
 
+# Enable ABI builds
+export CMAKE_CXX11_ABI=ON
+
 # Set home to the job's workspace
 export HOME=$WORKSPACE
 
