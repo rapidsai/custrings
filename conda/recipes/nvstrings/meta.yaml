@@ -21,12 +21,14 @@ build:
     - CXX
     - CUDAHOSTCXX
     - CMAKE_CXX11_ABI
+    - CUDA_VERSION
 
 requirements:
   build:
     - python
     - setuptools
     - cmake
+    - numba>=0.40
   run:
     - python
     - setuptools
