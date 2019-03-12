@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+cd python
 $PYTHON setup.py install
 cp NVStrings.h $PREFIX/include
 cp NVCategory.h $PREFIX/include
