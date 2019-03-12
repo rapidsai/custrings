@@ -54,7 +54,7 @@ conda config --set ssl_verify False
 ################################################################################
 
 logger "Build conda pkg for custrings..."
-source ci/cpu/custrings/build_custrings.sh
+source ci/cpu/custrings/build-custrings.sh
 
 ################################################################################
 # UPLOAD - Conda packages
