@@ -14,6 +14,9 @@ function logger() {
 export PATH=/conda/bin:/usr/local/cuda/bin:$PATH
 export PARALLEL_LEVEL=4
 
+# Define path to nvcc
+export CUDACXX=/usr/local/cuda/bin/nvcc
+
 # Enable ABI builds
 export CMAKE_CXX11_ABI=ON
 
@@ -42,6 +45,7 @@ python --version
 $CC --version
 $CXX --version
 conda list
+$CUDACXX --version
 
 # FIX Added to deal with Anancoda SSL verification issues during conda builds
 conda config --set ssl_verify False
