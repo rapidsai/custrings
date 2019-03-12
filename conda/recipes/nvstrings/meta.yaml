@@ -19,7 +19,7 @@ build:
   script_env:
     - CC
     - CXX
-    - CUDACXX
+    - CUDAHOSTCXX
     - CMAKE_CXX11_ABI
 
 requirements:
