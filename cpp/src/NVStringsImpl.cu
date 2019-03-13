@@ -486,36 +486,39 @@ int NVStrings_copy_strings( NVStringsImpl* pImpl, std::vector<NVStrings*>& strsl
         NVStrings* strs = *itr;
         unsigned int size = strs->size();
         size_t memsize = strs->memsize();
-        if( size==0 || memsize==0 )
+        if( size==0 )
             continue;
         rmm::device_vector<custring_view*> strings(size,nullptr);
         custring_view** d_strings = strings.data().get();
         strs->create_custring_index(d_strings);
-        // checking pointer values to find the first non-null one
-        custring_view** first = thrust::min_element(execpol->on(0),d_strings,d_strings+size,
-            [] __device__ (custring_view* lhs, custring_view* rhs) {
-                return (lhs && rhs) ? (lhs < rhs) : rhs==0;
+        if( memsize )
+        {
+            // checking pointer values to find the first non-null one
+            custring_view** first = thrust::min_element(execpol->on(0),d_strings,d_strings+size,
+                [] __device__ (custring_view* lhs, custring_view* rhs) {
+                    return (lhs && rhs) ? (lhs < rhs) : rhs==0;
+                });
+            char* baseaddr = 0;
+            cudaError_t err = cudaMemcpy(&baseaddr,first,sizeof(custring_view*),cudaMemcpyDeviceToHost);
+            if( err!=cudaSuccess )
+                fprintf(stderr, "copy-strings: cudaMemcpy(%p,%p,%d)=%d\n",&baseaddr,first,(int)sizeof(custring_view*),(int)err);
+            // copy string memory
+            char* buffer = d_buffer + memoffset;
+            err = cudaMemcpy((void*)buffer,(void*)baseaddr,memsize,cudaMemcpyDeviceToDevice);
+            if( err!=cudaSuccess )
+                fprintf(stderr, "copy-strings: cudaMemcpy(%p,%p,%ld)=%d\n",buffer,baseaddr,memsize,(int)err);
+            // adjust pointers
+            custring_view_array results = d_results + offset;
+            thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), size,
+                [buffer, baseaddr, d_strings, results] __device__(unsigned int idx){
+                    char* dstr = (char*)d_strings[idx];
+                    if( !dstr )
+                        return;
+                    size_t diff = dstr - baseaddr;
+                    char* newaddr = buffer + diff;
+                    results[idx] = (custring_view*)newaddr;
             });
-        char* baseaddr = 0;
-        cudaError_t err = cudaMemcpy(&baseaddr,first,sizeof(custring_view*),cudaMemcpyDeviceToHost);
-        if( err!=cudaSuccess )
-            fprintf(stderr, "copy-strings: cudaMemcpy(%p,%p,%d)=%d\n",&baseaddr,first,(int)sizeof(custring_view*),(int)err);
-        // copy string memory
-        char* buffer = d_buffer + memoffset;
-        err = cudaMemcpy((void*)buffer,(void*)baseaddr,memsize,cudaMemcpyDeviceToDevice);
-        if( err!=cudaSuccess )
-            fprintf(stderr, "copy-strings: cudaMemcpy(%p,%p,%ld)=%d\n",buffer,baseaddr,memsize,(int)err);
-        // adjust pointers
-        custring_view_array results = d_results + offset;
-        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), size,
-            [buffer, baseaddr, d_strings, results] __device__(unsigned int idx){
-                char* dstr = (char*)d_strings[idx];
-                if( !dstr )
-                    return;
-                size_t diff = dstr - baseaddr;
-                char* newaddr = buffer + diff;
-                results[idx] = (custring_view*)newaddr;
-        });
+        }
         offset += size;
         memoffset += memsize;
     }
