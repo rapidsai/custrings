@@ -2,7 +2,7 @@
 set -xe
 
 if [ "$UPLOAD_PACKAGE" == '1' ]; then
-    export UPLOADFILE=`conda build -c defaults -c conda-forge --python=${PYTHON} conda/recipes/nvstrings --output`
+    export UPLOADFILE=`conda build -c conda-forge -c defaults --python=${PYTHON} conda/recipes/nvstrings --output`
     SOURCE_BRANCH=master
 
     test -e ${UPLOADFILE}
