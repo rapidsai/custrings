@@ -1084,9 +1084,10 @@ NVCategory* NVCategory::gather( const int* pos, unsigned int count, bool bdevmem
             cudaMemcpy(d_pos,pos,count*sizeof(int),cudaMemcpyDeviceToDevice);
         else
             cudaMemcpy(d_pos,pos,count*sizeof(int),cudaMemcpyHostToDevice);
-        // first, do bounds check on input values
+        // first, do bounds check on input values; also -1 is allowed
+        // need to re-evaluate if this check is really necessary here
         int invalidcount = thrust::count_if(execpol->on(0), d_pos, d_pos+count,
-            [kcount] __device__ (int v) { return ((v < 0) || (v >= kcount)); } );
+            [kcount] __device__ (int v) { return ((v < -1) || (v >= kcount)); } );
         if( invalidcount )
         {
             delete pMap;
