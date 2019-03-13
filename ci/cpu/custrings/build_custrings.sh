@@ -1,4 +1,4 @@
 #!/bin/bash
 set -xe
 
-conda build -c defaults -c conda-forge --python=${PYTHON} conda/recipes/nvstrings
+conda build -c conda-forge -c defaults --python=${PYTHON} conda/recipes/nvstrings
