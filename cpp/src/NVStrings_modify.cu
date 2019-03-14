@@ -537,3 +537,58 @@ NVStrings* NVStrings::translate( std::pair<unsigned,unsigned>* utable, unsigned 
     return rtn;
 }
 
+//
+// This will create a new instance replacing any nulls with the provided string.
+// The parameter can be an empty string or any other string but not null.
+NVStrings* NVStrings::fillna( const char* str )
+{
+    if( str==0 )
+        return 0;
+    auto execpol = rmm::exec_policy(0);
+    unsigned int ssz = (unsigned int)strlen(str);
+    unsigned int asz = custring_view::alloc_size(str,ssz);
+    char* d_str = 0;
+    RMM_ALLOC(&d_str,ssz+1,0);
+    cudaMemcpy(d_str,str,ssz+1,cudaMemcpyHostToDevice);
+
+    // compute size of the output
+    unsigned int count = size();
+    custring_view** d_strings = pImpl->getStringsPtr();
+    rmm::device_vector<size_t> sizes(count,0);
+    size_t* d_sizes = sizes.data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_strings, d_str, asz, d_sizes] __device__(unsigned int idx){
+            custring_view* dstr = d_strings[idx];
+            unsigned int size = asz;
+            if( dstr )
+                size = dstr->alloc_size();
+            d_sizes[idx] = ALIGN_SIZE(size);
+        });
+    //
+    NVStrings* rtn = new NVStrings(count); // create output object
+    char* d_buffer = rtn->pImpl->createMemoryFor(d_sizes);
+    rmm::device_vector<size_t> offsets(count,0); // create offsets
+    thrust::exclusive_scan(execpol->on(0),sizes.begin(),sizes.end(),offsets.begin());
+    // do the thing
+    custring_view_array d_results = rtn->pImpl->getStringsPtr();
+    size_t* d_offsets = offsets.data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_strings, d_str, ssz, d_buffer, d_offsets, d_results] __device__(unsigned int idx){
+            custring_view* dstr = d_strings[idx];
+            char* buffer = d_buffer + d_offsets[idx];
+            if( dstr )
+                dstr = custring_view::create_from(buffer,*dstr);
+            else
+                dstr = custring_view::create_from(buffer,d_str,ssz);
+            d_results[idx] = dstr;
+        });
+    //
+    cudaError_t err = cudaDeviceSynchronize();
+    if( err != cudaSuccess )
+    {
+        fprintf(stderr,"nvs-fillna(%s)\n",str);
+        printCudaError(err);
+    }
+    RMM_FREE(d_str,0);
+    return rtn;
+}

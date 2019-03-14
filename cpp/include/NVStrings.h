@@ -100,27 +100,44 @@ public:
     unsigned int set_null_bitarray( unsigned char* bitarray, bool emptyIsNull=false, bool todevice=true );
     // set int array with position of null strings
     unsigned int get_nulls( unsigned int* pos, bool emptyIsNull=false, bool todevice=true );
-
     // create a new instance from this instance
     NVStrings* copy();
+
+    // NVStrings_array.cu
     // create a new instance containing only the strings in the specified range
     NVStrings* sublist( unsigned int start, unsigned int end, unsigned int step=0 );
     // returns strings in the order of the specified position values
     NVStrings* gather( int* pos, unsigned int count, bool devmem=true );
     // return a new instance without the specified strings
     NVStrings* remove_strings( unsigned int* pos, unsigned int count, bool devmem=true );
+    // sorts the strings managed by this instance
+    NVStrings* sort( sorttype st, bool ascending=true, bool nullfirst=true );
+    // returns new row index positions only; strings order is not modified
+    int order( sorttype st, bool ascending, unsigned int* indexes, bool nullfirst=true, bool todevice=true );
 
+    // NVStrings_attr.cu
     // retrieve the number of characters in each string (-1 is return for null strings)
     unsigned int len(int* lengths, bool todevice=true);
     // retrieve the number of bytes for each string (-1 is returned for null strings)
     // return value is the total number of bytes
     size_t byte_count(int* lengths, bool todevice=true);
+    //
+    unsigned int isalnum( bool* results, bool todevice=true );
+    unsigned int isalpha( bool* results, bool todevice=true );
+    unsigned int isdigit( bool* results, bool todevice=true );
+    unsigned int isspace( bool* results, bool todevice=true );
+    unsigned int isdecimal( bool* results, bool todevice=true );
+    unsigned int isnumeric( bool* results, bool todevice=true );
+    unsigned int islower( bool* results, bool todevice=true );
+    unsigned int isupper( bool* results, bool todevice=true );
 
+    // NVStrings_combine.cu
     // adds the given string(s) to this list of strings and returns as new strings
     NVStrings* cat( NVStrings* others, const char* separator, const char* narep=0);
     // concatenates all strings into one new string
     NVStrings* join( const char* delimiter, const char* narep=0 );
 
+    // NVStrings_split.cu
     // each string is split into a list of new strings
     int split_record( const char* delimiter, int maxsplit, std::vector<NVStrings*>& results);
     int rsplit_record( const char* delimiter, int maxsplit, std::vector<NVStrings*>& results);
@@ -136,8 +153,7 @@ public:
     int partition( const char* delimiter, std::vector<NVStrings*>& results);
     int rpartition( const char* delimiter, std::vector<NVStrings*>& results);
 
-    // return a specific character (as a string) by position for each string
-    NVStrings* get(unsigned int pos);
+    // NVStrings_pad.cu
     // concatenate each string with itself the number of times specified
     NVStrings* repeat(unsigned int count);
     // add padding to each string as specified by the parameters
@@ -151,9 +167,18 @@ public:
     // this inserts new-line characters into each string
     NVStrings* wrap( unsigned int width );
 
+    // NVStrings_substr.cu
+    // return a specific character (as a string) by position for each string
+    NVStrings* get(unsigned int pos);
     // returns a substring of each string
     NVStrings* slice( int start=0, int stop=-1, int step=1 );
     NVStrings* slice_from( int* starts=0, int* ends=0 );
+    // returns a list of strings for each group specified in the specified regex pattern
+    int extract( const char* ptn, std::vector<NVStrings*>& results );
+    // same as extract() but group results are returned in column-major
+    int extract_record( const char* ptn, std::vector<NVStrings*>& results );
+
+    // NVStrings_modify.cu
     // inserts the specified string (repl) into each string
     NVStrings* slice_replace( const char* repl, int start=0, int stop=-1 );
     // replaces occurrences of str with repl
@@ -163,7 +188,10 @@ public:
     NVStrings* replace_with_backrefs( const char* pattern, const char* repl );
     // translate characters in each string using the character-mapping table provided
     NVStrings* translate( std::pair<unsigned,unsigned>* table, unsigned int count );
+    // replace nulls with specified string
+    NVStrings* fillna( const char* str );
 
+    // NVStrings_strip.cu
     // remove specified character if found at the beginning of each string
     NVStrings* lstrip( const char* to_strip );
     // remove specified character if found at the beginning or end of each string
@@ -171,6 +199,7 @@ public:
     // remove specified character if found at the end each string
     NVStrings* rstrip( const char* to_strip );
 
+    // NVStrings_case.cu
     // return new strings with modified character case
     NVStrings* lower();
     NVStrings* upper();
@@ -178,6 +207,7 @@ public:
     NVStrings* swapcase();
     NVStrings* title();
 
+    // NVStrings_find.cu
     // compare single arg string to all the strings
     unsigned int compare( const char* str, int* results, bool todevice=true );
     // search for a string within each string
@@ -202,20 +232,7 @@ public:
     // compares the end of each string with the specified string
     unsigned int endswith( const char* str, bool* results, bool todevice=true );
 
-    // returns a list of strings for each group specified in the specified regex pattern
-    int extract( const char* ptn, std::vector<NVStrings*>& results );
-    // same as extract() but group results are returned in column-major
-    int extract_record( const char* ptn, std::vector<NVStrings*>& results );
-    //
-    unsigned int isalnum( bool* results, bool todevice=true );
-    unsigned int isalpha( bool* results, bool todevice=true );
-    unsigned int isdigit( bool* results, bool todevice=true );
-    unsigned int isspace( bool* results, bool todevice=true );
-    unsigned int isdecimal( bool* results, bool todevice=true );
-    unsigned int isnumeric( bool* results, bool todevice=true );
-    unsigned int islower( bool* results, bool todevice=true );
-    unsigned int isupper( bool* results, bool todevice=true );
-
+    // NVStrings_convert.cu
     // returns integer values represented by each string
     unsigned int stoi(int* results, bool todevice=true);
     unsigned int htoi(unsigned int* results, bool todevice=true);
@@ -229,11 +246,6 @@ public:
     unsigned int ip2int( unsigned int* results, bool todevice=true );
     // return string representation of IPv4 address (v4) for provided integer values
     static NVStrings* int2ip( const unsigned int* values, unsigned int count, const unsigned char* nullbitmask=0, bool todevice=true);
-
-    // sorts the strings managed by this instance
-    NVStrings* sort( sorttype st, bool ascending=true, bool nullfirst=true );
-    // returns new row index positions only; strings order is not modified
-    int order( sorttype st, bool ascending, unsigned int* indexes, bool nullfirst=true, bool todevice=true );
 
     // output strings to stdout
     void print( int pos=0, int end=-1, int maxwidth=-1, const char* delimiter = "\n" );

@@ -1540,6 +1540,37 @@ class nvstrings:
             rtn = nvstrings(rtn)
         return rtn
 
+    def fillna(self, repl):
+        """
+        Create new instance, replacing all nulls with the given string.
+
+        Parameters
+        ----------
+        repl : str
+          String to be used in place of nulls.
+          This may be an empty string but may not be None.
+
+        Examples
+        --------
+        .. code-block:: python
+
+          import nvstrings
+
+          s = nvstrings.to_device(["hello", None, "goodbye"])
+          print(s.fillna(''))
+
+        Output:
+
+        .. code-block:: python
+
+          ['hello', '', 'goodbye']
+
+        """
+        rtn = pyniNVStrings.n_fillna(self.m_cptr, repl)
+        if rtn is not None:
+            rtn = nvstrings(rtn)
+        return rtn
+
     def lstrip(self, to_strip=None):
         """
         Strip leading characters from each string.

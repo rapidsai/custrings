@@ -1167,6 +1167,20 @@ static PyObject* n_replace( PyObject* self, PyObject* args )
     Py_RETURN_NONE;
 }
 
+static PyObject* n_fillna( PyObject* self, PyObject* args )
+{
+    PyObject* vo = 0;      // self pointer   = O
+    const char* repl = 0;  // cannot be null = s
+    if( !parse_args("replace",args,"Os",&vo,&repl) )
+        Py_RETURN_NONE;
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
+    NVStrings* rtn = 0;
+    rtn = tptr->fillna(repl);
+    if( rtn )
+        return PyLong_FromVoidPtr((void*)rtn);
+    Py_RETURN_NONE;
+}
+
 //
 static PyObject* n_replace_with_backrefs( PyObject* self, PyObject* args )
 {
@@ -2414,6 +2428,7 @@ static PyMethodDef s_Methods[] = {
     { "n_slice_replace", n_slice_replace, METH_VARARGS, "" },
     { "n_replace", n_replace, METH_VARARGS, "" },
     { "n_replace_with_backrefs", n_replace_with_backrefs, METH_VARARGS, "" },
+    { "n_fillna", n_fillna, METH_VARARGS, "" },
     { "n_len", n_len, METH_VARARGS, "" },
     { "n_byte_count", n_byte_count, METH_VARARGS, "" },
     { "n_lstrip", n_lstrip, METH_VARARGS, "" },
