@@ -50,3 +50,9 @@ print("rsplit(n=2):")
 for s in strs.rsplit(n=2):
     print(" ",s)
 
+strs = nvstrings.to_device(['ab', 'c', 'd', 'e', 'f'])
+print(strs)
+for s in strs.split():
+    print(" ",s)
+for s in strs.rsplit():
+    print(" ",s)    

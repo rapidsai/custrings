@@ -891,7 +891,8 @@ unsigned int NVStrings::split( int maxsplit, std::vector<NVStrings*>& results)
                 int dcount = d_counts[idx];
                 if( col >= dcount )
                     return;
-                int c = 0, spos = 0, epos = 0, nchars = dstr->chars_count();
+                int c = 0, nchars = dstr->chars_count();
+                int spos = 0, epos = nchars;
                 //printf(">%d:tokens=%d,dcount=%d,nchars=%d\n",col,tokens,dcount,nchars);
                 bool spaces = true;
                 for( int pos=0; pos < nchars; ++pos )
