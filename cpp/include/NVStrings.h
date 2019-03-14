@@ -124,9 +124,13 @@ public:
     // each string is split into a list of new strings
     int split_record( const char* delimiter, int maxsplit, std::vector<NVStrings*>& results);
     int rsplit_record( const char* delimiter, int maxsplit, std::vector<NVStrings*>& results);
+    int split_record( int maxsplit, std::vector<NVStrings*>& results);
+    int rsplit_record( int maxsplit, std::vector<NVStrings*>& results);
     // split each string into a new column -- number of columns = string with the most delimiters
     unsigned int split( const char* delimiter, int maxsplit, std::vector<NVStrings*>& results);
     unsigned int rsplit( const char* delimiter, int maxsplit, std::vector<NVStrings*>& results);
+    unsigned int split( int maxsplit, std::vector<NVStrings*>& results);
+    unsigned int rsplit( int maxsplit, std::vector<NVStrings*>& results);
     // each string is split into two strings on the first delimiter found
     // three strings are returned for each string: left-half, delimiter itself, right-half
     int partition( const char* delimiter, std::vector<NVStrings*>& results);
