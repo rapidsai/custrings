@@ -16,6 +16,7 @@
 - PR #23 Add [] operator to nvstrings
 - PR #9 category merge python interface
 - PR #1 Added nvcategory.merge_category
+- PR #154 Default to CXX11_ABI=ON
 
 ## Improvements
 

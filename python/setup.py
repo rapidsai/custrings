@@ -27,7 +27,7 @@ class CMakeBuildExt(build_ext):
         output_dir = os.path.abspath(
             os.path.dirname(self.get_ext_fullpath(ext.name)))
 
-        abi_flag = os.environ.get('CMAKE_CXX11_ABI', 'OFF')
+        abi_flag = os.environ.get('CMAKE_CXX11_ABI', 'ON')
         build_type = 'Debug' if self.debug else 'Release'
         cmake_args = ['cmake',
                       ext.sourcedir,
