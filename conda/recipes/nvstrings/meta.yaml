@@ -26,18 +26,18 @@ build:
 requirements:
   build:
     - cmake
-    - python
+    - python x.x
   host:
-    - python
+    - python x.x
     - setuptools
     - numba>=0.40
   run:
-    - python
+    - python x.x
     - setuptools
 
 test:
   requires:
-    - python
+    - python x.x
     - pytest
   imports:
     - nvstrings
