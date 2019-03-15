@@ -1,4 +1,18 @@
-# cuStrings/nvStrings 0.3.0 (Date TBD)
+# cuStrings/nvStrings 0.4.0 (TBD)
+
+## New Features
+
+..
+
+## Improvements
+
+..
+
+#Bug Fixes
+
+..
+
+# cuStrings/nvStrings 0.3.0 (15 Mar 2019)
 
 ## New Features
 
