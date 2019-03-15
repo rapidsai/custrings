@@ -25,9 +25,10 @@ build:
 
 requirements:
   build:
+    - cmake
+  host:
     - python
     - setuptools
-    - cmake
     - numba>=0.40
   run:
     - python
