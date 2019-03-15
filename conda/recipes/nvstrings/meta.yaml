@@ -26,19 +26,22 @@ build:
 requirements:
   build:
     - cmake
-    - python 3.6.* # [py36]
-    - python 3.7.* # [py37]
+    - python 3.6.* # [py==36]
+    - python 3.7.* # [py==37]
   host:
-    - python x.x
+    - python 3.6.* # [py==36]
+    - python 3.7.* # [py==37]
     - setuptools
     - numba>=0.40
   run:
-    - python x.x
+    - python 3.6.* # [py==36]
+    - python 3.7.* # [py==37]
     - setuptools
 
 test:
   requires:
-    - python x.x
+    - python 3.6.* # [py==36]
+    - python 3.7.* # [py==37]
     - pytest
   imports:
     - nvstrings
