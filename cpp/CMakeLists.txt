@@ -3,7 +3,7 @@ cmake_minimum_required (VERSION 3.12)
 project(NVStrings VERSION 0.3.0 LANGUAGES C CXX CUDA)
 find_package(PythonLibs 3 REQUIRED)
 
-option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" OFF)
+option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
 option(BUILD_TESTS "Configure CMake to build tests" OFF)
 
 set(CMAKE_CXX_STANDARD 14)
