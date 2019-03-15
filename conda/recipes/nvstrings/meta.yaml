@@ -40,8 +40,6 @@ requirements:
 
 test:
   requires:
-    - python 3.6.* # [py==36]
-    - python 3.7.* # [py==37]
     - pytest
   imports:
     - nvstrings
