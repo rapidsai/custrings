@@ -1,5 +1,5 @@
 /*
-* Copyright 1993-2018 NVIDIA Corporation.  All rights reserved.
+* Copyright 1993-2019 NVIDIA Corporation.  All rights reserved.
 *
 * NOTICE TO LICENSEE:
 *
@@ -59,17 +59,23 @@ class NVCategory
 {
     NVCategoryImpl* pImpl;
     NVCategory();
+    NVCategory(const NVCategory&);
     ~NVCategory();
+    NVCategory& operator=(const NVCategory&);
 
 public:
 
     // create instance from array of null-terminated host strings
-    static NVCategory* create_from_array(const char** strs, int count);
+    static NVCategory* create_from_array(const char** strs, unsigned int count);
     // create instance from array of strings/length pairs
-    static NVCategory* create_from_index(std::pair<const char*,size_t>* strs, size_t count, bool devmem=true);
+    static NVCategory* create_from_index(std::pair<const char*,size_t>* strs, unsigned int count, bool devmem=true);
+    // create instance from host buffer with offsets; null-bitmask is arrow-ordered
+    static NVCategory* create_from_offsets(const char* strs, unsigned int count, const int* offsets, const unsigned char* nullbitmask=0, int nulls=0);
     // create instance from NVStrings instance
     static NVCategory* create_from_strings(NVStrings& strs);
     static NVCategory* create_from_strings(std::vector<NVStrings*>& strs);
+    // create instance from list of categories; values are remapped
+    static NVCategory* create_from_categories(std::vector<NVCategory*>& cats);
     // use this method to free any instance create by methods in this class
     static void destroy(NVCategory* inst);
 
@@ -77,32 +83,57 @@ public:
     unsigned int size();
     // return number of keys
     unsigned int keys_size();
+    // true if any null values exist
+    bool has_nulls();
 
-    // create bit-array identifying the null strings
-    int create_null_bitarray( unsigned char* bitarray, bool emptyIsNull=false, bool devmem=true );
+    // set bit-array identifying the null values
+    int set_null_bitarray( unsigned char* bitarray, bool devmem=true );
     // build a string-index from this instances strings
     int create_index(std::pair<const char*,size_t>* strs, bool bdevmem=true );
-    
+    //
+    NVCategory* copy();
+
     // return key strings for this instance
     NVStrings* get_keys();
 
     // return single category value given string or index
     int get_value(unsigned int index);
     int get_value(const char* str);
-    
+    // this method can be used to return possible position value for unknown keys
+    std::pair<int,int> get_value_bounds(const char* str);
+
     // return category values for all indexes
-    int get_values( unsigned int* results, bool devmem=true );
-    //
-    int get_indexes_for( unsigned int index, unsigned int* results, bool devmem=true );
-    int get_indexes_for( const char* str, unsigned int* results, bool devmem=true );
+    int get_values( int* results, bool devmem=true );
+    // returns pointer to internal values array in device memory
+    const int* values_cptr();
+
+    // return values positions for given key
+    int get_indexes_for( unsigned int index, int* results, bool devmem=true );
+    int get_indexes_for( const char* str, int* results, bool devmem=true );
 
     // creates a new instance incorporating the new strings
     NVCategory* add_strings(NVStrings& strs);
     // creates a new instance without the specified strings
     NVCategory* remove_strings(NVStrings& strs);
 
+    // creates a new instance adding the specified strings as keys and remapping the values
+    NVCategory* add_keys_and_remap(NVStrings& strs);
+    // creates a new instance removing the keys matching the specified strings and remapping the values
+    NVCategory* remove_keys_and_remap(NVStrings& strs);
+    // creates a new instance using the specified strings as keys causing add/remove as appropriate; values are also remapped
+    NVCategory* set_keys_and_remap(NVStrings& strs);
+    // creates a new instance removing any keys that are not represented in the values; values are remapped
+    NVCategory* remove_unused_keys_and_remap();
+    //
+    NVCategory* merge_category(NVCategory& cat);
+    NVCategory* merge_and_remap(NVCategory& cat);
+
     // convert to original strings list
     NVStrings* to_strings();
     // create a new strings instance identified by the specified index values
-    NVStrings* gather_strings( unsigned int* pos, unsigned int elems, bool devmem=true );
+    NVStrings* gather_strings( const int* pos, unsigned int elems, bool devmem=true );
+    // create new category instance identified by the specified values and remap values to resulting keyset
+    NVCategory* gather_and_remap( const int* pos, unsigned int elems, bool devmem=true );
+    // create new category instance using the current keys but with the specified values
+    NVCategory* gather( const int* pos, unsigned int elems, bool devmem=true );
 };

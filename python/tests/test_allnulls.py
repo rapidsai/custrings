@@ -39,6 +39,10 @@ print(".slice(2,4):",strs.slice(2,4))
 print(".slice_replace(2,4,z):",strs.slice_replace(2,4,'z'))
 print(".replace(e,_):",strs.replace('e','_'))
 
+# order/sort
+print(".sort(2):",strs.sort(2))
+print(".order(2):",strs.order(2))
+
 # split
 nstrs = strs.split("e")
 print(".split(e):")

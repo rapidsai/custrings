@@ -79,6 +79,20 @@ __device__ inline void _fillCharsLengths(const char* str, unsigned int bytes, BY
     }
 }
 
+__device__ inline bool is_one_of( const char* tgts, Char chr )
+{
+    Char tchr = 0;
+    unsigned int cw = custring_view::char_to_Char(tgts,tchr);
+    while( tchr )
+    {
+        if( tchr==chr )
+            return true;
+        tgts += cw;
+        cw = custring_view::char_to_Char(tgts,tchr);
+    }
+    return false;
+}
+
 //
 class vloader
 {
@@ -107,14 +121,12 @@ __host__ __device__ unsigned int custring_view::alloc_size(const char* data, uns
 {
     unsigned int nsz = ALIGN_SIZE(sizeof(custring_view));
     //printf("as: custring_view(%lu)=%d\n",sizeof(custring_view),nsz);
-    {
-        unsigned int sz = bytes + 1;
-        unsigned int nchars = chars_in_string(data, bytes);
-        if(nchars != bytes)
-            sz += (nchars + 3) / 4;
-        nsz += sz;
-    }
-    //printf("as: +(%d)=%d\n",bytes,nsz);
+    unsigned int sz = bytes + 1;
+    unsigned int nchars = chars_in_string(data, bytes);
+    if(nchars != bytes)
+        sz += (nchars + 3) / 4;
+    nsz += sz;
+    //printf("as: +(%d/%d)=%d,%p\n",bytes,nchars,nsz,data);
     return nsz;
 }
 
@@ -465,7 +477,7 @@ __device__ int custring_view::find(const custring_view& str, unsigned int pos, i
 __device__ int custring_view::find(const char* str, unsigned int bytes, unsigned int pos, int count) const
 {
     char* sptr = (char*)data();
-    if(!str)
+    if(!str || !bytes)
         return -1;
     unsigned int nchars = chars_count();
     if(count < 0)
@@ -534,7 +546,7 @@ __device__ int custring_view::rfind(const custring_view& str, unsigned int pos, 
 __device__ int custring_view::rfind(const char* str, unsigned int bytes, unsigned int pos, int count) const
 {
     char* sptr = (char*)data();
-    if(!str)
+    if(!str || !bytes)
         return -1;
     unsigned int sz = size();
     unsigned int nchars = chars_count();
@@ -1152,8 +1164,6 @@ __device__ unsigned int custring_view::replace_size(unsigned int pos, unsigned i
 
 __device__ unsigned int custring_view::split(const char* delim, unsigned int bytes, int count, custring_view** strs)
 {
-    if(delim == 0)
-        return 0;
     char* sptr = data();
     unsigned int sz = size();
     if(sz == 0)
@@ -1174,6 +1184,7 @@ __device__ unsigned int custring_view::split(const char* delim, unsigned int byt
         ++delimCount;
         pos = find(delim, bytes, (unsigned int)pos + bytes);
     }
+
     unsigned int strsCount = delimCount + 1;
     unsigned int rtn = strsCount;
     if((count > 0) && (rtn > count))
@@ -1184,6 +1195,7 @@ __device__ unsigned int custring_view::split(const char* delim, unsigned int byt
     if(strsCount < count)
         count = strsCount;
     //
+    unsigned int dchars = (bytes ? chars_in_string(delim,bytes) : 1);
     unsigned int nchars = chars_count();
     unsigned int spos = 0, sidx = 0;
     int epos = find(delim, bytes);
@@ -1194,7 +1206,7 @@ __device__ unsigned int custring_view::split(const char* delim, unsigned int byt
         int len = (unsigned int)epos - spos;
         void* str = (void*)strs[sidx++];
         substr(spos, len, 1, str);
-        spos = epos + bytes;
+        spos = epos + dchars;
         epos = find(delim, bytes, spos);
     }
     if((spos <= nchars) && (sidx < count))
@@ -1206,8 +1218,6 @@ __device__ unsigned int custring_view::split(const char* delim, unsigned int byt
 //
 __device__ unsigned int custring_view::split_size(const char* delim, unsigned int bytes, int *sizes, int count) const
 {
-    if(delim == 0 || bytes == 0)
-        return 0;
     char* sptr = (char*)data();
     unsigned int sz = size();
     if(sz == 0)
@@ -1220,7 +1230,7 @@ __device__ unsigned int custring_view::split_size(const char* delim, unsigned in
         }
         return 1;
     }
-    //
+
     unsigned int delimCount = 0;
     int pos = find(delim, bytes);
     while(pos >= 0)
@@ -1238,6 +1248,7 @@ __device__ unsigned int custring_view::split_size(const char* delim, unsigned in
     if(strsCount < count)
         count = strsCount;
     //
+    unsigned int dchars = (bytes ? chars_in_string(delim,bytes) : 1);
     unsigned int nchars = chars_count();
     unsigned int total = 0;
     unsigned int spos = 0, sidx = 0;
@@ -1250,7 +1261,7 @@ __device__ unsigned int custring_view::split_size(const char* delim, unsigned in
         unsigned int ssz = substr_size(spos, len);
         sizes[sidx++] = ssz;
         total += ALIGN_SIZE(ssz);
-        spos = epos + bytes;
+        spos = epos + dchars;
         epos = find(delim, bytes, spos);
     }
     // handle the last string
@@ -1265,8 +1276,6 @@ __device__ unsigned int custring_view::split_size(const char* delim, unsigned in
 
 __device__ unsigned int custring_view::rsplit(const char* delim, unsigned int bytes, int count, custring_view** strs)
 {
-    if(delim == 0 || bytes == 0)
-        return 0;
     char* sptr = data();
     unsigned int sz = size();
     if(sz == 0)
@@ -1287,6 +1296,7 @@ __device__ unsigned int custring_view::rsplit(const char* delim, unsigned int by
         ++delimCount;
         pos = find(delim, bytes, (unsigned int)pos + bytes);
     }
+
     unsigned int strsCount = delimCount + 1;
     unsigned int rtn = strsCount;
     if((count > 0) && (rtn > count))
@@ -1297,19 +1307,20 @@ __device__ unsigned int custring_view::rsplit(const char* delim, unsigned int by
     if(strsCount < count)
         count = strsCount;
     //
+    unsigned int dchars = (bytes ? chars_in_string(delim,bytes) : 1);
     int epos = (int)chars_count(); // end pos is not inclusive
     int sidx = count - 1;          // index for strs array
-    pos = rfind(delim, bytes);
-    while(pos >= 0)
+    int spos = rfind(delim, bytes);
+    while(spos >= 0)
     {
         if(sidx <= 0)
             break;
-        int spos = pos + (int)bytes;
-        int len = epos - spos;
+        //int spos = pos + (int)bytes;
+        int len = epos - spos - dchars;
         void* str = (void*)strs[sidx--];
-        substr((unsigned int)spos, (unsigned int)len, 1, str);
-        epos = pos;
-        pos = rfind(delim, bytes, 0, (unsigned int)epos);
+        substr((unsigned int)spos+dchars, (unsigned int)len, 1, str);
+        epos = spos;
+        spos = rfind(delim, bytes, 0, (unsigned int)epos);
     }
     if(epos >= 0)
     {
@@ -1322,8 +1333,6 @@ __device__ unsigned int custring_view::rsplit(const char* delim, unsigned int by
 
 __device__ unsigned int custring_view::rsplit_size(const char* delim, unsigned int bytes, int *sizes, int count) const
 {
-    if(delim == 0 || bytes == 0)
-        return 0;
     char* sptr = (char*)data();
     unsigned int sz = size();
     if(sz == 0)
@@ -1344,6 +1353,7 @@ __device__ unsigned int custring_view::rsplit_size(const char* delim, unsigned i
         ++delimCount;
         pos = find(delim, bytes, (unsigned int)pos + bytes);
     }
+
     unsigned int strsCount = delimCount + 1;
     unsigned int rtn = strsCount;
     if((count > 0) && (rtn > count))
@@ -1354,21 +1364,22 @@ __device__ unsigned int custring_view::rsplit_size(const char* delim, unsigned i
     if(strsCount < count)
         count = strsCount;
     //
+    unsigned int dchars = (bytes ? chars_in_string(delim,bytes) : 1);
     unsigned int total = 0;        // total size of potential memory array
     int epos = (int)chars_count(); // end pos is not inclusive
     int sidx = count - 1;          // index for sizes array
-    pos = rfind(delim, bytes);
-    while(pos >= 0)
+    int spos = rfind(delim, bytes);
+    while(spos >= 0)
     {
         if(sidx <= 0)
             break;
-        int spos = pos + (int)bytes;
-        int len = epos - spos;
-        unsigned int ssz = substr_size((unsigned int)spos, (unsigned int)len);
+        //int spos = pos + (int)bytes;
+        int len = epos - spos - dchars;
+        unsigned int ssz = substr_size((unsigned int)spos+dchars, (unsigned int)len);
         sizes[sidx--] = ssz;
         total += ALIGN_SIZE(ssz);
-        epos = pos;
-        pos = rfind(delim, bytes, 0, (unsigned int)epos);
+        epos = spos;
+        spos = rfind(delim, bytes, 0, (unsigned int)epos);
     }
     if(epos >= 0)
     {
@@ -1380,21 +1391,14 @@ __device__ unsigned int custring_view::rsplit_size(const char* delim, unsigned i
     return total;
 }
 
-__device__ custring_view* custring_view::strip(Char chr, void* mem)
+__device__ custring_view* custring_view::strip(const char* tgts, void* mem)
 {
     custring_view* str = create_from(mem);
     unsigned int sz = size();
     char* sptr = data();
-    if(chr == 0)
-        chr = (Char)' ';
-    unsigned int chsz = bytes_in_char(chr);
+    if(tgts == 0)
+        tgts = " \n\t";
     char* optr = str->data();
-    if(sz < chsz)
-    {
-        memcpy(optr, sptr, sz);
-        str->init_fields(sz);
-        return str;
-    }
     unsigned int nchars = chars_count();
 
     // count the leading bytes
@@ -1404,7 +1408,7 @@ __device__ custring_view* custring_view::strip(Char chr, void* mem)
     {
         Char ch = 0;
         unsigned int cw = char_to_Char(ptr, ch);
-        if((cw != chsz) || (ch != chr))
+        if( !is_one_of(tgts,ch) )
             break;
         ptr += cw;
         lcount += cw;
@@ -1423,7 +1427,7 @@ __device__ custring_view* custring_view::strip(Char chr, void* mem)
             ; // skip over 'extra' bytes
         Char ch = 0;
         unsigned int cw = char_to_Char(ptr, ch);
-        if((cw != chsz) || (ch != chr))
+        if( !is_one_of(tgts,ch) )
             break;
         rcount += cw;
     }
@@ -1440,15 +1444,12 @@ __device__ custring_view* custring_view::strip(Char chr, void* mem)
     return str;
 }
 
-__device__ unsigned int custring_view::strip_size(Char chr) const
+__device__ unsigned int custring_view::strip_size(const char* tgts) const
 {
     unsigned int sz = size();
     char* sptr = (char*)data();
-    if(chr == 0)
-        chr = (Char)' ';
-    unsigned int chsz = bytes_in_char(chr);
-    if(sz < chsz)
-        return alloc_size();
+    if(tgts == 0)
+        tgts = " \n\t";
     unsigned int nchars = chars_count();
 
     // count the leading chars
@@ -1458,7 +1459,7 @@ __device__ unsigned int custring_view::strip_size(Char chr) const
     {
         Char ch = 0;
         unsigned int cw = char_to_Char(ptr, ch);
-        if((cw != chsz) || (ch != chr))
+        if(!is_one_of(tgts,ch) )
             break;
         ptr += cw;
         lcount += cw;
@@ -1475,7 +1476,7 @@ __device__ unsigned int custring_view::strip_size(Char chr) const
             ; // skip over 'extra' bytes
         Char ch = 0;
         unsigned int cw = char_to_Char(ptr, ch);
-        if((cw != chsz) || (ch != chr))
+        if(!is_one_of(tgts,ch) )
             break;
         rcount += cw;
     }
@@ -1488,7 +1489,7 @@ __device__ unsigned int custring_view::strip_size(Char chr) const
     return nsz;
 }
 
-__device__ custring_view* custring_view::lstrip(Char chr, void* mem)
+__device__ custring_view* custring_view::lstrip(const char* tgts, void* mem)
 {
     custring_view* str = create_from(mem);
     unsigned int sz = size();
@@ -1497,9 +1498,8 @@ __device__ custring_view* custring_view::lstrip(Char chr, void* mem)
         str->init_fields(0);
         return str;
     }
-    if(chr == 0)
-        chr = (Char)' ';
-    unsigned int chsz = bytes_in_char(chr);
+    if(tgts == 0)
+        tgts = " \n\t";
     unsigned int nchars = chars_count();
     // count the leading chars
     char* sptr = data();
@@ -1509,7 +1509,7 @@ __device__ custring_view* custring_view::lstrip(Char chr, void* mem)
     {
         Char ch = 0;
         unsigned int cw = char_to_Char(ptr, ch);
-        if((cw != chsz) || (ch != chr))
+        if( !is_one_of(tgts,ch) )
             break;
         ptr += cw;
         count += cw;
@@ -1521,14 +1521,13 @@ __device__ custring_view* custring_view::lstrip(Char chr, void* mem)
     return str;
 }
 
-__device__ unsigned int custring_view::lstrip_size(Char chr) const
+__device__ unsigned int custring_view::lstrip_size(const char* tgts) const
 {
     unsigned int sz = size();
     if(sz == 0)
         return alloc_size();
-    if(chr == 0)
-        chr = (Char)' ';
-    unsigned int chsz = bytes_in_char(chr);
+    if(tgts == 0)
+        tgts = " \n\t";
     unsigned int nchars = chars_count();
     char* sptr = (char*)data();
     char* ptr = sptr;
@@ -1537,7 +1536,7 @@ __device__ unsigned int custring_view::lstrip_size(Char chr) const
     {
         Char ch = 0;
         unsigned int cw = char_to_Char(ptr, ch);
-        if((cw != chsz) || (ch != chr))
+        if( !is_one_of(tgts,ch) )
             break;
         ptr += cw;
         count += cw;
@@ -1545,21 +1544,14 @@ __device__ unsigned int custring_view::lstrip_size(Char chr) const
     return alloc_size(sptr + count, sz - count);
 }
 
-__device__ custring_view* custring_view::rstrip(Char chr, void* mem)
+__device__ custring_view* custring_view::rstrip(const char* tgts, void* mem)
 {
     custring_view* str = create_from(mem);
     unsigned int sz = size();
     char* sptr = data();
-    if(chr == 0)
-        chr = (Char)' ';
-    unsigned int chsz = bytes_in_char(chr);
+    if(tgts == 0)
+        tgts = " \n\t";
     char* optr = str->data();
-    if(sz < chsz)
-    {
-        memcpy(optr, sptr, sz);
-        str->init_fields(sz);
-        return str;
-    }
     unsigned int nchars = chars_count();
     char* ptr = sptr + sz;
     unsigned int count = 0;
@@ -1569,7 +1561,7 @@ __device__ custring_view* custring_view::rstrip(Char chr, void* mem)
             ; // skip over 'extra' bytes
         Char ch = 0;
         unsigned int cw = char_to_Char(ptr, ch);
-        if((cw != chsz) || (ch != chr))
+        if( !is_one_of(tgts,ch) )
             break;
         count += cw;
     }
@@ -1579,15 +1571,12 @@ __device__ custring_view* custring_view::rstrip(Char chr, void* mem)
     return str;
 }
 
-__device__ unsigned int custring_view::rstrip_size(Char chr) const
+__device__ unsigned int custring_view::rstrip_size(const char* tgts) const
 {
     unsigned int sz = size();
     char* sptr = (char*)data();
-    if(chr == 0)
-        chr = (Char)' ';
-    unsigned int chsz = bytes_in_char(chr);
-    if(sz < chsz)
-        return alloc_size();
+    if(tgts == 0)
+        tgts = " \n\t";
     unsigned int nchars = chars_count();
     char* ptr = sptr + sz;
     unsigned int count = 0; // count from the end
@@ -1597,125 +1586,11 @@ __device__ unsigned int custring_view::rstrip_size(Char chr) const
             ; // skip over 'extra' bytes
         Char ch = 0;
         unsigned int cw = char_to_Char(ptr, ch);
-        if((cw != chsz) || (ch != chr))
+        if( !is_one_of(tgts,ch) )
             break;
         count += cw;
     }
     return alloc_size(sptr, sz - count);
-}
-
-__device__ custring_view& custring_view::lower()
-{
-    unsigned int sz = size();
-    unsigned char* sptr = (unsigned char*)data();
-    //
-    for(unsigned int idx = 0; idx < sz; ++idx)
-    {
-        unsigned char ch = *sptr;
-        if(ch >= 'A' && ch <= 'Z')
-            *sptr = (ch + 32);
-        else
-            *sptr = ch;
-        ++sptr;
-        // more efficient approach (one less if clause):
-        // adds 6th bit (2^5=32) if char has bits 010xxxxx set
-        //if( 64 == (224 & ch) )  -- range is too big - lowercases non-letters
-        //    ch = ch | 32;
-        //*sptr++ = ch;
-    }
-    return *this;
-}
-
-__device__ custring_view& custring_view::upper()
-{
-    unsigned int sz = size();
-    char* sptr = data();
-    //
-    // perhaps more efficient approach (one less if clause):
-    // do { if(96 == (224 & *s)) *s &= 223; } while(*s++);
-    // removes 6th bit (2^5=32) if char has bits 011xxxxx set
-    //
-    for(unsigned int idx = 0; idx < sz; ++idx)
-    {
-        char ch = *sptr;
-        if(ch >= 'a' && ch <= 'z')
-            *sptr = (ch - 32);
-        else
-            *sptr = ch;
-        ++sptr;
-    }
-    return *this;
-}
-
-// capitalize first character; remaining characters are lowercase'd;
-// this does not capitalize the first letter -- only the char at pos=0
-__device__ custring_view& custring_view::capitalize()
-{
-    unsigned int sz = size();
-    char* sptr = data();
-    // capitalize first character
-    char ch = 0;
-    if(sz > 0)
-        ch = *sptr;
-    if(ch >= 'a' && ch <= 'z')
-        *sptr++ = (ch - 32);
-    else
-        *sptr++ = ch;
-    // lowercase the rest
-    for(unsigned int idx = 1; idx < sz; ++idx)
-    {
-        ch = *sptr;
-        if(ch >= 'A' && ch <= 'Z')
-            *sptr = (ch + 32);
-        else
-            *sptr = ch;
-        ++sptr;
-    }
-    return *this;
-}
-
-__device__ custring_view& custring_view::swapcase()
-{
-    unsigned int sz = size();
-    char* sptr = data();
-    //
-    for(unsigned int idx = 0; idx < sz; ++idx)
-    {
-        // see upper() and lower() above for possible optimization
-        char ch = *sptr;
-        if(ch >= 'a' && ch <= 'z')
-            *sptr = (ch - 32);
-        else if(ch >= 'A' && ch <= 'Z')
-            *sptr = (ch + 32);
-        else
-            *sptr = ch;
-        ++sptr;
-    }
-    return *this;
-}
-
-// uppercase first letter of each word and lowercase the rest
-__device__ custring_view& custring_view::titlecase()
-{
-    unsigned int sz = size();
-    char* sptr = data();
-    bool capit = true;
-    for(unsigned int idx = 0; idx < sz; ++idx)
-    {
-        char ch = *sptr;
-        char och = ch;
-        if(capit)
-        {
-            if(ch >= 'a' && ch <= 'z')
-                och = (ch - 32);
-        }
-        else if(ch >= 'A' && ch <= 'Z')
-            och = (ch + 32);
-        // unsigned cast here helps with utf8 bytes
-        capit = ((unsigned char)ch <= (unsigned char)'A');
-        *sptr++ = och;
-    }
-    return *this;
 }
 
 // these expect only numbers (ascii charset)
@@ -1890,107 +1765,6 @@ __device__ bool custring_view::ends_with(custring_view& str) const
     return find(str, sz - bytes) >= 0;
 }
 
-//
-__device__ bool custring_view::islower() const
-{
-    unsigned int sz = size();
-    if(sz == 0)
-        return false;
-    char* ptr = (char*)data();
-    for(unsigned int idx = 0; idx < sz; ++idx)
-    {
-        unsigned char ch = (unsigned char)*ptr++;
-        if(ch < 'a' || ch > 'z')
-            return false;
-    }
-    return true;
-}
-
-__device__ bool custring_view::isupper() const
-{
-    unsigned int sz = size();
-    if(sz == 0)
-        return false;
-    char* ptr = (char*)data();
-    for(unsigned int idx = 0; idx < sz; ++idx)
-    {
-        unsigned char ch = (unsigned char)*ptr++;
-        if(ch < 'A' || ch > 'Z')
-            return false;
-    }
-    return true;
-}
-
-__device__ bool custring_view::isspace() const
-{
-    unsigned int sz = size();
-    if(sz == 0)
-        return false;
-    char* ptr = (char*)data();
-    for(unsigned int idx = 0; idx < sz; ++idx)
-    {
-        if((unsigned char)*ptr++ > ' ')
-            return false;
-    }
-    return true;
-}
-
-__device__ bool custring_view::isdecimal() const
-{
-    unsigned int sz = size();
-    if(sz == 0)
-        return false;
-    char* ptr = (char*)data();
-    for(unsigned int idx = 0; idx < sz; ++idx)
-    {
-        unsigned char ch = (unsigned char)*ptr++;
-        if((ch < '0' || ch > '9') &&
-            (ch != '-') && (ch != '+') && (ch != '.'))
-            return false;
-    }
-    return true;
-}
-
-__device__ bool custring_view::isnumeric() const
-{
-    unsigned int nchars = chars_count();
-    if(nchars == 0)
-        return false;
-    char* ptr = (char*)data();
-    for(unsigned int idx = 0; idx < nchars; ++idx)
-        char* ptr = (char*)data();
-    for(unsigned int idx = 0; idx < nchars; ++idx)
-    {
-        Char chr = 0;
-        ptr += char_to_Char(ptr, chr);
-        if((chr >= '0' && chr <= '9') ||
-            (chr == 0x0c2b2) || (chr == 0x0c2b3) || (chr == 0x0c2b9) ||
-            (chr >= 0x0c2bc && chr <= 0x0c2be) ||
-            (chr >= 0x0e28590 && chr <= 0x0e28689)) // alot more of these too
-            continue;
-        return false;
-    }
-    return true;
-}
-
-__device__ bool custring_view::isdigit() const
-{
-    unsigned int nchars = chars_count();
-    if(nchars == 0)
-        return false;
-    char* ptr = (char*)data();
-    for(unsigned int idx = 0; idx < nchars; ++idx)
-    {
-        Char chr = 0;
-        ptr += char_to_Char(ptr, chr);
-        if((chr >= '0' && chr <= '9') ||
-            (chr == 0x0c2b2) || (chr == 0x0c2b3) || (chr == 0x0c2b9)) // there are alot more than this
-            continue;
-        return false;
-    }
-    return true;
-}
-
 __device__ unsigned int custring_view::hash() const
 {
     unsigned int sz = size();
@@ -2052,33 +1826,33 @@ __host__ __device__ unsigned int custring_view::chars_in_string(const char* str,
         return 0;
     //
     unsigned int nchars = 0;
-    //for(unsigned int idx = 0; idx < bytes; ++idx)
-    //    nchars += (unsigned int)(((BYTE)str[idx] & 0xC0) != 0x80);
-    //return nchars;
-    unsigned int align = (unsigned long)str & 3;
-    str = str - align;                                                // these are pre-byte-swapped:
-    unsigned int m1 = ((unsigned int)0xFFFFFFFF) << (align*8);        // 0xFFFFFFFF, 0xFFFFFF00, 0xFFFF0000, 0xFF000000
-    unsigned int m2 = (unsigned int)(0x0080808080L >> ((4-align)*8)); // 0x00000000, 0x00000080, 0x00008080, 0x00808080
-    bytes += align; // adjust for alignment
-    for( unsigned int idx=0; idx < bytes/4; idx++ ) // read 4 bytes at a time
-    {
-        unsigned int vl = ((unsigned int*)(str))[idx];
-        vl = (vl & m1) | m2; // mask for alignment
-        nchars += (vl & (unsigned int)0xC0000000) != (unsigned int)0x80000000;
-        nchars += (vl & (unsigned int)0x00C00000) != (unsigned int)0x00800000;
-        nchars += (vl & (unsigned int)0x0000C000) != (unsigned int)0x00008000;
-        nchars += (vl & (unsigned int)0x000000C0) != (unsigned int)0x00000080;
-        m1 = (unsigned int)0xFFFFFFFF; // the rest are
-        m2 = (unsigned int)0x00000000; // already aligned
-    }
-    // finish off the end
-    unsigned int end = (bytes/4)*4;
-    for( unsigned int idx=0; idx < (bytes & 3); ++idx )
-    {
-        unsigned char uc = (unsigned char)str[end+idx];
-        nchars += ((uc & 0xC0) != 0x80);
-    }
+    for(unsigned int idx = 0; idx < bytes; ++idx)
+        nchars += (unsigned int)(((BYTE)str[idx] & 0xC0) != 0x80);
     return nchars;
+    //unsigned int align = (unsigned long)str & 3;
+    //str = str - align;                                                // these are pre-byte-swapped:
+    //unsigned int m1 = ((unsigned int)0xFFFFFFFF) << (align*8);        // 0xFFFFFFFF, 0xFFFFFF00, 0xFFFF0000, 0xFF000000
+    //unsigned int m2 = (unsigned int)(0x0080808080L >> ((4-align)*8)); // 0x00000000, 0x00000080, 0x00008080, 0x00808080
+    //bytes += align; // adjust for alignment
+    //for( unsigned int idx=0; idx < bytes/4; idx++ ) // read 4 bytes at a time
+    //{
+    //    unsigned int vl = ((unsigned int*)(str))[idx];
+    //    vl = (vl & m1) | m2; // mask for alignment
+    //    nchars += (vl & (unsigned int)0xC0000000) != (unsigned int)0x80000000;
+    //    nchars += (vl & (unsigned int)0x00C00000) != (unsigned int)0x00800000;
+    //    nchars += (vl & (unsigned int)0x0000C000) != (unsigned int)0x00008000;
+    //    nchars += (vl & (unsigned int)0x000000C0) != (unsigned int)0x00000080;
+    //    m1 = (unsigned int)0xFFFFFFFF; // the rest are
+    //    m2 = (unsigned int)0x00000000; // already aligned
+    //}
+    //// finish off the end
+    //unsigned int end = (bytes/4)*4;
+    //for( unsigned int idx=0; idx < (bytes & 3); ++idx )
+    //{
+    //    unsigned char uc = (unsigned char)str[end+idx];
+    //    nchars += ((uc & 0xC0) != 0x80);
+    //}
+    //return nchars;
 }
 
 __device__ unsigned int custring_view::char_offset(unsigned int bytepos) const

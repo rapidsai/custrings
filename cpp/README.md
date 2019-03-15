@@ -1,9 +1,9 @@
-NVStrings
+cuStrings
 ===========
 
-## API documentation
+### API Design
 
-Current active code is following the API design: [https://confluence.nvidia.com/pages/viewpage.action?spaceKey=DL&title=NVStrings+class](https://confluence.nvidia.com/pages/viewpage.action?spaceKey=DL&title=NVStrings+class)
+[cuStrings API](cuStrings-API.pdf)
 
 ### Dependecies
 

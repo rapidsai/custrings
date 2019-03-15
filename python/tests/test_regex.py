@@ -1,5 +1,10 @@
 #
 import nvstrings
+#
+from librmm_cffi import librmm as rmm
+from librmm_cffi import librmm_config as rmm_cfg
+rmm_cfg.use_pool_allocator = True 
+rmm.initialize()
 
 #
 strs = nvstrings.to_device(["5","hej","\t \n","12345","\\","d","c:\\Tools","+27", "1c2", "1C2" ])
@@ -50,23 +55,43 @@ print(".count(a):", strs.count('a'))
 print(".count([aA]):", strs.count('[aA]'))
 print(".match('[bB][aA]'):", strs.match('[bB][aA]'))
 print(".findall('[aA]'):")
-rows = strs.findall('[aA]')
-for row in rows:
-	print(" ",row)
-print(".findall_column('[aA]'):")
-columns = strs.findall_column('[aA]')
+columns = strs.findall('[aA]')
 for col in columns:
 	print(" ",col)
+print(".findall_record('[aA]'):")
+rows = strs.findall_record('[aA]')
+for row in rows:
+	print(" ",row)
 
 print("----------------------")
 strs = nvstrings.to_device(['ALA-PEK Flight:HU7934', 'HKT-PEK Flight:CA822', 'FRA-PEK Flight:LA8769', 'FRA-PEK Flight:LH7332', '', None, 'Flight:ZZ'])
 print(strs)
 print(".extract(r'Flight:([A-Z]+)(\d+)'):")
-rows = strs.extract(r'Flight:([A-Z]+)(\d+)')
-for row in rows:
-	print(" ",row)
-print(".extract_column(r'Flight:([A-Z]+)(\d+)'):")
-columns = strs.extract_column(r'Flight:([A-Z]+)(\d+)')
+columns = strs.extract(r'Flight:([A-Z]+)(\d+)')
 for col in columns:
 	print(" ",col)
+	nvstrings.free(col)
+print(".extract_record(r'Flight:([A-Z]+)(\d+)'):")
+rows = strs.extract_record(r'Flight:([A-Z]+)(\d+)')
+for row in rows:
+	print(" ",row)
+	nvstrings.free(row)
 
+print("----------------------")
+strs = nvstrings.to_device('word [[wikt:anarchism|anarchism]] is')
+print(strs)
+print(".replace('\\[\\[[a-z\\-]+:[^]]+\\]\\]','')",strs.replace('\\[\\[[a-z\\-]+:[^]]+\\]\\]',''))
+
+print("----------------------")
+strs = nvstrings.to_device(["A543","Z756","",None])
+print(strs)
+print("(\\d)(\\d),'\\1-\\2'",strs.replace_with_backrefs('(\\d)(\\d)', '\\1-\\2'))
+print("(\\d)(\\d),'V\\2-\\1'",strs.replace_with_backrefs('(\\d)(\\d)', 'V\\2-\\1'))
+print("(\\d)(\\d),'V\\1-\\3'",strs.replace_with_backrefs('(\\d)(\\d)', 'V\\1-\\3'))
+print("(\\d)(\\d),'V\\3-\\2'",strs.replace_with_backrefs('(\\d)(\\d)', 'V\\3-\\2'))
+
+strs = None
+strs1 = None
+strs2 = None
+strs3 = None
+strs4 = None

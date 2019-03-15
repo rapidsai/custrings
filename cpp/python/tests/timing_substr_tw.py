@@ -3,7 +3,7 @@ import pandas as pd
 import nvstrings
 import time
 
-strs = nvstrings.from_csv('/home/jovyan/tweets.csv', 7).to_host()
+strs = nvstrings.from_csv('/data/tweets.csv', 7).to_host()
 
 vlist1 = []
 vlist1.extend(strs)
@@ -21,10 +21,12 @@ print("precision = %0.9f seconds" % time.clock_getres(time.CLOCK_MONOTONIC_RAW))
 
 stats = {'strings':[], 'pandas':[], 'nvstrings':[]}
 vlist = []
-for i in range(50):
+for i in range(20):
+    print(i,"--------------------")
     #
     vlist.extend(vlist1)
     stats['strings'].append(len(vlist))
+    print(str(len(vlist)),"strings")
     #
     dstrs = nvstrings.to_device(vlist)
     hstrs = pd.Series(vlist)
@@ -38,7 +40,7 @@ for i in range(50):
     st = time.clock_gettime(time.CLOCK_MONOTONIC_RAW)
     h = hstrs.str.slice(1,15)
     et2 = (time.clock_gettime(time.CLOCK_MONOTONIC_RAW) - st)
-    print("     pandas.slice() = %05f" % et2)
+    print("   pandas.slice() = %05f" % et2)
     stats['pandas'].append(et2)
     print("speedup = %0.1fx" % (et2/et1) )
     #

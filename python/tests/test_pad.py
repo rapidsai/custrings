@@ -2,6 +2,11 @@
 import nvstrings
 
 #
+from librmm_cffi import librmm as rmm
+from librmm_cffi import librmm_config as rmm_cfg
+rmm_cfg.use_pool_allocator = True 
+rmm.initialize()
+#
 strs = nvstrings.to_device(["hello","there","world","1234","-1234",None,"accént",""])
 print(strs)
 
@@ -15,3 +20,5 @@ print(".center(10):",strs.center(10))
 print(".zfill(6):",strs.zfill(6))
 
 print(".repeat(3):",strs.repeat(3))
+
+strs = None

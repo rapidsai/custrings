@@ -27,7 +27,7 @@ class CMakeBuildExt(build_ext):
         output_dir = os.path.abspath(
             os.path.dirname(self.get_ext_fullpath(ext.name)))
 
-        abi_flag = os.environ.get('CMAKE_CXX11_ABI', 'OFF')
+        abi_flag = os.environ.get('CMAKE_CXX11_ABI', 'ON')
         build_type = 'Debug' if self.debug else 'Release'
         cmake_args = ['cmake',
                       ext.sourcedir,
@@ -59,7 +59,7 @@ with open('../LICENSE', encoding='UTF-8') as f:
 
 cuda_version = ''.join(os.environ.get('CUDA_VERSION', 'unknown').split('.')[:2])
 name = 'nvstrings-cuda{}'.format(cuda_version)
-version = os.environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev0').lstrip('v')
+version = os.environ.get('GIT_DESCRIBE_TAG', '0.3.0.dev0').lstrip('v')
 setup(name=name,
       description='CUDA strings Python bindings',
       version=version,
@@ -73,7 +73,7 @@ setup(name=name,
                    CMakeExtension('NVCategory'),
                    CMakeExtension('pyniNVCategory')],
       cmdclass={'build_ext': CMakeBuildExt},
-      headers=['NVStrings.h', 'NVCategory.h'],
+      headers=['../cpp/include/NVStrings.h', '../cpp/include/NVCategory.h'],
       zip_safe=False
       )
 

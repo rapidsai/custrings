@@ -1,59 +1,17 @@
-cmake_minimum_required (VERSION 3.0)
+cmake_minimum_required (VERSION 3.12)
 
+project(NVStrings VERSION 0.3.0 LANGUAGES C CXX CUDA)
 find_package(PythonLibs 3 REQUIRED)
-find_package(CUDA REQUIRED)
 
-option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" OFF)
+option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
+option(BUILD_TESTS "Configure CMake to build tests" OFF)
 
-set(CUDA_SEPARABLE_COMPILATION ON)
-
-set(LIB_STRINGS_SOURCES
-src/custring_view.cu
-src/custring.cu
-src/NVStrings.cu
-src/util.cu
-src/regex/regexec.cu
-src/regex/regcomp.cpp
-)
-
-set(LIB_STRINGS_HEADERS 
-src/custring_view.cuh
-src/custring.cuh
-include/NVStrings.h
-src/util.h
-src/regex/regex.cuh
-src/regex/regcomp.h
-)
-
-set(LIB_CATEGORY_SOURCES
-src/custring_view.cu
-src/custring.cu
-src/NVCategory.cu
-)
-
-set(LIB_CATEGORY_HEADERS 
-src/custring_view.cuh
-src/custring.cuh
-include/NVCategory.h 
-)
-
-set(LIB_RAVE_SOURCES
-src/custring_view.cu
-src/custring.cu
-src/Rave.cu
-)
-
-set(LIB_RAVE_HEADERS 
-src/custring_view.cuh
-src/custring.cuh
-include/Rave.h 
-)
-
-set (INCLUDE_DIR
-${PYTHON_INCLUDE_DIRS}
-include
-src
-)
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_C_COMPILER $ENV{CC})
+set(CMAKE_CXX_COMPILER $ENV{CXX})
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CUDA_STANDARD 14)
+set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
 SET(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 SET(CMAKE_INSTALL_RPATH "\$ORIGIN")
@@ -63,33 +21,71 @@ set (DEFINES  ${DEFINES}
 -D"_CRT_SECURE_NO_DEPRECATE"  
 -D"_SCL_SECURE_NO_DEPRECATE" 
 )
-else()
-add_definitions(-std=c++0x)
-add_compile_options(-fPIC)
 endif()
 
-include_directories(${INCLUDE_DIR})
+add_subdirectory(../thirdparty/rmm "${CMAKE_BINARY_DIR}/rmm")
+
+include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}"
+                    "${PYTHON_INCLUDE_DIRS}"
+                    "${CMAKE_BINARY_DIR}/include"
+                    "${CMAKE_SOURCE_DIR}/include"
+                    "${CMAKE_SOURCE_DIR}/src"
+                    "${CMAKE_SOURCE_DIR}/../thirdparty/rmm/include")
+
 add_definitions(${DEFINES})
+
+link_directories("${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES}")
 
 if(NOT CMAKE_CXX11_ABI)
     message(STATUS "NVStrings: Disabling the GLIBCXX11 ABI")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
-    set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0)
+    #set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0)
+    set(CMAKE_CUDA_FLAGS ${CMAKE_CUDA_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0)
 endif(NOT CMAKE_CXX11_ABI)
 
-set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -std=c++11 --expt-extended-lambda -gencode arch=compute_50,code=sm_50 -gencode arch=compute_60,code=sm_60 -gencode arch=compute_70,code=sm_70 -rdc=true -Xcompiler -fPIC)
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda -gencode=arch=compute_50,code=sm_50 -gencode=arch=compute_60,code=sm_60 -gencode=arch=compute_70,code=sm_70 -rdc=true")
+#set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda --expt-relaxed-constexpr")
+#set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Werror cross-execution-space-call -Wno-deprecated-declarations -Xptxas --disable-warnings")
+#set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Werror cross-execution-space-call -Xcompiler -Wall,-Werror")
 
-cuda_add_library (NVStrings SHARED ${LIB_STRINGS_SOURCES} ${LIB_STRINGS_HEADERS})
-cuda_add_library (NVCategory SHARED ${LIB_CATEGORY_SOURCES} ${LIB_CATEGORY_HEADERS})
-cuda_add_library (Rave SHARED ${LIB_RAVE_SOURCES} ${LIB_RAVE_HEADERS})
+add_library(NVStrings SHARED 
+            src/NVStrings.cu
+            src/NVStringsImpl.cu
+            src/NVStrings_array.cu
+            src/NVStrings_attrs.cu
+            src/NVStrings_combine.cu
+            src/NVStrings_split.cu
+            src/NVStrings_pad.cu
+            src/NVStrings_substr.cu
+            src/NVStrings_modify.cu
+            src/NVStrings_strip.cu
+            src/NVStrings_case.cu
+            src/NVStrings_find.cu
+            src/NVStrings_convert.cu
+            src/custring_view.cu
+            src/custring.cu
+            src/util.cu
+            src/regex/regexec.cu
+            src/regex/regcomp.cpp)
 
-target_link_libraries(NVCategory NVStrings)
-target_link_libraries(Rave NVStrings)
+add_library(NVCategory SHARED
+            src/NVCategory.cu
+            src/custring_view.cu
+            src/custring.cu)
 
-cuda_add_library (pyniNVStrings SHARED python/pystrings.cpp)
-cuda_add_library (pyniNVCategory SHARED python/pycategory.cpp)
-cuda_add_library (pyniRave SHARED python/pyrave.cpp)
+add_library(Rave SHARED
+            src/Rave.cu
+            src/custring_view.cu
+            src/custring.cu)
+
+target_link_libraries(NVStrings rmm)
+target_link_libraries(NVCategory NVStrings rmm)
+target_link_libraries(Rave NVStrings rmm)
+
+add_library(pyniNVStrings SHARED python/pystrings.cpp)
+add_library(pyniNVCategory SHARED python/pycategory.cpp)
+add_library(pyniRave SHARED python/pyrave.cpp)
 
 if (WIN32) 
 set_target_properties(pyniNVStrings PROPERTIES SUFFIX ".pyd")
@@ -109,3 +105,6 @@ target_link_libraries(pyniNVCategory ${PYTHON_LIBRARIES} NVStrings NVCategory)
 target_link_libraries(pyniRave ${PYTHON_LIBRARIES} NVStrings Rave)
 
 install(TARGETS NVStrings LIBRARY DESTINATION lib)
+install(TARGETS NVCategory LIBRARY DESTINATION lib)
+install(TARGETS Rave LIBRARY DESTINATION lib)
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/ DESTINATION include/nvstrings PATTERN "*.h")

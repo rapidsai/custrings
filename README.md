@@ -1,4 +1,4 @@
-NVStrings
+cuStrings
 =========
 
 This repo is for CUDA string processing code for data science applications.
@@ -6,7 +6,7 @@ The modules here start with Pandas strings parity but also can include
 more advanced features. 
 
 This is a standalone library with no other dependencies but is expected to be used in RAPIDS applications.
-And some RAPIDS modules may depend on NVStrings.
+And some RAPIDS modules may depend on cuStrings and its bindings (nvStrings).
 
 ## Directories
 

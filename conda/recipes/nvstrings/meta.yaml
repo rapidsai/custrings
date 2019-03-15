@@ -16,19 +16,30 @@ source:
 build:
   number: {{ git_revision_count }}
   string: cuda{{ cuda_version }}_py{{ py_version }}_{{ git_revision_count }}
+  script_env:
+    - CC
+    - CXX
+    - CUDAHOSTCXX
+    - CMAKE_CXX11_ABI
+    - CUDA_VERSION
 
 requirements:
   build:
-    - python
-    - setuptools
     - cmake
+    - python 3.6.* # [py==36]
+    - python 3.7.* # [py==37]
+  host:
+    - python 3.6.* # [py==36]
+    - python 3.7.* # [py==37]
+    - setuptools
+    - numba>=0.40
   run:
-    - python
+    - python 3.6.* # [py==36]
+    - python 3.7.* # [py==37]
     - setuptools
 
 test:
   requires:
-    - python
     - pytest
   imports:
     - nvstrings

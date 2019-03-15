@@ -6,7 +6,7 @@ PY_HEADER_PATH=$(PYNI_PATH)/include/python${PYTHON_VERSION}m
 PY_LIB_PATH=$(PYNI_PATH)/lib/libpython${PYTHON_VERSION}m.so
 GENCODE=-gencode arch=compute_60,code=sm_60 -gencode arch=compute_70,code=sm_70
 CFLAGS=-shared -std=c++11 -fPIC -Isrc -Iinclude -I$(PY_HEADER_PATH)
-NVCFLAGS=-std=c++11 --expt-extended-lambda -Iinclude -Xcompiler -fPIC
+NVCFLAGS=-std=c++11 --expt-extended-lambda -Iinclude -I../thirdparty/rmm/include -Xcompiler -fPIC
 LFLAGS=-L. $(PY_LIB_PATH) -lrt
 NVLFLAGS=-L. -L/usr/local/cuda/lib64 -lcudart -lrt
 RPATH=-Wl,-rpath,.
@@ -50,7 +50,7 @@ link_rave.o: Rave.o custring_view.o custring.o
 
 libNVStrings.so: NVStrings.o custring_view.o custring.o util.o regexec.o regcomp.o link_nvstrings.o
 	@mkdir -p $(BUILD)
-	g++ -shared -fPIC $^ $(NVLFLAGS) -o $@ -Wl,-soname,$@ $(RPATH)
+	g++ -shared -fPIC $^ $(NVLFLAGS) -Lbuild -lrmm -o $@ -Wl,-soname,$@ $(RPATH)
 	cp $@ $(BUILD)/.
 
 libNVCategory.so: NVCategory.o custring_view.o custring.o link_nvcategory.o libNVStrings.so

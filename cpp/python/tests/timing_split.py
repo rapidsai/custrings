@@ -2,7 +2,7 @@ import pandas as pd
 import nvstrings
 import time
 
-df = pd.read_csv('/home/jovyan/7584-rows.csv', sep=',')
+df = pd.read_csv('/data/7584-rows.csv', sep=',')
 df.columns
 
 values = df["address"].values
@@ -12,7 +12,7 @@ dstrs = nvstrings.to_device(values.tolist())
 hstrs = pd.Series(values.tolist())
 
 print("precision = %0.9f seconds" % time.clock_getres(time.CLOCK_MONOTONIC_RAW))
-
+print(str(dstrs.size()), "strings")
 #
 st = time.clock_gettime(time.CLOCK_MONOTONIC_RAW)
 d = dstrs.split(' ')

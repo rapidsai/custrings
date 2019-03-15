@@ -4,23 +4,175 @@ import nvstrings as nvs
 
 
 def to_device(strs):
-    """Create a nvcategory object from a list of strings."""
-    cptr = pyniNVCategory.n_createCategoryFromHostStrings(strs)
-    return nvcategory(cptr)
+    """
+    Create a nvcategory object from a list of Python strings.
+
+    Parameters
+    ----------
+
+      strs: list
+        List of Python strings.
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+    import nvcategory
+
+    c = nvcategory.to_device(['apple','pear','banana','orange','pear'])
+    print(c.keys(),c.values())
+
+    Output:
+
+    .. code-block:: python
+
+    ['apple', 'banana', 'orange', 'pear'] [0, 3, 1, 2, 3]
+
+    """
+    rtn = pyniNVCategory.n_createCategoryFromHostStrings(strs)
+    if rtn is not None:
+        rtn = nvcategory(rtn)
+    return rtn
+
+
+def from_offsets(sbuf, obuf, scount, nbuf=None, ncount=0):
+    """
+    Create nvcategory object from byte-array of characters encoded in UTF-8.
+
+    Parameters
+    ----------
+
+      sbuf : CPU memory address or buffer
+        Strings characters encoded as UTF-8.
+
+      obuf : CPU memory address or buffer
+        Array of int32 byte offsets to beginning of each string in sbuf.
+        There should be scount+1 values where the last value is the
+        number of bytes in sbuf.
+
+      scount: int
+        Number of strings.
+
+      nbuf: CPU memory address or buffer
+        Optional null bitmask in arrow format.
+        Strings with no lengths are empty strings unless specified as
+        null by this bitmask.
+
+      ncount: int
+        Optional number of null strings.
+
+      Examples
+      --------
+
+      .. code-block:: python
+
+      import numpy as np
+      import nvcategory
+
+      # 'a','p','p','l','e' are utf8 int8 values 97,112,112,108,101
+      values = np.array([97, 112, 112, 108, 101], dtype=np.int8)
+      print("values",values.tobytes())
+      offsets = np.array([0,1,2,3,4,5], dtype=np.int32)
+      print("offsets",offsets)
+      c = nvcategory.from_offsets(values,offsets,5)
+      print(c.keys(),c.values())
+
+      Output:
+
+      .. code-block:: python
+
+      values b'apple'
+      offsets [0 1 2 3 4 5]
+      ['a', 'e', 'l', 'p'] [0, 3, 3, 2, 1]
+
+    """
+    rtn = pyniNVCategory.n_createFromOffsets(sbuf, obuf, scount, nbuf, ncount)
+    if rtn is not None:
+        rtn = nvcategory(rtn)
+    return rtn
 
 
 def from_strings(*args):
-    """Create a nvcategory object from a nvstrings object."""
+    """
+    Create a nvcategory object from a nvstrings object.
+
+    Parameters
+    ----------
+
+      args: variadic
+        1 or more nvstrings objects
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+      import nvcategory, nvstrings
+
+      s1 = nvstrings.to_device(['apple','pear','banana'])
+      s2 = nvstrings.to_device(['orange','pear'])
+      c = nvcategory.from_strings(s1,s2)
+      print(c.keys(),c.values())
+
+      Output:
+
+      .. code-block:: python
+
+      ['apple', 'banana', 'orange', 'pear'] [0, 3, 1, 2, 3]
+
+    """
     strs = []
     for arg in args:
         strs.append(arg)
-    cptr = pyniNVCategory.n_createCategoryFromNVStrings(strs)
-    return nvcategory(cptr)
+    rtn = pyniNVCategory.n_createCategoryFromNVStrings(strs)
+    if rtn is not None:
+        rtn = nvcategory(rtn)
+    return rtn
+
 
 def from_strings_list(list):
-    """Create a nvcategory object from a list of nvstrings."""
-    cptr = pyniNVCategory.n_createCategoryFromNVStrings(list)
-    return nvcategory(cptr)
+    """
+    Create a nvcategory object from a list of nvstrings.
+
+    Parameters
+    ----------
+
+      list: list
+        1 or more nvstrings objects
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+      import nvcategory, nvstrings
+
+      s1 = nvstrings.to_device(['apple','pear','banana'])
+      s2 = nvstrings.to_device(['orange','pear'])
+      c = nvcategory.from_strings_list([s1,s2])
+      print(c.keys(),c.values())
+
+      Output:
+
+      .. code-block:: python
+
+      ['apple', 'banana', 'orange', 'pear'] [0, 3, 1, 2, 3]
+
+    """
+    rtn = pyniNVCategory.n_createCategoryFromNVStrings(list)
+    if rtn is not None:
+        rtn = nvcategory(rtn)
+    return rtn
+
+
+def bind_cpointer(cptr, own=True):
+    """Bind an NVCategory C-pointer to a new instance."""
+    rtn = None
+    if cptr != 0:
+        rtn = nvcategory(cptr)
+        rtn._own = own
+    return rtn
 
 
 class nvcategory:
@@ -35,9 +187,12 @@ class nvcategory:
     def __init__(self, cptr):
         """For internal use only."""
         self.m_cptr = cptr
+        self._own = True
 
     def __del__(self):
-        pyniNVCategory.n_destroyCategory(self.m_cptr)
+        if self._own:
+            pyniNVCategory.n_destroyCategory(self.m_cptr)
+        self.m_cptr = 0
 
     def __str__(self):
         return str(self.keys())
@@ -45,6 +200,12 @@ class nvcategory:
     def __repr__(self):
         return "<nvcategory keys={},values={}>".format(
                 self.keys_size(), self.size())
+
+    def get_cpointer(self):
+        """
+        Returns memory pointer to underlying C++ class instance.
+        """
+        return self.m_cptr
 
     def size(self):
         """
@@ -248,6 +409,13 @@ class nvcategory:
         """
         return pyniNVCategory.n_get_values(self.m_cptr, devptr)
 
+    def values_cpointer(self):
+        """
+        Returns memory pointer to underlying device memory array
+        of int32 values for this instance.
+        """
+        return pyniNVCategory.n_get_values_cpointer(self.m_cptr)
+
     def add_strings(self, nvs):
         """
         Create new category incorporating specified strings.
@@ -277,7 +445,6 @@ class nvcategory:
         Output:
 
         .. code-block:: python
-
           ['aaa','dddd','eee']
           [2, 0, 2, 1]
           ['aaa','dddd','eee','ggg']
@@ -317,7 +484,6 @@ class nvcategory:
         Output:
 
         .. code-block:: python
-
           ['aaa','dddd','eee']
           [2, 0, 2, 1]
           ['dddd', 'eee']
@@ -402,4 +568,186 @@ class nvcategory:
         rtn = pyniNVCategory.n_gather_strings(self.m_cptr, indexes, count)
         if rtn is not None:
             rtn = nvs.nvstrings(rtn)
+        return rtn
+
+    def gather_and_remap(self, indexes, count=0):
+        """
+        Return nvcategory instance using the specified indexes
+        to gather strings from this instance.
+        Index values will be remapped if any keys are not
+        represented.
+        This is equivalent to calling nvcategory.from_strings()
+        using the nvstrings object returned from a call to
+        gather_strings().
+
+        Parameters
+        ----------
+          indexes : list or GPU memory pointer
+            List of ints or GPU memory pointer to array of int32 values.
+
+          count : int
+            Number of ints if indexes parm is a device pointer.
+            Otherwise it is ignored.
+
+        Returns
+        -------
+          nvcategory: keys and values based on indexes provided
+
+        Examples
+        --------
+
+        .. code-block:: python
+
+          import nvcategory
+          c = nvcategory.to_device(["aa","bb","bb","ff","cc","ff"])
+          print(c.keys(),c.values())
+          c = c.gather([1,3,2,3,1,2])
+          print(c.keys(),c.values())
+
+        Output:
+
+        .. code-block:: python
+
+          ['aa', 'bb', 'cc', 'ff'] [0, 1, 1, 3, 2, 3]
+          ['bb', 'cc', 'ff'] [0, 2, 1, 2, 0, 1]
+
+        """
+        rtn = pyniNVCategory.n_gather_and_remap(self.m_cptr, indexes, count)
+        if rtn is not None:
+            rtn = nvcategory(rtn)
+        return rtn
+
+    def gather(self, indexes, count=0):
+        """
+        Return nvcategory instance using the keys for this option
+        and copying the values from the indexes argument.
+
+        Parameters
+        ----------
+          indexes : list or GPU memory pointer
+            List of ints or GPU memory pointer to array of int32 values.
+
+          count : int
+            Number of ints if indexes parm is a device pointer.
+            Otherwise it is ignored.
+
+        Returns
+        -------
+          nvcategory: keys and values based on indexes provided
+
+        Examples
+        --------
+
+        .. code-block:: python
+
+          import nvcategory
+          c = nvcategory.to_device(["aa","bb","bb","ff","cc","ff"])
+          print(c.keys(),c.values())
+          c = c.gather([1,3,2,3,1,2])
+          print(c.keys(),c.values())
+
+        Output:
+
+        .. code-block:: python
+
+          ['aa', 'bb', 'cc', 'ff'] [0, 1, 1, 3, 2, 3]
+          ['aa', 'bb', 'cc', 'ff'] [1, 3, 2, 3, 1, 2]
+
+        """
+        rtn = pyniNVCategory.n_gather(self.m_cptr, indexes, count)
+        if rtn is not None:
+            rtn = nvcategory(rtn)
+        return rtn
+
+    def merge_category(self, nvcat):
+        """
+        Create new category incorporating the specified category keys
+        and values. This will return a new nvcategory with new key values.
+        The index values will appear as if appended. Any matching keys
+        will preserve their values and any new keys will get new values.
+
+        Parameters
+        ----------
+          nvcat : nvcategory
+            New cateogry to be merged.
+
+        """
+        rtn = pyniNVCategory.n_merge_category(self.m_cptr, nvcat)
+        if rtn is not None:
+            rtn = nvcategory(rtn)
+        return rtn
+
+    def merge_and_remap(self, nvcat):
+        """
+        Create new category incorporating the specified category keys
+        and values. This will return a new nvcategory with new key values.
+        The index values will appear as if appended.
+        Values will be remapped to the new keys.
+
+        Parameters
+        ----------
+          nvcat : nvcategory
+            New cateogry to be merged.
+
+        """
+        rtn = pyniNVCategory.n_merge_and_remap(self.m_cptr, nvcat)
+        if rtn is not None:
+            rtn = nvcategory(rtn)
+        return rtn
+
+    def add_keys(self, strs):
+        """
+        Create new category adding the specified keys and remapping
+        values to the new key indexes.
+
+        Parameters
+        ----------
+          strs: nvstrings
+            keys to be added to existing keys
+        """
+        rtn = pyniNVCategory.n_add_keys(self.m_cptr, strs)
+        if rtn is not None:
+            rtn = nvcategory(rtn)
+        return rtn
+
+    def remove_keys(self, strs):
+        """
+        Create new category removing the specified keys and remapping
+        values to the new key indexes. Values with removed keys are
+        mapped to -1.
+
+        Parameters
+        ----------
+          strs: nvstrings
+            keys to be removed from existing keys
+        """
+        rtn = pyniNVCategory.n_remove_keys(self.m_cptr, strs)
+        if rtn is not None:
+            rtn = nvcategory(rtn)
+        return rtn
+
+    def remove_unused_keys(self):
+        """
+        Create new category removing any keys that have no corresponding
+        values. Values are remapped to match the new keyset.
+        """
+        rtn = pyniNVCategory.n_remove_unused_keys(self.m_cptr)
+        if rtn is not None:
+            rtn = nvcategory(rtn)
+        return rtn
+
+    def set_keys(self, strs):
+        """
+        Create new category using the specified keys and remapping
+        values to the new key indexes. Matching names will have
+        remapped values. Values with removed keys are mapped to -1.
+
+        Parameters
+        ----------
+          strs: nvstrings
+            keys to be used for new category
+        """
+        rtn = pyniNVCategory.n_set_keys(self.m_cptr, strs)
+        if rtn is not None:
+            rtn = nvcategory(rtn)
         return rtn

@@ -1,6 +1,12 @@
 
 import nvstrings
 
+#
+from librmm_cffi import librmm as rmm
+from librmm_cffi import librmm_config as rmm_cfg
+rmm_cfg.use_pool_allocator = True 
+rmm.initialize()
+
 strs = nvstrings.to_device(["hello","there","world","accéntéd",None,""])
 print(strs)
 print(".translate():",strs.translate([]))
@@ -17,3 +23,5 @@ strs = nvstrings.to_device(["This, of course, is only an example!","And; will ha
 print(strs)
 print(".translate(punctuation=None):\n",strs.translate(str.maketrans('','',string.punctuation)))
 print(".translate(punctuation=' '):\n",strs.translate(str.maketrans(string.punctuation,' '*len(string.punctuation))))
+
+strs = None

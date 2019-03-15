@@ -1,7 +1,12 @@
 #
 import nvstrings
 import numpy as np
-from numba import cuda
+
+#
+from librmm_cffi import librmm as rmm
+from librmm_cffi import librmm_config as rmm_cfg
+rmm_cfg.use_pool_allocator = True 
+rmm.initialize()
 
 #
 s = nvstrings.to_device(["1234","5678","90",None,"-876","543.2","-0.12",".55","-.002","","de","abc123","123abc"])
@@ -9,21 +14,21 @@ print(s)
 #
 print(".stoi():",s.stoi())
 arr = np.arange(s.size(),dtype=np.int32)
-d_arr = cuda.to_device(arr)
+d_arr = rmm.to_device(arr)
 s.stoi(d_arr.device_ctypes_pointer.value)
 print(".stoi(devptr):",d_arr.copy_to_host())
 
 #
 print(".stof():",s.stof())
 arr = np.arange(s.size(),dtype=np.float32)
-d_arr = cuda.to_device(arr)
+d_arr = rmm.to_device(arr)
 s.stof(d_arr.device_ctypes_pointer.value)
 print(".stof(devptr):",d_arr.copy_to_host())
 
 #
 print(".hash():",s.hash())
 arr = np.arange(s.size(),dtype=np.uint32)
-d_arr = cuda.to_device(arr)
+d_arr = rmm.to_device(arr)
 s.hash(d_arr.device_ctypes_pointer.value)
 print(".hash(devptr):",d_arr.copy_to_host())
 
@@ -31,7 +36,7 @@ print(".hash(devptr):",d_arr.copy_to_host())
 s = nvstrings.to_device(['1234567890', 'de', '1.75', '-34', '+9.8', '7¼', 'x³', '2³', '12⅝','','\t\r\n '])
 print(s)
 arr = np.arange(s.size(),dtype=np.byte)
-d_arr = cuda.to_device(arr)
+d_arr = rmm.to_device(arr)
 
 #
 print(".isalnum():",s.isalnum())
@@ -62,3 +67,23 @@ print(".isspace(devptr):",d_arr.copy_to_host())
 print(".isnumeric():",s.isnumeric())
 s.isnumeric(d_arr.device_ctypes_pointer.value)
 print(".isnumeric(devptr):",d_arr.copy_to_host())
+
+s = nvstrings.to_device(["1234","ABCDEF","1A2","cafe"])
+print(s)
+print(".htoi()",s.htoi())
+arr = np.arange(s.size(),dtype=np.uint32)
+d_arr = rmm.to_device(arr)
+s.htoi(d_arr.device_ctypes_pointer.value)
+print(".htoi(devptr)",d_arr.copy_to_host())
+print("itos():",nvstrings.itos(d_arr))
+nulls = np.empty(int(s.size()/8)+1, dtype=np.int8)
+nulls[0] = 11
+arr = d_arr.copy_to_host()
+print("itos(nulls=\\b1011):",nvstrings.itos(arr,nulls=nulls))
+
+s = nvstrings.to_device(["192.168.0.1","10.0.0.1",None,"","hello"])
+print(s)
+print(".ip2int()",s.ip2int())
+print(nvstrings.int2ip(s.ip2int()))
+
+s = None

@@ -11,7 +11,7 @@ public:
 
     // previously - create_vocab
     static NVStrings* unique_tokens(NVStrings& strs, const char* delimiter = " ");
-    
+
     // previously - word_count
     static unsigned int token_count( NVStrings& strs, const char* delimiter, unsigned int* results, bool devmem=true );
 

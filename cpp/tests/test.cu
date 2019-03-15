@@ -4,11 +4,14 @@
 #include <string>
 #include <vector>
 #include <cuda_runtime.h>
+#include <thrust/execution_policy.h>
 #include <thrust/device_vector.h>
-#include "../NVStrings.h"
+#include <thrust/for_each.h>
+#include "../include/NVStrings.h"
 
 //
-// nvcc -w -std=c++11 --expt-extended-lambda test.cu -L../build -lNVStrings -o test -Wl,-rpath,.:
+// cd ../build
+// nvcc -w -std=c++11 --expt-extended-lambda -gencode arch=compute_70,code=sm_70 ../tests/test.cu -L. -lNVStrings -o test --linker-options -rpath,.:
 //
 
 // csv file contents in device memory
@@ -118,13 +121,13 @@ int main( int argc, char** argv )
     if( column1==0 )
         return -1;
 
-    NVStrings dstrs( column1, count );
+    NVStrings* dstrs = NVStrings::create_from_index( column1, count );
 
     cudaFree(d_fileContents); // csv data not needed once dstrs is created
     cudaFree(column1);        // string index data has done its job as well
 
     std::vector<NVStrings*> ncolumns;
-    dstrs.split_column( " ", -1, ncolumns);
+    dstrs->split_column( " ", -1, ncolumns);
     printf("split_columns = %d\n",(int)ncolumns.size());
     //
     int basize = (count+7)/8;
@@ -133,7 +136,7 @@ int main( int argc, char** argv )
     for( int idx=0; idx < (int)ncolumns.size(); ++idx )
     {
         NVStrings* ds = ncolumns[idx];
-        int ncount = ds->create_null_bitarray(d_bitarray,true,false);
+        int ncount = ds->set_null_bitarray(d_bitarray,true,false);
         printf("%d: null count = %d/%d\n",idx,ncount,count);
         //for( int jdx=0; jdx < basize; ++jdx )
         //    printf("%02x,",(int)d_bitarray[jdx]);
@@ -149,7 +152,7 @@ int main( int argc, char** argv )
     //    printf("%s,",list[idx]);
     //printf("\n");
     //delete list;
-    ncolumns[0]->print();
+    //ncolumns[0]->print();
 
     return 0;
 }
