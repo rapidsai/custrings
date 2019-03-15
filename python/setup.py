@@ -73,7 +73,7 @@ setup(name=name,
                    CMakeExtension('NVCategory'),
                    CMakeExtension('pyniNVCategory')],
       cmdclass={'build_ext': CMakeBuildExt},
-      headers=['NVStrings.h', 'NVCategory.h'],
+      headers=['../cpp/include/NVStrings.h', '../cpp/include/NVCategory.h'],
       zip_safe=False
       )
 
