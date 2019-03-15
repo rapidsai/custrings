@@ -71,4 +71,5 @@
 - PR #37 use iterator instead of at() in regex eval
 - PR #31 Change NVCategory values type from unsigned to signed int32
 - PR #11 handle unescaped end-brace edge-case
+- PR #157 Fix Python not being found by CMake
 
