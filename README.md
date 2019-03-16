@@ -31,7 +31,7 @@ for idx, day in enumerate(['Sun', 'Mon', 'Tues', 'Wed', 'Thur', 'Fri', 'Sat']):
     gpu_day_of_week = gpu_day_of_week.replace(day, str(idx))
 
 # or, use nvcategory's builtin GPU categorization
-cat = nvcategory.from_strings(columns[4])
+cat = nvcategory.from_strings(gpu_columns[4])
 
 # copy category keys to host and print
 print(cat.keys())
