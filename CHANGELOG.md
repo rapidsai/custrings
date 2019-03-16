@@ -34,6 +34,7 @@
 
 ## Improvements
 
+- PR #163 Follow standard RAPIDS README format
 - PR #152 Add CHANGELOG.md
 - PR #145 Improve handling of whitespace in split
 - PR #144 Allow -1 for gather() position values
