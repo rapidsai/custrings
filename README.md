@@ -1,4 +1,4 @@
-# <div align="left"><img src="img/rapids_logo.png" width="90px"/>&nbsp;cuDF - GPU String Manipulation</div>
+# <div align="left"><img src="img/rapids_logo.png" width="90px"/>&nbsp;cuStrings - GPU String Manipulation</div>
 
 [![Build Status](http://18.191.94.64/buildStatus/icon?job=custrings-master)](http://18.191.94.64/job/custrings-master/)&nbsp;&nbsp;[![Documentation Status](https://readthedocs.org/projects/nvstrings/badge/?version=latest)](https://rapidsai.github.io/projects/custrings/en/latest)
 
@@ -53,21 +53,21 @@ cuStrings is a standalone library with no other dependencies. Other RAPIDS proje
 For more examples, see [Python API documentation](http://rapidsai.github.io/projects/nvstrings/en/latest), and [cuStrings CUDA/C++ API](cpp/cuStrings-API.pdf).
 ## Quick Start
 
-Please see the [Demo Docker Repository](https://hub.docker.com/r/rapidsai/rapidsai/), choosing a tag based on the NVIDIA CUDA version you’re running. This provides a ready to run Docker container with example notebooks and data, showcasing how you can utilize cuDF.
+Please see the [Demo Docker Repository](https://hub.docker.com/r/rapidsai/rapidsai/), choosing a tag based on the NVIDIA CUDA version you’re running. This provides a ready to run Docker container with example notebooks and data, showcasing how you can utilize cuStrings.
 
 ## Installation
 
 ### Conda
 
-cuDF can be installed with conda ([miniconda](https://conda.io/miniconda.html), or the full [Anaconda distribution](https://www.anaconda.com/download)) from the `rapidsai` channel:
+cuStrings can be installed with conda ([miniconda](https://conda.io/miniconda.html), or the full [Anaconda distribution](https://www.anaconda.com/download)) from the `rapidsai` channel:
 ```bash
 # for CUDA 9.2
 conda install -c nvidia -c rapidsai -c numba -c conda-forge -c defaults \
-    cudf=0.6 python=3.6
+    nvstrings=0.3 python=3.6
 
 # or, for CUDA 10.0
 conda install -c nvidia/label/cuda10.0 -c rapidsai/label/cuda10.0 -c numba \
-    -c conda-forge -c defaults cudf=0.6 python=3.6
+    -c conda-forge -c defaults nvstrings=0.3 python=3.6
 ```
 
 We also provide [nightly conda packages](https://anaconda.org/rapidsai-nightly) built from the tip of our latest development branch.
@@ -93,7 +93,7 @@ See build [instructions](CONTRIBUTING.md#setting-up-your-build-environment).
 
 ## Contributing
 
-Please see our [guide for contributing to cuDF](CONTRIBUTING.md).
+Please see our [guide for contributing to cuStrings](CONTRIBUTING.md).
 
 ## Contact
 
