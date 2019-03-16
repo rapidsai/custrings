@@ -39,6 +39,7 @@ env
 
 logger "Activate conda env..."
 source activate gdf
+pip install cmake_setuptools
 
 logger "Check versions..."
 python --version
