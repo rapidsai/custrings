@@ -45,7 +45,7 @@ Output:
 ['Fri', 'Sat', 'Sun', 'Thur']
 
 # many entries omitted for brevity
-[2, 2, 2, 2, ..., 1, 1, 1, 3]
+['0', '0', '0', ..., '6', '6', '4']
 ```
 
 cuStrings is a standalone library with no other dependencies. Other RAPIDS projects (like cuDF) depend on cuStrings and its nvStrings Python bindings.
