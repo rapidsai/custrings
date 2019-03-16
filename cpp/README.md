@@ -98,3 +98,7 @@ and `NVStrings.h` and `NVCategory.h` to `/usr/local/include/custr`.
 Use `#include <custr/NVStrings.h>` in source files.
 Use `-L/usr/local/lib -lNVStrings` for linking.
 
+### Docker
+
+There is also a Dockerfile that can be used to setup a build and test environment.
+It is based on the [cuDF](https://github.com/rapidsai/cudf) docker image mainly to keep a consistent conda enviornment.

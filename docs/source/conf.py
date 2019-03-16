@@ -22,7 +22,7 @@
 import os
 import sys
 from recommonmark.parser import CommonMarkParser
-sys.path.insert(0, os.path.abspath('../../python'))
+sys.path.insert(0, os.path.abspath('/custrings/python'))
 
 # Support .md files
 source_parsers = {'.md': CommonMarkParser}
