@@ -52,7 +52,7 @@ class CMakeBuildExt(build_ext):
 
 shutil.rmtree('build', ignore_errors=True)
 
-install_requires = ['numba>=0.40.0dev']
+install_requires = []
 
 with open('../LICENSE', encoding='UTF-8') as f:
     license_text = f.read()
@@ -64,7 +64,7 @@ setup(name=name,
       description='CUDA strings Python bindings',
       version=version,
       py_modules=['nvstrings', 'nvcategory'],
-      url='https://github.com/NVIDIA/nvstrings',
+      url='https://github.com/rapidsai/custrings',
       author='NVIDIA Corporation',
       license=license_text,
       install_requires=install_requires,

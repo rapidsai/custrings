@@ -433,10 +433,12 @@ class nvcategory:
         .. code-block:: python
 
           import nvcategory, nvstrings
+
           s1 = nvstrings.to_device(["eee","aaa","eee","dddd"])
           s2 = nvstrings.to_device(["ggg","eee","aaa"])
           c1 = nvcategory.from_strings(s1)
           c2 = c1.add_strings(s2)
+
           print(c1.keys())
           print(c1.values())
           print(c2.keys())
@@ -445,6 +447,7 @@ class nvcategory:
         Output:
 
         .. code-block:: python
+
           ['aaa','dddd','eee']
           [2, 0, 2, 1]
           ['aaa','dddd','eee','ggg']
@@ -472,10 +475,12 @@ class nvcategory:
         .. code-block:: python
 
           import nvcategory, nvstrings
+
           s1 = nvstrings.to_device(["eee","aaa","eee","dddd"])
           s2 = nvstrings.to_device(["aaa"])
           c1 = nvcategory.from_strings(s1)
           c2 = c1.remove_strings(s2)
+
           print(c1.keys())
           print(c1.values())
           print(c2.keys())
@@ -484,6 +489,7 @@ class nvcategory:
         Output:
 
         .. code-block:: python
+
           ['aaa','dddd','eee']
           [2, 0, 2, 1]
           ['dddd', 'eee']
