@@ -43,7 +43,7 @@
 #    This means no .a files. All device dependencies are now compiled into each .so file.
 #
 
-NVCFLAGS=-std=c++11 --expt-extended-lambda -Isrc -Iinclude -Xcompiler -fPIC
+NVCFLAGS=-std=c++14 --expt-extended-lambda -Isrc -Iinclude -Xcompiler -fPIC
 NVLFLAGS=-L. -L/usr/local/cuda/lib64 -lcudart -lrt
 # may need to include compute_61 when running on 9.0 system
 #GENCODE=-gencode arch=compute_60,code=sm_60 -gencode arch=compute_61,code=sm_61 -gencode arch=compute_70,code=sm_70
@@ -54,7 +54,7 @@ all: libNVStrings.so libNVCategory.so
 # The .a files here are for convenience only when prototyping with internal methods
 # They are only built if explicitly targeted on the make call (e.g. 'make libcustring.a')
 libcustring.a: src/custring_view.cu src/custring_view.cuh src/custring.cu src/custring.cuh
-	nvcc -std=c++11 -Xcompiler -fPIC $(GENCODE) -lib -rdc=true src/custring_view.cu src/custring.cu -o $@
+	nvcc $(NVCFLAGS) $(GENCODE) -lib -rdc=true src/custring_view.cu src/custring.cu -o $@
 
 libcure.a: src/regex/regexec.cu src/regex/regex.cuh src/regex/regcomp.cpp src/regex/regcomp.h src/custring_view.cuh libcustring.a
 	nvcc $(NVCFLAGS) $(GENCODE) -lib -rdc=true $< src/regex/regcomp.cpp libcustring.a -o $@
