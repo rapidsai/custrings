@@ -6,6 +6,8 @@ Welcome to nvstrings documentation!
    :caption: Contents:
 
    api.rst
+   unicode.md
+   regex.md
 
 Indices and tables
 ==================

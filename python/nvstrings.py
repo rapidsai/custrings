@@ -16,17 +16,16 @@ def to_device(strs):
 
     .. code-block:: python
 
-    import nvstrings
+        import nvstrings
 
-    s = nvstrings.to_device(['apple','pear','banana','orange'])
-    print(s)
+        s = nvstrings.to_device(['apple','pear','banana','orange'])
+        print(s)
 
     Output:
 
     .. code-block:: python
 
-    ['apple', 'pear', 'banana', 'orange']
-
+        ['apple', 'pear', 'banana', 'orange']
 
     """
     rtn = pyniNVStrings.n_createFromHostStrings(strs)
@@ -57,11 +56,11 @@ def from_strings(*args):
       s3 = nvstrings.from_strings(s1,s2)
       print(s3)
 
-      Output:
+    Output:
 
-      .. code-block:: python
+    .. code-block:: python
 
-      ['apple', 'pear', banana', 'orange', 'pear']
+        ['apple', 'pear', banana', 'orange', 'pear']
 
     """
     strs = []
@@ -110,6 +109,7 @@ def from_csv(csv, column, lines=0, flags=0):
     .. code-block:: python
 
       import nvstrings
+
       s = nvstrings.from_csv("file.csv",2)
       print(s)
 
@@ -157,8 +157,8 @@ def from_offsets(sbuf, obuf, scount, nbuf=None, ncount=0):
 
       .. code-block:: python
 
-      import numpy as np
       import nvstrings
+      import numpy as np
 
       # 'a','p','p','l','e' are utf8 int8 values 97,112,112,108,101
       values = np.array([97, 112, 112, 108, 101], dtype=np.int8)
@@ -332,8 +332,8 @@ class nvstrings:
         .. code-block:: python
 
           import nvstrings
-          s = nvstrings.to_device(["hello","world"])
 
+          s = nvstrings.to_device(["hello","world"])
           h = s.upper().to_host()
           print(h)
 
@@ -372,8 +372,8 @@ class nvstrings:
 
           .. code-block:: python
 
-          import numpy as np
           import nvstrings
+          import numpy as np
 
           s = nvstrings.to_device(['a','p','p','l','e'])
           values = np.empty(s.size(), dtype=np.int8)
@@ -407,6 +407,7 @@ class nvstrings:
         .. code-block:: python
 
           import nvstrings
+
           s = nvstrings.to_device(["hello","world"])
           print(s.size())
 
@@ -435,8 +436,8 @@ class nvstrings:
         .. code-block:: python
 
           import nvstrings
-          import numpy as np
           from librmm_cffi import librmm
+          import numpy as np
 
           # example passing device memory pointer
           s = nvstrings.to_device(["abc","d","ef"])
@@ -506,24 +507,24 @@ class nvstrings:
           bdevmem: boolean
             Default (False) interprets nbuf as CPU memory.
 
-          Examples
-          --------
+        Examples
+        --------
 
-          .. code-block:: python
+        .. code-block:: python
 
-          import numpy as np
           import nvstrings
+          import numpy as np
 
           s = nvstrings.to_device(['a',None,'p','l','e'])
           nulls = np.empty(int(s.size()/8)+1, dtype=np.int8)
           s.set_null_bitmask(nulls)
           print("nulls",nulls.tobytes())
 
-          Output:
+        Output:
 
-          .. code-block:: python
+        .. code-block:: python
 
-          nulls b'\x1d'
+          nulls b\'\\x1d\'
 
         """
         return pyniNVStrings.n_set_null_bitmask(self.m_cptr, nbuf, bdevmem)
@@ -584,6 +585,7 @@ class nvstrings:
         .. code-block:: python
 
           import nvstrings
+
           s = nvstrings.to_device(["hello","world"])
 
           print(s.compare('hello'))
@@ -614,6 +616,7 @@ class nvstrings:
         .. code-block:: python
 
           import nvstrings
+
           s = nvstrings.to_device(["hello","world"])
           s.hash()
 
@@ -642,6 +645,7 @@ class nvstrings:
         .. code-block:: python
 
           import nvstrings
+
           s = nvstrings.to_device(["1234","-876","543.2","-0.12",".55""])
           print(s.stoi())
 
@@ -670,6 +674,7 @@ class nvstrings:
         .. code-block:: python
 
           import nvstrings
+
           s = nvstrings.to_device(["1234","-876","543.2","-0.12",".55"])
           print(s.stof())
 
@@ -700,6 +705,7 @@ class nvstrings:
         .. code-block:: python
 
           import nvstrings
+
           s = nvstrings.to_device(["1234","ABCDEF","1A2","cafe"])
           print(s.htoi())
 
@@ -729,6 +735,7 @@ class nvstrings:
         .. code-block:: python
 
           import nvstrings
+
           s = nvstrings.to_device(["192.168.0.1","10.0.0.1"])
           print(s.ip2int())
 
