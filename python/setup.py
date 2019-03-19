@@ -63,7 +63,7 @@ version = os.environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev0').lstrip('v')
 setup(name=name,
       description='CUDA strings Python bindings',
       version=version,
-      py_modules=['nvstrings', 'nvcategory'],
+      py_modules=['nvstrings', 'nvcategory', 'rave'],
       url='https://github.com/rapidsai/custrings',
       author='NVIDIA Corporation',
       license=license_text,
@@ -71,9 +71,11 @@ setup(name=name,
       ext_modules=[CMakeExtension('NVStrings', '../cpp'),
                    CMakeExtension('pyniNVStrings', '../cpp'),
                    CMakeExtension('NVCategory', '../cpp'),
-                   CMakeExtension('pyniNVCategory', '../cpp')],
+                   CMakeExtension('pyniNVCategory', '../cpp'),
+                   CMakeExtension('Rave', '../cpp'),
+                   CMakeExtension('pyniRave', '../cpp')],
       cmdclass={'build_ext': CMakeBuildExt},
-      headers=['../cpp/include/NVStrings.h', '../cpp/include/NVCategory.h'],
+      headers=['../cpp/include/NVStrings.h', '../cpp/include/NVCategory.h','../cpp/include/Rave.h'],
       zip_safe=False
       )
 
