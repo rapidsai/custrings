@@ -1,3 +1,18 @@
+/*
+* Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*     http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
 
 #include <stdlib.h>
 #include <cuda_runtime.h>
@@ -41,12 +56,21 @@ unsigned int NVStrings::len(int* lengths, bool todevice)
     printCudaError(cudaDeviceSynchronize(),"nvs-len");
     double et = GetTime();
     pImpl->addOpTimes("len",0.0,(et-st));
+    size_t size = thrust::reduce(execpol->on(0), d_rtn, d_rtn+count, (size_t)0,
+         []__device__(int lhs, int rhs) {
+            if( lhs < 0 )
+                lhs = 0;
+            if( rhs < 0 )
+                rhs = 0;
+            return lhs + rhs;
+         });
+
     if( !todevice )
     {   // copy result back to host
         cudaMemcpy(lengths,d_rtn,sizeof(int)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
-    return count;
+    return (unsigned int)size;
 }
 
 // this will return the number of bytes for each string
@@ -91,7 +115,7 @@ size_t NVStrings::byte_count(int* lengths, bool todevice)
             cudaMemcpy(lengths,d_rtn,sizeof(int)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
-    return size;
+    return (unsigned int)size;
 }
 
 
@@ -134,13 +158,13 @@ unsigned int NVStrings::isalnum( bool* results, bool todevice )
     }
     pImpl->addOpTimes("isalnum",0.0,(et-st));
     // count the number of successful finds
-    unsigned int rtn = thrust::count_if(execpol->on(0), d_rtn, d_rtn+count, [] __device__(bool val) {return val;} );
+    int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true );
     if( !todevice )
     {   // copy result back to host
         cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
-    return rtn;
+    return (unsigned int)matches;
 }
 
 unsigned int NVStrings::isalpha( bool* results, bool todevice )
@@ -181,13 +205,13 @@ unsigned int NVStrings::isalpha( bool* results, bool todevice )
     }
     pImpl->addOpTimes("isalpha",0.0,(et-st));
     // count the number of successful finds
-    unsigned int rtn = thrust::count_if(execpol->on(0), d_rtn, d_rtn+count, [] __device__(bool val) {return val;} );
+    int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
         cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
-    return rtn;
+    return (unsigned int)matches;
 }
 
 //
@@ -229,13 +253,13 @@ unsigned int NVStrings::isdigit( bool* results, bool todevice )
     }
     pImpl->addOpTimes("isdigit",0.0,(et-st));
     // count the number of successful finds
-    unsigned int rtn = thrust::count_if(execpol->on(0), d_rtn, d_rtn+count, [] __device__(bool val) {return val;} );
+    int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
         cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
-    return rtn;
+    return (unsigned int)matches;
 }
 
 unsigned int NVStrings::isspace( bool* results, bool todevice )
@@ -276,13 +300,13 @@ unsigned int NVStrings::isspace( bool* results, bool todevice )
     }
     pImpl->addOpTimes("isspace",0.0,(et-st));
     // count the number of successful finds
-    unsigned int rtn = thrust::count_if(execpol->on(0), d_rtn, d_rtn+count, [] __device__(bool val) {return val;} );
+    int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
         cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
-    return rtn;
+    return (unsigned int)matches;
 }
 
 unsigned int NVStrings::isdecimal( bool* results, bool todevice )
@@ -323,13 +347,13 @@ unsigned int NVStrings::isdecimal( bool* results, bool todevice )
     }
     pImpl->addOpTimes("isdecimal",0.0,(et-st));
     // count the number of successful finds
-    unsigned int rtn = thrust::count_if(execpol->on(0), d_rtn, d_rtn+count, [] __device__(bool val) {return val;} );
+    int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
         cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
-    return rtn;
+    return (unsigned int)matches;
 }
 
 unsigned int NVStrings::isnumeric( bool* results, bool todevice )
@@ -370,13 +394,13 @@ unsigned int NVStrings::isnumeric( bool* results, bool todevice )
     }
     pImpl->addOpTimes("isnumeric",0.0,(et-st));
     // count the number of successful finds
-    unsigned int rtn = thrust::count_if(execpol->on(0), d_rtn, d_rtn+count, [] __device__(bool val) {return val;} );
+    int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
         cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
-    return rtn;
+    return (unsigned int)matches;
 }
 
 unsigned int NVStrings::islower( bool* results, bool todevice )
@@ -417,13 +441,13 @@ unsigned int NVStrings::islower( bool* results, bool todevice )
     }
     pImpl->addOpTimes("islower",0.0,(et-st));
     // count the number of successful finds
-    unsigned int rtn = thrust::count_if(execpol->on(0), d_rtn, d_rtn+count, [] __device__(bool val) {return val;} );
+    int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
         cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
-    return rtn;
+    return (unsigned int)matches;
 }
 
 unsigned int NVStrings::isupper( bool* results, bool todevice )
@@ -464,11 +488,11 @@ unsigned int NVStrings::isupper( bool* results, bool todevice )
     }
     pImpl->addOpTimes("islower",0.0,(et-st));
     // count the number of successful finds
-    unsigned int rtn = thrust::count_if(execpol->on(0), d_rtn, d_rtn+count, [] __device__(bool val) {return val;} );
+    int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
         cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
-    return rtn;
+    return (unsigned int)matches;
 }

@@ -108,3 +108,11 @@ install(TARGETS NVStrings LIBRARY DESTINATION lib)
 install(TARGETS NVCategory LIBRARY DESTINATION lib)
 install(TARGETS Rave LIBRARY DESTINATION lib)
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/ DESTINATION include/nvstrings PATTERN "*.h")
+
+# Doxygen documentation
+add_custom_command(OUTPUT DOCS_DOXYGEN
+                   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/doxygen
+                   COMMAND doxygen Doxyfile
+                   VERBATIM)
+
+add_custom_target(doc DEPENDS DOCS_DOXYGEN)
