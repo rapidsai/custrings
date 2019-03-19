@@ -26,7 +26,7 @@ class NVStrings;
 class NVCategoryImpl;
 /**
  * @brief Manages a list of strings for a category and their associated indexes.
- * 
+ *
  * This operates like a dictionary with strings as keys and values as integers.
  * Unique strings are assigned unique integer values within this instance.
  * Each value represents the index position into the keyset.
@@ -121,7 +121,7 @@ public:
      */
     static NVCategory* create_from_categories(std::vector<NVCategory*>& cats);
     ///@}
-    
+
     /**
      * @brief Use this method to free any instance created by methods in this class.
      *
@@ -207,7 +207,7 @@ public:
     int get_values( int* results, bool devmem=true );
     /**
      * @brief Returns pointer to internal values array.
-     * 
+     *
      * Caller should neither modify nor free this memory.
      * @return Pointer to internal device memory.
      */
@@ -232,7 +232,7 @@ public:
 
     /**
      * @brief Creates a new instance incorporating the new strings into the keyset.
-     * 
+     *
      * The values are updated like the new strings were appended to original strings list.
      * @param strs New strings to add.
      * @return New instance with new keys and values.
@@ -240,7 +240,7 @@ public:
     NVCategory* add_strings(NVStrings& strs);
     /**
      * @brief Creates a new instance without the strings specified.
-     * 
+     *
      * The values are updated like the new strings were removed from the original strings list.
      * @param strs Strings to remove.
      * @return New instance with new keys and values.
@@ -249,7 +249,7 @@ public:
 
     /**
      * @brief Creates a new instance adding the specified strings as keys and remapping the values.
-     * 
+     *
      * The values are adjusted to the new keyset positions. No new values are added.
      * @param strs New strings to add to the keyset.
      * @return New instance with new keys and values.
@@ -257,7 +257,7 @@ public:
     NVCategory* add_keys_and_remap(NVStrings& strs);
     /**
      * @brief Creates a new instance removing the keys matching the specified strings and remapping the values.
-     * 
+     *
      * The values are adjusted to the new keyset positions. No values are removed.
      * Any abandoned values (their key no longer exists) are set to -1.
      * @param strs Strings to remove from the keyset.
@@ -265,8 +265,8 @@ public:
      */
     NVCategory* remove_keys_and_remap(NVStrings& strs);
     /**
-     * @brief Creates a new instance using the specified strings as keys causing add/remove as appropriate. 
-     * 
+     * @brief Creates a new instance using the specified strings as keys causing add/remove as appropriate.
+     *
      * The values are adjusted to the new keyset positions. No new values are added or removed.
      * Any abandoned values (their key no longer exists) are set to -1.
      * @param strs Strings to be used for the new keyset.
@@ -275,14 +275,14 @@ public:
     NVCategory* set_keys_and_remap(NVStrings& strs);
     /**
      * @brief Creates a new instance removing any keys that are not represented in the values.
-     * 
+     *
      * The values are adjusted to the new keyset positions. Any -1 values are removed.
      * @return New instance with new keys and values.
      */
     NVCategory* remove_unused_keys_and_remap();
     /**
      * @brief Merges this category with another creating a new category.
-     * 
+     *
      * The merge operation preserves the original keyset positions from this instance.
      * New keys are appended to this keyset and therefore may no longer be sorted.
      * The values are appended and adjusted to the new keyset positions.
@@ -293,7 +293,7 @@ public:
     NVCategory* merge_category(NVCategory& cat);
     /**
      * @brief Merges this category with another creating a new category and remapping all values.
-     * 
+     *
      * This merge operation creates a new combined keyset and appends the values.
      * All the values are then adjusted to the new keyset positions.
      * @param cat Instance to merge with.
