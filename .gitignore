@@ -6,3 +6,4 @@
 *.so
 ##
 cpp/build/
+cpp/doxygen/html/

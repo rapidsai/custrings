@@ -1,3 +1,18 @@
+/*
+* Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*     http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
 
 #include <stdlib.h>
 #include <cuda_runtime.h>
@@ -6,6 +21,7 @@
 #include <thrust/host_vector.h>
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
+#include <thrust/count.h>
 #include <rmm/rmm.h>
 #include <rmm/thrust_rmm_allocator.h>
 #include "NVStrings.h"
@@ -18,11 +34,11 @@ double log10(double);
 #endif
 
 //
-unsigned int NVStrings::hash(unsigned int* results, bool todevice)
+int NVStrings::hash(unsigned int* results, bool todevice)
 {
     unsigned int count = size();
     if( count==0 || results==0 )
-        return count;
+        return -1;
 
     auto execpol = rmm::exec_policy(0);
     unsigned int* d_rtn = results;
@@ -43,21 +59,21 @@ unsigned int NVStrings::hash(unsigned int* results, bool todevice)
     printCudaError(cudaDeviceSynchronize(),"nvs-hash");
     double et = GetTime();
     pImpl->addOpTimes("hash",0.0,(et-st));
-
+    int zeros = thrust::count(execpol->on(0),d_rtn,d_rtn+count,0);
     if( !todevice )
     {
         cudaMemcpy(results,d_rtn,sizeof(float)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
-    return count;
+    return (int)count-zeros;
 }
 
 //
-unsigned int NVStrings::stoi(int* results, bool todevice)
+int NVStrings::stoi(int* results, bool todevice)
 {
     unsigned int count = size();
     if( count==0 || results==0 )
-        return count;
+        return -1;
 
     auto execpol = rmm::exec_policy(0);
     int* d_rtn = results;
@@ -78,21 +94,21 @@ unsigned int NVStrings::stoi(int* results, bool todevice)
     printCudaError(cudaDeviceSynchronize(),"nvs-stoi");
     double et = GetTime();
     pImpl->addOpTimes("stoi",0.0,(et-st));
-
+    int zeros = thrust::count(execpol->on(0),d_rtn,d_rtn+count,0);
     if( !todevice )
     {
         cudaMemcpy(results,d_rtn,sizeof(int)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
-    return count;
+    return (int)count-zeros;
 }
 
 //
-unsigned int NVStrings::stof(float* results, bool todevice)
+int NVStrings::stof(float* results, bool todevice)
 {
     unsigned int count = size();
     if( count==0 || results==0 )
-        return count;
+        return -1;
 
     auto execpol = rmm::exec_policy(0);
     float* d_rtn = results;
@@ -113,21 +129,21 @@ unsigned int NVStrings::stof(float* results, bool todevice)
     printCudaError(cudaDeviceSynchronize(),"nvs-stof");
     double et = GetTime();
     pImpl->addOpTimes("stof",0.0,(et-st));
-    //
+    int zeros = thrust::count(execpol->on(0),d_rtn,d_rtn+count,0);
     if( !todevice )
     {
         cudaMemcpy(results,d_rtn,sizeof(float)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
-    return count;
+    return (int)count-zeros;
 }
 
 //
-unsigned int NVStrings::htoi(unsigned int* results, bool todevice)
+int NVStrings::htoi(unsigned int* results, bool todevice)
 {
     unsigned int count = size();
     if( count==0 || results==0 )
-        return count;
+        return -1;
 
     auto execpol = rmm::exec_policy(0);
     unsigned int* d_rtn = results;
@@ -172,13 +188,13 @@ unsigned int NVStrings::htoi(unsigned int* results, bool todevice)
     printCudaError(cudaDeviceSynchronize(),"nvs-htoi");
     double et = GetTime();
     pImpl->addOpTimes("htoi",0.0,(et-st));
-
+    int zeros = thrust::count(execpol->on(0),d_rtn,d_rtn+count,0);
     if( !todevice )
     {
         cudaMemcpy(results,d_rtn,sizeof(unsigned int)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
-    return count;
+    return (int)count-zeros;
 }
 
 // build strings from given integers
@@ -286,11 +302,11 @@ NVStrings* NVStrings::itos(const int* values, unsigned int count, const unsigned
     return rtn;
 }
 
-unsigned int NVStrings::ip2int( unsigned int* results, bool bdevmem )
+int NVStrings::ip2int( unsigned int* results, bool bdevmem )
 {
     unsigned int count = size();
     if( count==0 || results==0 )
-        return count;
+        return -1;
     auto execpol = rmm::exec_policy(0);
     unsigned int* d_rtn = results;
     if( !bdevmem )
@@ -334,12 +350,13 @@ unsigned int NVStrings::ip2int( unsigned int* results, bool bdevmem )
         });
     //
     printCudaError(cudaDeviceSynchronize(),"nvs-ip2int");
+    int zeros = thrust::count(execpol->on(0),d_rtn,d_rtn+count,0);
     if( !bdevmem )
     {
         cudaMemcpy(results,d_rtn,sizeof(unsigned int)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
-    return count;
+    return (int)count-1;
 }
 
 NVStrings* NVStrings::int2ip( const unsigned int* values, unsigned int count, const unsigned char* nullbitmask, bool bdevmem )

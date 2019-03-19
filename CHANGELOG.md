@@ -6,7 +6,7 @@
 
 ## Improvements
 
-..
+- PR #167 Added doxygen to NVStrings.h and NVCategory.h
 
 #Bug Fixes
 

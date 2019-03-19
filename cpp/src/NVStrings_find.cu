@@ -1,3 +1,18 @@
+/*
+* Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*     http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
 
 #include <stdlib.h>
 #include <cuda_runtime.h>
@@ -57,6 +72,7 @@ unsigned int NVStrings::compare( const char* str, int* results, bool todevice )
         printCudaError(err);
     }
     pImpl->addOpTimes("compare",0.0,(et-st));
+    int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, 0);
 
     RMM_FREE(d_str,0);
     //
@@ -65,7 +81,7 @@ unsigned int NVStrings::compare( const char* str, int* results, bool todevice )
         cudaMemcpy(results,d_rtn,sizeof(int)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
-    return count;
+    return (unsigned int)matches;
 }
 
 // searches from the beginning of each string
@@ -366,7 +382,7 @@ int NVStrings::findall_record( const char* pattern, std::vector<NVStrings*>& res
     //
     printCudaError(cudaDeviceSynchronize(),"nvs-findall_record");
     dreprog::destroy(prog);
-    return count;
+    return (int)results.size();
 }
 
 // same as findall but strings are returned organized in column-major
@@ -501,13 +517,13 @@ int NVStrings::contains( const char* str, bool* results, bool todevice )
 
     RMM_FREE(d_str,0);
     // count the number of successful finds
-    unsigned int rtn = thrust::count_if(execpol->on(0), d_rtn, d_rtn+count, [] __device__(bool val) {return val;} );
+    int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
         cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
-    return (int)rtn;
+    return matches;
 }
 
 // regex version of contain() above
@@ -552,13 +568,13 @@ int NVStrings::contains_re( const char* pattern, bool* results, bool todevice )
     dreprog::destroy(prog);
 
     // count the number of successful finds
-    unsigned int rtn = thrust::count_if(execpol->on(0), d_rtn, d_rtn+count, [] __device__(bool val){ return val; });
+    int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
         cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
-    return (int)rtn;
+    return matches;
 }
 
 // match is like contains() except the pattern must match the beginning of the string only
@@ -603,13 +619,13 @@ int NVStrings::match( const char* pattern, bool* results, bool todevice )
     dreprog::destroy(prog);
 
     // count the number of successful finds
-    unsigned int rtn = thrust::count_if(execpol->on(0), d_rtn, d_rtn+count, [] __device__(bool val){ return val; });
+    int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
         cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
-    return (int)rtn;
+    return matches;
 }
 
 
@@ -667,13 +683,13 @@ int NVStrings::count_re( const char* pattern, int* results, bool todevice )
     dreprog::destroy(prog);
 
     // count the number of successful finds
-    unsigned int rtn = thrust::count_if(execpol->on(0), d_rtn, d_rtn+count, [] __device__(int val){ return val>0; });
+    int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
         cudaMemcpy(results,d_rtn,sizeof(int)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
-    return (int)rtn;
+    return matches;
 }
 
 //
@@ -715,13 +731,13 @@ unsigned int NVStrings::startswith( const char* str, bool* results, bool todevic
 
     RMM_FREE(d_str,0);
     // count the number of successful finds
-    unsigned int rtn = thrust::count_if(execpol->on(0), d_rtn, d_rtn+count, [] __device__(bool val) {return val;} );
+    unsigned int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true );
     if( !todevice )
     {   // copy result back to host
         cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
-    return rtn;
+    return matches;
 }
 
 //
@@ -763,11 +779,11 @@ unsigned int NVStrings::endswith( const char* str, bool* results, bool todevice 
 
     RMM_FREE(d_str,0);
     // count the number of successful finds
-    unsigned int rtn = thrust::count_if(execpol->on(0), d_rtn, d_rtn+count, [] __device__(bool val) {return val;} );
+    unsigned int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true );
     if( !todevice )
     {   // copy result back to host
         cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
-    return rtn;
+    return matches;
 }

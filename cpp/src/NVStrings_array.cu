@@ -1,3 +1,18 @@
+/*
+* Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*     http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
 
 #include <stdlib.h>
 #include <stdexcept>
@@ -21,18 +36,18 @@
 
 // create a new instance containing only the strings at the specified positions
 // position values can be in any order and can even be repeated
-NVStrings* NVStrings::gather( int* pos, unsigned int elems, bool bdevmem )
+NVStrings* NVStrings::gather( const int* pos, unsigned int elems, bool bdevmem )
 {
     unsigned int count = size();
     if( count==0 || elems==0 || pos==0 )
         return new NVStrings(0);
 
     auto execpol = rmm::exec_policy(0);
-    int* d_pos = pos;
+    const int* d_pos = pos;
     if( !bdevmem )
     {   // copy indexes to device memory
-        RMM_ALLOC(&d_pos,elems*sizeof(int),0);
-        cudaMemcpy(d_pos,pos,elems*sizeof(int),cudaMemcpyHostToDevice);
+        RMM_ALLOC((void**)&d_pos,elems*sizeof(int),0);
+        cudaMemcpy((void*)d_pos,pos,elems*sizeof(int),cudaMemcpyHostToDevice);
     }
     // get individual sizes
     rmm::device_vector<long> sizes(elems,0);
@@ -57,7 +72,7 @@ NVStrings* NVStrings::gather( int* pos, unsigned int elems, bool bdevmem )
     if( hfirst < 0 )
     {
         if( !bdevmem )
-            RMM_FREE(d_pos,0);
+            RMM_FREE((void*)d_pos,0);
         throw std::out_of_range("");
     }
 
@@ -87,7 +102,7 @@ NVStrings* NVStrings::gather( int* pos, unsigned int elems, bool bdevmem )
         printCudaError(cudaDeviceSynchronize(),"nvs-gather");
     }
     if( !bdevmem )
-        RMM_FREE(d_pos,0);
+        RMM_FREE((void*)d_pos,0);
     return rtn;
 }
 
@@ -108,28 +123,27 @@ NVStrings* NVStrings::sublist( unsigned int start, unsigned int end, unsigned in
 }
 
 // remove the specified strings and return a new instance
-NVStrings* NVStrings::remove_strings( unsigned int* pos, unsigned int elems, bool bdevmem )
+NVStrings* NVStrings::remove_strings( const int* pos, unsigned int elems, bool bdevmem )
 {
     unsigned int count = size();
     if( count==0 || elems==0 || pos==0 )
         return 0; // return copy of ourselves?
 
     auto execpol = rmm::exec_policy(0);
-    unsigned int* dpos = pos;
-    if( !bdevmem )
-    {
-        RMM_ALLOC(&dpos,elems*sizeof(unsigned int),0);
-        cudaMemcpy(dpos,pos,elems*sizeof(unsigned int),cudaMemcpyHostToDevice);
-    }
+    int* dpos = 0;
+    RMM_ALLOC(&dpos,elems*sizeof(unsigned int),0);
+    if( bdevmem )
+       cudaMemcpy((void*)dpos,pos,elems*sizeof(unsigned int),cudaMemcpyDeviceToDevice);
+    else
+       cudaMemcpy((void*)dpos,pos,elems*sizeof(unsigned int),cudaMemcpyHostToDevice);
     // sort the position values
-    thrust::sort(execpol->on(0),dpos,dpos+elems,thrust::greater<unsigned int>());
+    thrust::sort(execpol->on(0),dpos,dpos+elems,thrust::greater<int>());
     // also should remove duplicates
-    unsigned int* nend = thrust::unique(execpol->on(0),dpos,dpos+elems,thrust::equal_to<unsigned int>());
+    int* nend = thrust::unique(execpol->on(0),dpos,dpos+elems,thrust::equal_to<int>());
     elems = (unsigned int)(nend - dpos);
     if( count < elems )
     {
-        if( !bdevmem )
-            RMM_FREE(dpos,0);
+        RMM_FREE(dpos,0);
         fprintf(stderr,"nvs.remove_strings: more positions (%u) specified than the number of strings (%u)\n",elems,count);
         return 0;
     }
@@ -150,7 +164,7 @@ NVStrings* NVStrings::remove_strings( unsigned int* pos, unsigned int elems, boo
     unsigned int newCount = (unsigned int)(dend-d_npos);
     // gather string pointers based on indexes in dnpos (new-positions)
     custring_view** d_strings = pImpl->getStringsPtr();
-    rmm::device_vector<custring_view*> newList(newCount,nullptr);           // newList will hold
+    rmm::device_vector<custring_view*> newList(newCount,nullptr);              // newList will hold
     custring_view_array d_newList = newList.data().get();                      // all the remaining
     thrust::gather(execpol->on(0),d_npos,d_npos+newCount,d_strings,d_newList); // strings ptrs
 
@@ -168,8 +182,7 @@ NVStrings* NVStrings::remove_strings( unsigned int* pos, unsigned int elems, boo
     char* d_buffer = rtn->pImpl->createMemoryFor(d_sizes);
     if( d_buffer==0 )
     {
-        if( !bdevmem )
-            RMM_FREE(dpos,0);
+        RMM_FREE(dpos,0);
         return rtn;
     }
     // create offsets
@@ -188,8 +201,7 @@ NVStrings* NVStrings::remove_strings( unsigned int* pos, unsigned int elems, boo
         });
     //
     printCudaError(cudaDeviceSynchronize(),"nvs-remove_strings");
-    if( !bdevmem )
-        RMM_FREE(dpos,0);
+    RMM_FREE(dpos,0);
     return rtn;
 }
 
