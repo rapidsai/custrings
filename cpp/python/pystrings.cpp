@@ -426,6 +426,58 @@ static PyObject* n_createFromIPv4Integers( PyObject* self, PyObject* args )
     Py_RETURN_NONE;
 }
 
+static PyObject* n_createFromTimestamp( PyObject* self, PyObject* args )
+{
+    PyObject* pyvals = PyTuple_GetItem(args,0);
+    PyObject* pycount = PyTuple_GetItem(args,1);
+    PyObject* pynulls = PyTuple_GetItem(args,2);
+    //
+    PyObject* argUnits = PyTuple_GetItem(args,3);
+    const char* unitsz = PyUnicode_AsUTF8(argUnits);
+    std::string units = unitsz;
+    NVStrings::timestamp_units tu;
+    if( units.compare("seconds")==0 )
+        tu = NVStrings::seconds;
+    else if( units.compare("milliseconds")==0 )
+        tu = NVStrings::milliseconds;
+    else
+    {
+        PyErr_Format(PyExc_ValueError,"nvstrings: units parameter value unrecognized");
+        Py_RETURN_NONE;
+    }
+
+    PyObject* pybmem = PyTuple_GetItem(args,4);
+    bool bdevmem = (bool)PyObject_IsTrue(pybmem);
+    DataBuffer<unsigned long> dbvalues(pyvals);
+    if( dbvalues.is_error() )
+    {
+        PyErr_Format(PyExc_TypeError,"nvstrings.int2timestamp(): unknown type %s",dbvalues.get_name());
+        Py_RETURN_NONE;
+    }
+    unsigned long* values = dbvalues.get_values();
+    unsigned int count = dbvalues.get_count();
+    if( count==0 )
+        count = (unsigned int)PyLong_AsLong(pycount);
+    //bdevmem = dbvalues.is_device_type();
+
+    // get the nulls
+    unsigned char* nulls = 0;
+    if( pynulls != Py_None )
+    {
+        DataBuffer<unsigned char> dbnulls(pynulls);
+        if( dbnulls.is_error() )
+        {
+            PyErr_Format(PyExc_TypeError,"nvstrings.int2timestamp(): unknown type %s",dbnulls.get_name());
+            Py_RETURN_NONE;
+        }
+        nulls = dbnulls.get_values();
+    }
+    NVStrings* rtn = NVStrings::long2timestamp(values,count,tu,nulls,bdevmem);
+    if( rtn )
+        return PyLong_FromVoidPtr((void*)rtn);
+    Py_RETURN_NONE;
+}
+
 // called by from_offsets() method in python class
 static PyObject* n_create_offsets( PyObject* self, PyObject* args )
 {
@@ -776,6 +828,55 @@ static PyObject* n_ip2int( PyObject* self, PyObject* args )
             continue;
         }
         PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));
+    }
+    delete rtn;
+    return ret;
+}
+
+// convert the strings with ip address to integers
+static PyObject* n_timestamp2int( PyObject* self, PyObject* args )
+{
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    unsigned int count = tptr->size();
+    PyObject* ret = PyList_New(count);
+    if( count==0 )
+        return ret;
+    //
+    PyObject* argUnits = PyTuple_GetItem(args,1);
+    const char* unitsz = PyUnicode_AsUTF8(argUnits);
+    std::string units = unitsz;
+    NVStrings::timestamp_units tu;
+    if( units.compare("seconds")==0 )
+        tu = NVStrings::seconds;
+    else if( units.compare("milliseconds")==0 )
+        tu = NVStrings::milliseconds;
+    else
+    {
+        PyErr_Format(PyExc_ValueError,"nvstrings: units parameter value unrecognized");
+        Py_RETURN_NONE;
+    }
+
+    unsigned long* devptr = (unsigned long*)PyLong_AsVoidPtr(PyTuple_GetItem(args,2));
+    if( devptr )
+    {
+        tptr->timestamp2long(devptr,tu);
+        return PyLong_FromVoidPtr((void*)devptr);
+    }
+
+    // copy to host option
+    unsigned long* rtn = new unsigned long[count];
+    tptr->timestamp2long(rtn,tu,false);
+    std::vector<unsigned char> nulls(((count+7)/8),0);
+    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    for(size_t idx=0; idx < count; idx++)
+    {
+        if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
+        {
+            Py_INCREF(Py_None);
+            PyList_SetItem(ret, idx, Py_None);
+            continue;
+        }
+        PyList_SetItem(ret, idx, PyLong_FromLong(rtn[idx]));
     }
     delete rtn;
     return ret;
@@ -2412,6 +2513,7 @@ static PyMethodDef s_Methods[] = {
     { "n_createFromNVStrings", n_createFromNVStrings, METH_VARARGS, "" },
     { "n_createFromIntegers", n_createFromIntegers, METH_VARARGS, "" },
     { "n_createFromIPv4Integers", n_createFromIPv4Integers, METH_VARARGS, "" },
+    { "n_createFromTimestamp", n_createFromTimestamp, METH_VARARGS, "" },
     { "n_create_offsets", n_create_offsets, METH_VARARGS, "" },
     { "n_size", n_size, METH_VARARGS, "" },
     { "n_hash", n_hash, METH_VARARGS, "" },
@@ -2425,6 +2527,7 @@ static PyMethodDef s_Methods[] = {
     { "n_stof", n_stof, METH_VARARGS, "" },
     { "n_htoi", n_htoi, METH_VARARGS, "" },
     { "n_ip2int", n_ip2int, METH_VARARGS, "" },
+    { "n_timestamp2int", n_timestamp2int, METH_VARARGS, "" },
     { "n_cat", n_cat, METH_VARARGS, "" },
     { "n_split", n_split, METH_VARARGS, "" },
     { "n_rsplit", n_rsplit, METH_VARARGS, "" },

@@ -221,7 +221,7 @@ def int2ip(values, count=0, nulls=None, bdevmem=False):
 
       count: int
         Number of integers in values.
-        This is only required if values is a memptr.
+        This is only required if values is a memory pointer.
 
       nulls: list, memory address or buffer
         Bit array indicating which values should be considered null.
@@ -232,6 +232,41 @@ def int2ip(values, count=0, nulls=None, bdevmem=False):
 
     """
     rtn = pyniNVStrings.n_createFromIPv4Integers(values, count, nulls, bdevmem)
+    if rtn is not None:
+        rtn = nvstrings(rtn)
+    return rtn
+
+
+def int2timestamp(values, count=0, nulls=None, units='seconds', bdevmem=False):
+    """
+    Create ISO8601 strings from an array of int64 values.
+    The values must be in seconds or milliseconds from epoch time
+    and is expected as UTC.
+    Each string will be created with the following format:
+    YYYY-MM-DDThh:mm:ss.sssZ
+
+    Parameters
+    ----------
+      values : list, memory address or buffer
+        Array of int64 values (milliseconds) to convert to strings.
+
+      count: int
+        Number of integers in values.
+        This is only required if values is a memory pointer.
+
+      nulls: list, memory address or buffer
+        Bit array indicating which values should be considered null.
+        Uses the arrow format for valid bitmask.
+
+      units: str
+        Must be either 'seconds' or 'milliseconds'.
+
+      bdevmem: boolean
+        Default (False) interprets memory pointers as CPU memory.
+
+    """
+    rtn = pyniNVStrings.n_createFromTimestamp(values, count, nulls, units,
+                                              bdevmem)
     if rtn is not None:
         rtn = nvstrings(rtn)
     return rtn
@@ -747,6 +782,42 @@ class nvstrings:
 
         """
         rtn = pyniNVStrings.n_ip2int(self.m_cptr, devptr)
+        return rtn
+
+    def timestamp2int(self, units='seconds', devptr=0):
+        """
+        Returns integer value represented by each string.
+        String is interpretted to be ISO8601 format.
+        Format must be YYYY-MM-DDThh:mm:ss.sss±hh:ss
+        though separators are optional.
+        Timezone shortcut 'Z' in place of '±hh:ss' is also allowed.
+
+        Parameters
+        ----------
+            units: str
+                Acceptable types are 'seconds' or 'milliseconds'.
+
+            devptr : GPU memory pointer
+                Where resulting integer values will be written.
+                Memory must be able to hold at least size() of int64 values.
+
+        Examples
+        --------
+        .. code-block:: python
+
+          import nvstrings
+
+          s = nvstrings.to_device(["2019-03-20T12:34:56","2020-02-29"])
+          print(s.timestamp2int())
+
+        Output:
+
+        .. code-block:: python
+
+          [1553085296, 1582934400]
+
+        """
+        rtn = pyniNVStrings.n_timestamp2int(self.m_cptr, units, devptr)
         return rtn
 
     def cat(self, others=None, sep=None, na_rep=None):

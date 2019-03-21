@@ -2,7 +2,7 @@
 
 ## New Features
 
-..
+- PR #171 Added conversion to/from subset of ISO8601 format
 
 ## Improvements
 
