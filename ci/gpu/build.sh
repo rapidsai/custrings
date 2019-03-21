@@ -89,6 +89,7 @@ make -j${PARALLEL_LEVEL}
 #logger "Install custrings..."
 #make -j${PARALLEL_LEVEL} install
 cp rmm/librmm.so .
+cp ../../python/*.py .
 cp ../../python/tests/test.py .
 
 ################################################################################
