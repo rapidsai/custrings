@@ -90,7 +90,7 @@ make -j${PARALLEL_LEVEL}
 #make -j${PARALLEL_LEVEL} install
 cp rmm/librmm.so .
 cp ../../python/*.py .
-cp ../../python/tests/test.py .
+cp ../../python/tests/*.py .
 
 ################################################################################
 # TEST - something
@@ -100,5 +100,5 @@ logger "Check GPU usage..."
 nvidia-smi
 
 logger "Simple test..."
-python test.py
+python test_build.py
 
