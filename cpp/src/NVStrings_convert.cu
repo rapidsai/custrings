@@ -302,6 +302,7 @@ NVStrings* NVStrings::itos(const int* values, unsigned int count, const unsigned
     return rtn;
 }
 
+// convert IPv4 to integer
 int NVStrings::ip2int( unsigned int* results, bool bdevmem )
 {
     unsigned int count = size();
@@ -449,6 +450,7 @@ NVStrings* NVStrings::int2ip( const unsigned int* values, unsigned int count, co
     return rtn;
 }
 
+// this parses ISO8601 date/time characters into long timestamp
 struct parse_iso8601
 {
     custring_view_array d_strings;
@@ -458,6 +460,7 @@ struct parse_iso8601
     parse_iso8601( custring_view_array dstrs, NVStrings::timestamp_units unts, unsigned long* results )
     : d_strings(dstrs), d_timestamps(results), units(unts) {}
 
+    // could use the custring::stoi but this should be faster since we need know the data limits
     __device__ int str2int( const char* str, unsigned int bytes )
     {
         const char* ptr = str;
@@ -472,11 +475,12 @@ struct parse_iso8601
         return value;
     }
 
+    // parses the string without any format checking
      __device__ void operator()(unsigned int idx)
     {
         custring_view* dstr = d_strings[idx];
         if( (dstr==0) || (dstr->size()<4) )
-        {
+        {   // we must at least have the year (4 bytes)
             d_timestamps[idx] = 0;
             return;
         }
@@ -486,7 +490,7 @@ struct parse_iso8601
         int partsizes[9] = {4,2,2,2,2,2,3,2,2}; // char length of each part
         const char* sptr = dstr->data();
         int tzsign = 1;
-        int part = 0; // stars with year
+        int part = 0; // starts with year, dissect each part
         while( (part < 9) && (bytes > 0) )
         {
             int len = partsizes[part];
@@ -542,6 +546,7 @@ struct parse_iso8601
     }
 };
 
+// convert ISO8601 date format into timestamp long integer
 int NVStrings::timestamp2long( unsigned long* results, timestamp_units units, bool bdevmem )
 {
     unsigned int count = size();
@@ -566,6 +571,7 @@ int NVStrings::timestamp2long( unsigned long* results, timestamp_units units, bo
     return (int)count-zeros;
 }
 
+// converts long timestamp into ISO8601 string (YYYY-MM-DDThh:mm:ss.sssZ)
 struct iso8601_formatter
 {
     unsigned long* d_timestamps;
@@ -573,7 +579,7 @@ struct iso8601_formatter
     unsigned char* d_nulls;
     char* d_buffer;
     size_t* d_offsets;
-    NVStrings::timestamp_units units;
+    NVStrings::timestamp_units units; // seconds, milliseconds
 
     iso8601_formatter( NVStrings::timestamp_units unts, char* buffer, size_t* offsets, unsigned char* nulls, unsigned long* timestamps, custring_view_array strings)
     : d_timestamps(timestamps), d_buffer(buffer), d_offsets(offsets), d_nulls(nulls), d_strings(strings), units(unts) {}
@@ -585,19 +591,20 @@ struct iso8601_formatter
         const int daysInCentury = 36524; // (100*365) + 24;
         const int daysIn4Years = 1461; // (4*365) + 1;
         const int daysInYear = 365;
-        //                               Mar Apr May June July  Aug  Sep  Oct  Nov  Dec  Jan  Feb
+        // day offsets for each month:   Mar Apr May June July  Aug  Sep  Oct  Nov  Dec  Jan  Feb
         const int monthDayOffset[] = { 0, 31, 61, 92, 122, 153, 184, 214, 245, 275, 306, 337, 366 };
-
+        // start with date
+        // code logic handles leap years in chunks: 400y,100y,4y,1y
         long seconds = timestamp;
         if( units==NVStrings::milliseconds )
             seconds = seconds / 1000L;
-        int days = (int)(seconds / 86400L) + 719468; // 86400 = 24 * 3600
+        int days = (int)(seconds / 86400L) + 719468; // 86400 = 24 * 3600, 719468 is days between 0000-00-00 and 1970-01-01
         year = 400 * (days / daysInEra);
         days = days % daysInEra;
         int leapy = days / daysInCentury;
         days = days % daysInCentury;
         if( leapy==4 )
-        {
+        {   // landed exactly on a leap century
             days += daysInCentury;
             --leapy;
         }
@@ -607,25 +614,25 @@ struct iso8601_formatter
         leapy = days / daysInYear;
         days = days % daysInYear;
         if( leapy==4 )
-        {
+        {   // landed exactly on a leap year
             days += daysInYear;
             --leapy;
         }
         year += leapy;
         month = 12;
         for( int idx=0; idx < month; ++idx )
-        {
+        {   // find the month
             if( days < monthDayOffset[idx+1] )
             {
                 month = idx;
                 break;
             }
         }
-        day = days - monthDayOffset[month] +1;
+        day = days - monthDayOffset[month] +1; // compute day of month
         if( month >= 10 )
             ++year;
-        month = ((month + 2) % 12) +1;
-        //
+        month = ((month + 2) % 12) +1; // adjust Jan-Mar offset
+        // now compute time
         int tms = (int)(timestamp % 86400);
         if( units==NVStrings::milliseconds )
         {
@@ -639,6 +646,7 @@ struct iso8601_formatter
         second = tms - (minute * 60);
     }
 
+    // utility to create 0-padded integers (up to 4 bytes)
     __device__ char* int2str( char* str, int len, int val )
     {
         char tmpl[4] = {'0','0','0','0'};
@@ -735,7 +743,7 @@ NVStrings* NVStrings::long2timestamp( const unsigned long* values, unsigned int 
     rmm::device_vector<size_t> offsets(count,0);
     size_t* d_offsets = offsets.data().get();
     thrust::exclusive_scan(execpol->on(0),sizes.begin(),sizes.end(),offsets.begin());
-    // build strings from integers
+    // build iso8601 strings from timestamps
     char* d_buffer = rtn->pImpl->createMemoryFor(d_sizes);
     custring_view_array d_strings = rtn->pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
@@ -747,5 +755,134 @@ NVStrings* NVStrings::long2timestamp( const unsigned long* values, unsigned int 
     // done
     if( !bdevmem )
         RMM_FREE(d_values,0);
+    return rtn;
+}
+
+int NVStrings::to_bools( bool* results, const char* true_string, bool bdevmem )
+{
+    unsigned int count = size();
+    if( count==0 || results==0 )
+        return -1;
+
+    auto execpol = rmm::exec_policy(0);
+    // copy parameter to device memory
+    char* d_true = 0;
+    int d_len = 0;
+    if( true_string )
+    {
+        d_len = (int)strlen(true_string);
+        RMM_ALLOC(&d_true,d_len+1,0);
+        cudaMemcpy(d_true,true_string,d_len+1,cudaMemcpyHostToDevice);
+    }
+    //
+    bool* d_rtn = results;
+    if( !bdevmem )
+        RMM_ALLOC(&d_rtn,count*sizeof(bool),0);
+
+    // set the values
+    double st = GetTime();
+    custring_view** d_strings = pImpl->getStringsPtr();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_strings, d_true, d_len, d_rtn] __device__(unsigned int idx){
+            custring_view* dstr = d_strings[idx];
+            if( dstr )
+                d_rtn[idx] = dstr->compare(d_true,d_len)==0;
+            else
+                d_rtn[idx] = (d_true==0); // let null be a thing
+        });
+    //
+    printCudaError(cudaDeviceSynchronize(),"nvs-str2bool");
+    double et = GetTime();
+    pImpl->addOpTimes("to_bools",0.0,(et-st));
+    // calculate the number of falses (to include nulls too)
+    int falses = thrust::count(execpol->on(0),d_rtn,d_rtn+count,false);
+    if( !bdevmem )
+    {
+        cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
+        RMM_FREE(d_rtn,0);
+    }
+    if( d_true )
+        RMM_FREE(d_true,0);
+    return (int)count-falses;
+}
+
+NVStrings* NVStrings::create_from_bools(const bool* values, unsigned int count, const char* true_string, const char* false_string, const unsigned char* nullbitmask, bool bdevmem)
+{
+    if( values==0 || count==0 )
+        return 0;
+    if( true_string==0 || false_string==0 )
+        return 0; // throw exception here
+
+    auto execpol = rmm::exec_policy(0);
+    NVStrings* rtn = new NVStrings(count);
+
+    int d_len_true = strlen(true_string);
+    char* d_true = 0;
+    RMM_ALLOC(&d_true,d_len_true+1,0);
+    cudaMemcpy(d_true,true_string,d_len_true+1,cudaMemcpyHostToDevice);
+    int d_as_true = custring_view::alloc_size(true_string,d_len_true);
+    int d_len_false = strlen(false_string);
+    char* d_false = 0;
+    RMM_ALLOC(&d_false,d_len_false+1,0);
+    cudaMemcpy(d_false,false_string,d_len_false+1,cudaMemcpyHostToDevice);
+    int d_as_false = custring_view::alloc_size(false_string,d_len_false);
+    
+    bool* d_values = (bool*)values;
+    unsigned char* d_nulls = (unsigned char*)nullbitmask;
+    if( !bdevmem )
+    {
+        RMM_ALLOC(&d_values,count*sizeof(bool),0);
+        cudaMemcpy(d_values,values,count*sizeof(int),cudaMemcpyHostToDevice);
+        if( nullbitmask )
+        {
+            RMM_ALLOC(&d_nulls,((count+7)/8)*sizeof(unsigned char),0);
+            cudaMemcpy(d_nulls,nullbitmask,((count+7)/8)*sizeof(unsigned char),cudaMemcpyHostToDevice);
+        }
+    }
+
+    // compute size of memory we'll need
+    rmm::device_vector<size_t> sizes(count,0);
+    size_t* d_sizes = sizes.data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_values, d_nulls, d_as_true, d_as_false, d_sizes] __device__ (unsigned int idx) {
+            if( d_nulls && ((d_nulls[idx/8] & (1 << (idx % 8)))==0) )
+            {
+                d_sizes[idx] = 0;
+                return;
+            }
+            bool value = d_values[idx];
+            int size = value ? d_as_true : d_as_false;
+            d_sizes[idx] = ALIGN_SIZE(size);
+        });
+
+    rmm::device_vector<size_t> offsets(count,0);
+    size_t* d_offsets = offsets.data().get();
+    thrust::exclusive_scan(execpol->on(0),sizes.begin(),sizes.end(),offsets.begin());
+    // build strings of booleans
+    char* d_buffer = rtn->pImpl->createMemoryFor(d_sizes);
+    custring_view_array d_strings = rtn->pImpl->getStringsPtr();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_buffer, d_offsets, d_nulls, d_values, d_true, d_len_true, d_false, d_len_false, d_strings] __device__(unsigned int idx){
+            if( d_nulls && ((d_nulls[idx/8] & (1 << (idx % 8)))==0) ) // from arrow spec
+            {
+                d_strings[idx] = 0; // null string
+                return;
+            }
+            char* buf = d_buffer + d_offsets[idx];
+            bool value = d_values[idx];
+            if( value )
+                d_strings[idx] = custring_view::create_from(buf,d_true,d_len_true);
+            else
+                d_strings[idx] = custring_view::create_from(buf,d_false,d_len_false);
+        });
+    //
+    cudaError_t err = cudaDeviceSynchronize();
+    if( err != cudaSuccess )
+        printCudaError(err,"nvs-bool2str");
+    // done
+    if( !bdevmem )
+        RMM_FREE(d_values,0);
+    RMM_FREE(d_true,0);
+    RMM_FREE(d_false,0);
     return rtn;
 }
