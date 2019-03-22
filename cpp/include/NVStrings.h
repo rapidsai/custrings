@@ -878,10 +878,34 @@ public:
      * @param[in] nullbitmask Indicates which entries should result in a null string.
      *                        If specified, this array should be at least (count+7)/8 bytes.
      *                        The bits are expected to be organized in Arrow format.
-     * @param devmem Indicates whether results points to device memory or CPU memory.
+     * @param devmem Indicates whether results and nullbitmask points to device memory or CPU memory.
      * @return New instance with string representation of the integers as appropriate.
      */
     static NVStrings* itos(const int* values, unsigned int count, const unsigned char* nullbitmask=0, bool devmem=true);
+    /**
+     * @brief Returns boolean representation of the strings in this instance.
+     *
+     * This will do a compare of the target string and return true when matched and false when not.
+     * @param true_string What text to identify a string as 'true'.
+     * @param[in,out] results Array this method will fill in with the results.
+     *                        This must point to memory able to hold size() values.
+     * @param devmem Indicates whether results points to device memory or CPU memory.
+     * @return Number of 'true' values.
+     */
+    int to_bools( bool* results, const char* true_string, bool devmem=true );
+    /**
+     * @brief Returns string representation for the provided booleans.
+     * @param[in] values Array of booleans to convert to strings.
+     * @param count The number of elements in the values parameter.
+     * @param true_string What string to use for 'true'.
+     * @param false_string What string to use for 'false'.
+     * @param[in] nullbitmask Indicates which entries should result in a null string.
+     *                        If specified, this array should be at least (count+7)/8 bytes.
+     *                        The bits are expected to be organized in Arrow format.
+     * @param devmem Indicates whether results and nullbitmask points to device memory or CPU memory.
+     * @return New instance with string representation.
+     */
+    static NVStrings* create_from_bools(const bool* values, unsigned int count, const char* true_string, const char* false_string, const unsigned char* nullbitmask=0, bool devmem=true);
     /**
      * @brief Returns integer representation of IPv4 address.
      * @param[in,out] results Array this method will fill in with the results.

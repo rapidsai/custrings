@@ -272,6 +272,44 @@ def int2timestamp(values, count=0, nulls=None, units='seconds', bdevmem=False):
     return rtn
 
 
+def from_bools(values, count=0, nulls=None,
+               true='True', false='False', bdevmem=False):
+    """
+    Create strings from an array of bool values.
+    Each string will be created using the true and false strings provided.
+
+    Parameters
+    ----------
+      values : list, memory address or buffer
+        Array of boolean values to convert to strings.
+        Memory pointers should be at least size() of int8 and
+        should have values of 1 or 0 only.
+
+      count: int
+        Number of integers in values.
+        This is only required if values is a memory pointer.
+
+      nulls: list, memory address or buffer
+        Bit array indicating which values should be considered null.
+        Uses the arrow format for valid bitmask.
+
+      true: str
+        This string will be used to represent values that are 1 or True.
+
+      false: str
+        This string will be used to represent values that are 0 or False.
+
+      bdevmem: boolean
+        Default (False) interprets memory pointers as CPU memory.
+
+    """
+    rtn = pyniNVStrings.n_createFromBools(values, count, nulls,
+                                          true, false, bdevmem)
+    if rtn is not None:
+        rtn = nvstrings(rtn)
+    return rtn
+
+
 def free(dstrs):
     """Force free resources for the specified instance."""
     if dstrs is not None:
@@ -752,6 +790,38 @@ class nvstrings:
 
         """
         rtn = pyniNVStrings.n_htoi(self.m_cptr, devptr)
+        return rtn
+
+    def to_bools(self, true="True", devptr=0):
+        """
+        Returns boolean value represented by each string.
+
+        Parameters
+        ----------
+            true: str
+                String to use for True values. All others are set to False.
+
+            devptr : GPU memory pointer
+                Where resulting integer values will be written.
+                Memory must be able to hold at least size() of uint32 values.
+
+        Examples
+        --------
+        .. code-block:: python
+
+          import nvstrings
+
+          s = nvstrings.to_device(["True","False","",None])
+          print(s.to_bools())
+
+        Output:
+
+        .. code-block:: python
+
+          [True, False, False, None]
+
+        """
+        rtn = pyniNVStrings.n_to_bools(self.m_cptr, true, devptr)
         return rtn
 
     def ip2int(self, devptr=0):

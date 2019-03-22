@@ -3,6 +3,7 @@
 ## New Features
 
 - PR #171 Added conversion to/from subset of ISO8601 format
+- PR #172 Added to/from boolean conversion methods
 
 ## Improvements
 
