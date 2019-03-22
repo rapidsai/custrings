@@ -1,10 +1,10 @@
 import os
-import sys
 import subprocess
 import shutil
 
 from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
+from pip_correction import convert_to_manylinux
 
 
 class CMakeExtension(Extension):
@@ -16,7 +16,7 @@ class CMakeExtension(Extension):
 class CMakeBuildExt(build_ext):
     def run(self):
         try:
-            out = subprocess.check_output(['cmake', '--version'])
+            subprocess.check_output(['cmake', '--version'])
         except OSError:
             raise RuntimeError('cmake is required')
 
@@ -57,7 +57,8 @@ install_requires = []
 with open('../LICENSE', encoding='UTF-8') as f:
     license_text = f.read()
 
-cuda_version = ''.join(os.environ.get('CUDA_VERSION', 'unknown').split('.')[:2])
+cuda_version = ''.join(os.environ.get('CUDA_VERSION', 'unknown')
+                         .split('.')[:2])
 name = 'nvstrings-cuda{}'.format(cuda_version)
 version = os.environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev0').lstrip('v')
 setup(name=name,
@@ -76,7 +77,5 @@ setup(name=name,
       headers=['../cpp/include/NVStrings.h', '../cpp/include/NVCategory.h'],
       zip_safe=False
       )
-
-from pip_correction import convert_to_manylinux
 
 convert_to_manylinux(name, version)
