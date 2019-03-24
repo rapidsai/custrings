@@ -2,11 +2,13 @@
 
 ## New Features
 
-..
+- PR #172 Added to/from boolean conversion methods
+- PR #171 Added conversion to/from subset of ISO8601 format
 
 ## Improvements
 
-..
+- PR #173 Added flake8 checks to for /python files
+- PR #167 Added doxygen to NVStrings.h and NVCategory.h
 
 #Bug Fixes
 

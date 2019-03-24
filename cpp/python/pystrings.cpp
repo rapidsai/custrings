@@ -1,3 +1,19 @@
+/*
+* Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*     http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+
 #include <Python.h>
 #include <vector>
 #include <string>
@@ -45,16 +61,18 @@ public:
         {
             dtype = list;
             count = (unsigned int)PyList_Size(pyobj);
-            std::vector<T>* data = new std::vector<T>();
+            T* data = new T[count];
             for( unsigned int idx=0; idx < count; ++idx )
             {
                 PyObject* pyidx = PyList_GetItem(pyobj,idx);
                 if( pyidx == Py_None )
-                    data->push_back(0);
+                    data[idx] = 0;
+                else if( std::is_same<T,bool>::value )
+                    data[idx] = PyObject_IsTrue(pyidx);
                 else
-                    data->push_back((T)PyLong_AsLong(pyidx));
+                    data[idx] = (T)PyLong_AsLong(pyidx);
             }
-            values = data->data();
+            values = data;
             pdata = data;
         }
         else if( name.compare("DeviceNDArray")==0 )
@@ -63,7 +81,7 @@ public:
             PyObject* pysize = PyObject_GetAttr(pyobj,PyUnicode_FromString("alloc_size"));
             PyObject* pydcp = PyObject_GetAttr(pyobj,PyUnicode_FromString("device_ctypes_pointer"));
             pyobj = PyObject_GetAttr(pydcp,PyUnicode_FromString("value"));
-            count = (unsigned int)(PyLong_AsLong(pysize)/sizeof(int));
+            count = (unsigned int)(PyLong_AsLong(pysize)/sizeof(T)); ///xxxx
             if( pyobj != Py_None )
                 values = (T*)PyLong_AsVoidPtr(pyobj);
         }
@@ -87,7 +105,7 @@ public:
     ~DataBuffer()
     {
         if( dtype==list )
-            delete (std::vector<T>*)pdata;
+            delete (T*)pdata;
         else if( dtype==buffer )
         {
             PyBuffer_Release((Py_buffer*)pdata);
@@ -352,21 +370,20 @@ static PyObject* n_createFromIntegers( PyObject* self, PyObject* args )
     if( count==0 )
         count = (unsigned int)PyLong_AsLong(pycount);
 
-    // get the nulls
-    unsigned char* nulls = 0;
-    if( pynulls != Py_None )
-    {
+    NVStrings* rtn = 0;
+    if( pynulls == Py_None )
+        rtn = NVStrings::itos(values,count,0,bdevmem);
+    else
+    {   // get the nulls
         DataBuffer<unsigned char> dbnulls(pynulls);
         if( dbnulls.is_error() )
         {
             PyErr_Format(PyExc_TypeError,"nvstrings.itos(): unknown type %s",dbnulls.get_name());
             Py_RETURN_NONE;
         }
-        nulls = dbnulls.get_values();
+        unsigned char* nulls = dbnulls.get_values();
+        rtn = NVStrings::itos(values,count,nulls,bdevmem);
     }
-
-    //
-    NVStrings* rtn = NVStrings::itos(values,count,nulls,bdevmem);
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -392,19 +409,129 @@ static PyObject* n_createFromIPv4Integers( PyObject* self, PyObject* args )
         count = (unsigned int)PyLong_AsLong(pycount);
     //bdevmem = dbvalues.is_device_type();
 
-    // get the nulls
-    unsigned char* nulls = 0;
-    if( pynulls != Py_None )
-    {
+    NVStrings* rtn = 0;
+    if( pynulls == Py_None )
+        rtn = NVStrings::int2ip(values,count,0,bdevmem);
+    else
+    {   // get the nulls
         DataBuffer<unsigned char> dbnulls(pynulls);
         if( dbnulls.is_error() )
         {
             PyErr_Format(PyExc_TypeError,"nvstrings.int2ip(): unknown type %s",dbnulls.get_name());
             Py_RETURN_NONE;
         }
-        nulls = dbnulls.get_values();
+        unsigned char* nulls = dbnulls.get_values();
+        rtn = NVStrings::int2ip(values,count,nulls,bdevmem);
     }
-    NVStrings* rtn = NVStrings::int2ip(values,count,nulls,bdevmem);
+    //
+    if( rtn )
+        return PyLong_FromVoidPtr((void*)rtn);
+    Py_RETURN_NONE;
+}
+
+static PyObject* n_createFromTimestamp( PyObject* self, PyObject* args )
+{
+    PyObject* pyvals = PyTuple_GetItem(args,0);
+    PyObject* pycount = PyTuple_GetItem(args,1);
+    PyObject* pynulls = PyTuple_GetItem(args,2);
+    //
+    PyObject* argUnits = PyTuple_GetItem(args,3);
+    const char* unitsz = PyUnicode_AsUTF8(argUnits);
+    std::string units = unitsz;
+    NVStrings::timestamp_units tu;
+    if( units.compare("seconds")==0 )
+        tu = NVStrings::seconds;
+    else if( units.compare("milliseconds")==0 )
+        tu = NVStrings::milliseconds;
+    else
+    {
+        PyErr_Format(PyExc_ValueError,"nvstrings: units parameter value unrecognized");
+        Py_RETURN_NONE;
+    }
+
+    PyObject* pybmem = PyTuple_GetItem(args,4);
+    bool bdevmem = (bool)PyObject_IsTrue(pybmem);
+    DataBuffer<unsigned long> dbvalues(pyvals);
+    if( dbvalues.is_error() )
+    {
+        PyErr_Format(PyExc_TypeError,"nvstrings.int2timestamp(): unknown type %s",dbvalues.get_name());
+        Py_RETURN_NONE;
+    }
+    unsigned long* values = dbvalues.get_values();
+    unsigned int count = dbvalues.get_count();
+    if( count==0 )
+        count = (unsigned int)PyLong_AsLong(pycount);
+    //bdevmem = dbvalues.is_device_type();
+
+    NVStrings* rtn = 0;
+    if( pynulls == Py_None )
+        rtn = NVStrings::long2timestamp(values,count,tu,0,bdevmem);
+    else
+    {   // get the nulls
+        DataBuffer<unsigned char> dbnulls(pynulls);
+        if( dbnulls.is_error() )
+        {
+            PyErr_Format(PyExc_TypeError,"nvstrings.int2timestamp(): unknown type %s",dbnulls.get_name());
+            Py_RETURN_NONE;
+        }
+        unsigned char* nulls = dbnulls.get_values();
+        rtn = NVStrings::long2timestamp(values,count,tu,nulls,bdevmem);
+    }
+
+    if( rtn )
+        return PyLong_FromVoidPtr((void*)rtn);
+    Py_RETURN_NONE;
+}
+
+static PyObject* n_createFromBools( PyObject* self, PyObject* args )
+{
+    PyObject* pyvals = PyTuple_GetItem(args,0);
+    PyObject* pycount = PyTuple_GetItem(args,1);
+    PyObject* pynulls = PyTuple_GetItem(args,2);
+    PyObject* pytstr = PyTuple_GetItem(args,3);
+    PyObject* pyfstr = PyTuple_GetItem(args,4);
+    PyObject* pybmem = PyTuple_GetItem(args,5);
+    bool bdevmem = (bool)PyObject_IsTrue(pybmem);
+
+    DataBuffer<bool> dbvalues(pyvals);
+    if( dbvalues.is_error() )
+    {
+        PyErr_Format(PyExc_TypeError,"nvstrings.from_bools(): unknown type %s",dbvalues.get_name());
+        Py_RETURN_NONE;
+    }
+    if( pytstr==Py_None )
+    {
+        PyErr_Format(PyExc_TypeError,"nvstrings.from_bools(): true must not be null");
+        Py_RETURN_NONE;
+    }
+    const char* tstr = PyUnicode_AsUTF8(pytstr);
+    if( pyfstr==Py_None )
+    {
+        PyErr_Format(PyExc_TypeError,"nvstrings.from_bools(): false must not be null");
+        Py_RETURN_NONE;
+    }
+    const char* fstr = PyUnicode_AsUTF8(pyfstr);
+
+    bool* values = dbvalues.get_values();
+    unsigned int count = dbvalues.get_count();
+    if( count==0 )
+        count = (unsigned int)PyLong_AsLong(pycount);
+
+    NVStrings* rtn = 0;
+    if( pynulls == Py_None )
+        rtn = NVStrings::create_from_bools(values,count,tstr,fstr,0,bdevmem);
+    else
+    {   // get the nulls
+        DataBuffer<unsigned char> dbnulls(pynulls);
+        if( dbnulls.is_error() )
+        {
+            PyErr_Format(PyExc_TypeError,"nvstrings.from_bools(): unknown type %s",dbnulls.get_name());
+            Py_RETURN_NONE;
+        }
+        unsigned char* nulls = dbnulls.get_values();
+        rtn = NVStrings::create_from_bools(values,count,tstr,fstr,nulls,bdevmem);
+    }
+    //
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -760,6 +887,104 @@ static PyObject* n_ip2int( PyObject* self, PyObject* args )
             continue;
         }
         PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));
+    }
+    delete rtn;
+    return ret;
+}
+
+// convert the strings with timestamps to integers
+static PyObject* n_timestamp2int( PyObject* self, PyObject* args )
+{
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    unsigned int count = tptr->size();
+    PyObject* ret = PyList_New(count);
+    if( count==0 )
+        return ret;
+    //
+    PyObject* argUnits = PyTuple_GetItem(args,1);
+    const char* unitsz = PyUnicode_AsUTF8(argUnits);
+    std::string units = unitsz;
+    NVStrings::timestamp_units tu;
+    if( units.compare("seconds")==0 )
+        tu = NVStrings::seconds;
+    else if( units.compare("milliseconds")==0 )
+        tu = NVStrings::milliseconds;
+    else
+    {
+        PyErr_Format(PyExc_ValueError,"nvstrings: units parameter value unrecognized");
+        Py_RETURN_NONE;
+    }
+
+    unsigned long* devptr = (unsigned long*)PyLong_AsVoidPtr(PyTuple_GetItem(args,2));
+    if( devptr )
+    {
+        tptr->timestamp2long(devptr,tu);
+        return PyLong_FromVoidPtr((void*)devptr);
+    }
+
+    // copy to host option
+    unsigned long* rtn = new unsigned long[count];
+    tptr->timestamp2long(rtn,tu,false);
+    std::vector<unsigned char> nulls(((count+7)/8),0);
+    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    for(size_t idx=0; idx < count; idx++)
+    {
+        if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
+        {
+            Py_INCREF(Py_None);
+            PyList_SetItem(ret, idx, Py_None);
+            continue;
+        }
+        PyList_SetItem(ret, idx, PyLong_FromLong(rtn[idx]));
+    }
+    delete rtn;
+    return ret;
+}
+
+// convert the strings to booleans
+static PyObject* n_to_bools( PyObject* self, PyObject* args )
+{
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    unsigned int count = tptr->size();
+    PyObject* ret = PyList_New(count);
+    if( count==0 )
+        return ret;
+    //
+    PyObject* argTrue = PyTuple_GetItem(args,1);
+    const char* tstr = 0;
+    if( argTrue != Py_None )
+        tstr = PyUnicode_AsUTF8(argTrue);
+
+    bool* devptr = (bool*)PyLong_AsVoidPtr(PyTuple_GetItem(args,2));
+    if( devptr )
+    {
+        tptr->to_bools(devptr,tstr);
+        return PyLong_FromVoidPtr((void*)devptr);
+    }
+
+    // copy to host option
+    bool* rtn = new bool[count];
+    tptr->to_bools(rtn,tstr,false);
+    std::vector<unsigned char> nulls(((count+7)/8),0);
+    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    for(size_t idx=0; idx < count; idx++)
+    {
+        if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
+        {
+            Py_INCREF(Py_None);
+            PyList_SetItem(ret, idx, Py_None);
+            continue;
+        }
+        if( rtn[idx] )
+        {
+            Py_INCREF(Py_True);
+            PyList_SetItem(ret, idx, Py_True);
+        }
+        else
+        {
+            Py_INCREF(Py_False);
+            PyList_SetItem(ret, idx, Py_False);
+        }
     }
     delete rtn;
     return ret;
@@ -2067,11 +2292,11 @@ static PyObject* n_remove_strings( PyObject* self, PyObject* args )
     if( cname.compare("list")==0 )
     {
         unsigned int count = (unsigned int)PyList_Size(pyidxs);
-        unsigned int* indexes = new unsigned int[count];
+        int* indexes = new int[count];
         for( int idx=0; idx < count; ++idx )
         {
             PyObject* pyidx = PyList_GetItem(pyidxs,idx);
-            indexes[idx] = (unsigned int)PyLong_AsLong(pyidx);
+            indexes[idx] = (int)PyLong_AsLong(pyidx);
         }
         rtn = tptr->remove_strings(indexes,count,false);
         delete indexes;
@@ -2082,7 +2307,7 @@ static PyObject* n_remove_strings( PyObject* self, PyObject* args )
         PyObject *vo=0, *dptr=0;
         if( !parse_args("remove_strings",args,"OOI",&vo,&dptr,&count) )
             Py_RETURN_NONE;
-        unsigned int* indexes = (unsigned int*)PyLong_AsVoidPtr(dptr);
+        const int* indexes = (const int*)PyLong_AsVoidPtr(dptr);
         rtn = tptr->remove_strings(indexes,count);
     }
     //
@@ -2396,6 +2621,8 @@ static PyMethodDef s_Methods[] = {
     { "n_createFromNVStrings", n_createFromNVStrings, METH_VARARGS, "" },
     { "n_createFromIntegers", n_createFromIntegers, METH_VARARGS, "" },
     { "n_createFromIPv4Integers", n_createFromIPv4Integers, METH_VARARGS, "" },
+    { "n_createFromTimestamp", n_createFromTimestamp, METH_VARARGS, "" },
+    { "n_createFromBools", n_createFromBools, METH_VARARGS, "" },
     { "n_create_offsets", n_create_offsets, METH_VARARGS, "" },
     { "n_size", n_size, METH_VARARGS, "" },
     { "n_hash", n_hash, METH_VARARGS, "" },
@@ -2409,6 +2636,8 @@ static PyMethodDef s_Methods[] = {
     { "n_stof", n_stof, METH_VARARGS, "" },
     { "n_htoi", n_htoi, METH_VARARGS, "" },
     { "n_ip2int", n_ip2int, METH_VARARGS, "" },
+    { "n_timestamp2int", n_timestamp2int, METH_VARARGS, "" },
+    { "n_to_bools", n_to_bools, METH_VARARGS, "" },
     { "n_cat", n_cat, METH_VARARGS, "" },
     { "n_split", n_split, METH_VARARGS, "" },
     { "n_rsplit", n_rsplit, METH_VARARGS, "" },
