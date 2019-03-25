@@ -578,7 +578,7 @@ int NVStrings::contains_re( const char* pattern, bool* results, bool todevice )
 }
 
 // match is like contains() except the pattern must match the beginning of the string only
-int NVStrings::match( const char* pattern, bool* results, bool todevice )
+int NVStrings::match( const char* pattern, bool* results, bool bdevmem )
 {
     if( pattern==0 || results==0 )
         return -1;
@@ -593,7 +593,7 @@ int NVStrings::match( const char* pattern, bool* results, bool todevice )
     delete ptn32;
 
     bool* d_rtn = results;
-    if( !todevice )
+    if( !bdevmem )
         RMM_ALLOC(&d_rtn,count*sizeof(bool),0);
 
     custring_view_array d_strings = pImpl->getStringsPtr();
@@ -611,7 +611,7 @@ int NVStrings::match( const char* pattern, bool* results, bool todevice )
     double et = GetTime();
     if( err != cudaSuccess )
     {
-        fprintf(stderr,"nvs-match(%s,%p,%d)\n",pattern,results,(int)todevice);
+        fprintf(stderr,"nvs-match(%s,%p,%d)\n",pattern,results,(int)bdevmem);
         printCudaError(err);
     }
     pImpl->addOpTimes("match",0.0,(et-st));
@@ -620,7 +620,7 @@ int NVStrings::match( const char* pattern, bool* results, bool todevice )
 
     // count the number of successful finds
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
-    if( !todevice )
+    if( !bdevmem )
     {   // copy result back to host
         cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
@@ -628,6 +628,56 @@ int NVStrings::match( const char* pattern, bool* results, bool todevice )
     return matches;
 }
 
+//
+int NVStrings::match_strings( NVStrings& strs, bool* results, bool bdevmem )
+{
+    if( results==0 )
+        return -1;
+    unsigned int count = size();
+    if( count==0 )
+        return 0;
+    if( count != strs.size() )
+        throw std::invalid_argument("sizes must match");
+
+    auto execpol = rmm::exec_policy(0);
+    custring_view_array d_strings1 = pImpl->getStringsPtr();
+    rmm::device_vector<custring_view*> strings(count,nullptr);
+    custring_view** d_strings2 = strings.data().get();
+    strs.create_custring_index(d_strings2);
+
+    bool* d_rtn = results;
+    if( !bdevmem )
+        RMM_ALLOC(&d_rtn,count*sizeof(bool),0);
+
+    double st = GetTime();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_strings1, d_strings2, d_rtn] __device__(unsigned int idx){
+            custring_view* dstr1 = d_strings1[idx];
+            custring_view* dstr2 = d_strings2[idx];
+            if( dstr1 && dstr2 )
+                d_rtn[idx] = dstr1->compare(*dstr2)==0;
+            else
+                d_rtn[idx] = dstr1==dstr2;
+        });
+    //
+    cudaError_t err = cudaDeviceSynchronize();
+    double et = GetTime();
+    if( err != cudaSuccess )
+    {
+        fprintf(stderr,"nvs-match_strings(..,%p,%d)\n",results,(int)bdevmem);
+        printCudaError(err);
+    }
+    pImpl->addOpTimes("match_strings",0.0,(et-st));
+
+    // count the number of successful finds
+    int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
+    if( !bdevmem )
+    {   // copy result back to host
+        cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
+        RMM_FREE(d_rtn,0);
+    }
+    return matches;
+}
 
 // counts number of times the regex pattern matches a string within each string
 int NVStrings::count_re( const char* pattern, int* results, bool todevice )

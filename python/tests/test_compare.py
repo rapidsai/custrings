@@ -38,6 +38,10 @@ print(".find_multiple(e,o,d):",strs.find_multiple(['e','o','d']))
 print(".startswith(he):",strs.startswith("he"))
 print(".endswith(d):",strs.endswith("d"))
 
+strs2 = nvstrings.to_device(["hello","here",None,"accéntéd",None,""])
+print(".match_strings(",strs2,"):",strs.match_strings(strs2))
+strs2 = None
+
 strs = nvstrings.to_device(["he-llo","-there-","world-","accént-éd",None,"-"])
 #
 arr = np.arange(strs.size(),dtype=np.int32)
