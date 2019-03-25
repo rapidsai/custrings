@@ -22,6 +22,7 @@
  * @brief Class definition for NVStrings.
  */
 
+struct StringsStatistics;
 class custring_view;
 class NVStringsImpl;
 /**
@@ -977,6 +978,12 @@ public:
      * @param[in] delimiter Line separator character to use between each string.
      */
     void print( int pos=0, int end=-1, int maxwidth=-1, const char* delimiter = "\n" );
+
+    /**
+     * @brief Computes a variety of statistics for the strings/characters in this instance.
+     * @param[out] stats Fills in this statistics structure.
+     */
+    void compute_statistics(StringsStatistics& stats);
 
     /** For performance analysis only. Not complete. */
     void printTimingRecords();
