@@ -8,6 +8,7 @@
 
 ## Improvements
 
+- PR #178 Added compute_statistics to C++ interface
 - PR #173 Added flake8 checks to for /python files
 - PR #167 Added doxygen to NVStrings.h and NVCategory.h
 
