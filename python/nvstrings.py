@@ -2305,6 +2305,43 @@ class nvstrings:
         rtn = pyniNVStrings.n_match(self.m_cptr, pat, devptr)
         return rtn
 
+    def match_strings(self, strs, devptr=0):
+        """
+        Return array of boolean values where True is set for those
+        strings in strs that match exactly to the corresponding
+        strings in this instance.
+
+        Parameters
+        ----------
+          strs : nvstrings
+            Strings to match against. 
+            Number of strings must match those in this instance.
+
+          devptr : GPU memory pointer
+            Optional device memory pointer to hold the results.
+            Memory size must be able to hold at least size() of
+            np.byte or np.int8 values.
+
+        Examples
+        --------
+        .. code-block:: python
+
+          import nvstrings
+          s1 = nvstrings.to_device(["hello","there","world"])
+          s2 = nvstrings.to_device(["hello","here","world"])
+
+          print(s1.match_strings(s2))
+
+        Output:
+
+        .. code-block:: python
+
+          [True, False, True]
+
+        """
+        rtn = pyniNVStrings.n_match_strings(self.m_cptr, strs, devptr)
+        return rtn
+
     def count(self, pat, devptr=0):
         """
         Count occurrences of pattern in each string.

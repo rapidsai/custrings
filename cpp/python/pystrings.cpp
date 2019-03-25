@@ -1939,6 +1939,90 @@ static PyObject* n_match( PyObject* self, PyObject* args )
     return ret;
 }
 
+static PyObject* n_match_strings( PyObject* self, PyObject* args )
+{
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    PyObject* pystrs = PyTuple_GetItem(args,1);
+    if( pystrs == Py_None )
+    {
+        PyErr_Format(PyExc_ValueError,"nvstrings.match_strings: parameter required");
+        Py_RETURN_NONE;
+    }
+    NVStrings* strs = 0;
+    std::string cname = pystrs->ob_type->tp_name;
+    if( cname.compare("list")==0 )
+    {
+        unsigned int count = (unsigned int)PyList_Size(pystrs);
+        if( count==0 )
+        {
+            PyErr_Format(PyExc_ValueError,"nvstrings.match_strings empty argument list");
+            Py_RETURN_NONE;
+        }
+        if( count != (int)tptr->size() )
+        {
+            PyErr_Format(PyExc_ValueError,"nvstrings.match_strings list size must match");
+            Py_RETURN_NONE;
+        }
+        const char** list = new const char*[count];
+        for( unsigned int idx=0; idx < count; ++idx )
+        {
+            PyObject* pystr = PyList_GetItem(pystrs,idx);
+            if( (pystr == Py_None) || !PyObject_TypeCheck(pystr,&PyUnicode_Type) )
+                list[idx] = 0;
+            else
+                list[idx] = PyUnicode_AsUTF8(pystr);
+        }
+        strs = NVStrings::create_from_array(list,count);
+        delete list;
+    }
+    // or a single nvstrings instance
+    else if( cname.compare("nvstrings")==0 )
+    {
+        strs = (NVStrings*)PyLong_AsVoidPtr(PyObject_GetAttrString(pystrs,"m_cptr"));
+        if( strs==0 )
+        {
+            PyErr_Format(PyExc_ValueError,"nvstrings.match_strings: invalid nvstrings object");
+            Py_RETURN_NONE;
+        }
+    }
+    else
+    {
+        PyErr_Format(PyExc_ValueError,"nvstrings.match_strings: argument must be nvstrings object");
+        Py_RETURN_NONE;
+    }
+
+    //
+    bool* devptr = (bool*)PyLong_AsVoidPtr(PyTuple_GetItem(args,2));
+    int rc = 0;
+    if( devptr )
+    {
+        rc = tptr->match_strings(*strs,devptr);
+        if( cname.compare("list")==0 )
+            NVStrings::destroy(strs); // destroy it if we made it (above)
+        if( rc < 0 )
+            Py_RETURN_NONE;
+        return PyLong_FromVoidPtr((void*)devptr);
+    }
+    // copy to host option
+    unsigned int count = tptr->size();
+    if( count==0 )
+        return PyList_New(0);
+    bool* rtn = new bool[count];
+    rc = tptr->match_strings(*strs,rtn,false);
+    if( cname.compare("list")==0 )
+        NVStrings::destroy(strs); // destroy it if we made it (above)
+    if( rc < 0 )
+    {
+        delete rtn;
+        Py_RETURN_NONE;
+    }
+    PyObject* ret = PyList_New(count);
+    for(size_t idx=0; idx < count; idx++)
+        PyList_SetItem(ret, idx, PyBool_FromLong((long)rtn[idx]));
+    delete rtn;
+    return ret;
+}
+
 //
 static PyObject* n_startswith( PyObject* self, PyObject* args )
 {
@@ -2682,6 +2766,7 @@ static PyMethodDef s_Methods[] = {
     { "n_findall_record", n_findall_record, METH_VARARGS, "" },
     { "n_contains", n_contains, METH_VARARGS, "" },
     { "n_match", n_match, METH_VARARGS, "" },
+    { "n_match_strings", n_match_strings, METH_VARARGS, "" },
     { "n_count", n_count, METH_VARARGS, "" },
     { "n_extract", n_extract, METH_VARARGS, "" },
     { "n_extract_record", n_extract_record, METH_VARARGS, "" },

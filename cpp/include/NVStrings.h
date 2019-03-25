@@ -811,6 +811,15 @@ public:
      */
     int match( const char* pattern, bool* results, bool devmem=true );
     /**
+     * @brief Check each argument string matches with the corresponding strings in this list.
+     * @param[in] strs Strings to compare against. The number of strings must match with this instance.
+     * @param[in,out] results Array this method will fill in with the results.
+     *                        This must point to memory able to hold size() values.
+     * @param devmem Indicates whether results points to device memory or CPU memory.
+     * @return Number of matches.
+     */
+    int match_strings( NVStrings& strs, bool* results, bool devmem=true );
+    /**
      * @brief Search for regular expression pattern match and count their occurrences for each string.
      * @param[in] pattern Null-terminated CPU string of regular expression.
      * @param[in,out] results Array this method will fill in with the results.
