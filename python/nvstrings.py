@@ -2314,7 +2314,7 @@ class nvstrings:
         Parameters
         ----------
           strs : nvstrings
-            Strings to match against. 
+            Strings to match against.
             Number of strings must match those in this instance.
 
           devptr : GPU memory pointer

@@ -2,6 +2,7 @@
 
 ## New Features
 
+- PR #176 Added match_strings to nvstrings
 - PR #172 Added to/from boolean conversion methods
 - PR #171 Added conversion to/from subset of ISO8601 format
 
