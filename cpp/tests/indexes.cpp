@@ -2,7 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <cuda_runtime.h>
-#include "../NVStrings.h"
+#include "NVStrings.h"
 //
 // This can be compile using:
 //   nvcc -w -std=c++11 --expt-extended-lambda -gencode arch=compute_70,code=sm_70 indexes.cu -L.. -lNVStrings -o indexes --linker-options -rpath,.:

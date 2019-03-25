@@ -24,6 +24,7 @@ set (DEFINES  ${DEFINES}
 endif()
 
 add_subdirectory(../thirdparty/rmm "${CMAKE_BINARY_DIR}/rmm")
+add_subdirectory(${CMAKE_SOURCE_DIR}/tests)
 
 include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}"
                     "${PYTHON_INCLUDE_DIRS}"
@@ -44,7 +45,7 @@ if(NOT CMAKE_CXX11_ABI)
     set(CMAKE_CUDA_FLAGS ${CMAKE_CUDA_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0)
 endif(NOT CMAKE_CXX11_ABI)
 
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda -gencode=arch=compute_50,code=sm_50 -gencode=arch=compute_60,code=sm_60 -gencode=arch=compute_70,code=sm_70 -rdc=true")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-relaxed-constexpr --expt-extended-lambda -gencode=arch=compute_50,code=sm_50 -gencode=arch=compute_60,code=sm_60 -gencode=arch=compute_70,code=sm_70 -rdc=true")
 #set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda --expt-relaxed-constexpr")
 #set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Werror cross-execution-space-call -Wno-deprecated-declarations -Xptxas --disable-warnings")
 #set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Werror cross-execution-space-call -Xcompiler -Wall,-Werror")
