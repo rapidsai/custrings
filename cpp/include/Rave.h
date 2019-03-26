@@ -35,4 +35,11 @@ public:
 
     //
     static unsigned int strings_counts( NVStrings& strs, NVStrings& tokens, unsigned int* results, bool devmem=true );
+
+    // edit distance algorithm types
+    enum distance_type {
+        levenshtein
+    };
+    static unsigned int edit_distance( distance_type algo, NVStrings& strs, const char* str, unsigned int* results, bool devmem=true );
+    static unsigned int edit_distance( distance_type algo, NVStrings& strs1, NVStrings& strs2, unsigned int* results, bool devmem=true );
 };
