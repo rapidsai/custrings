@@ -152,3 +152,43 @@ def strings_counts(strs, tgts, devptr=0):
     """
     rtn = pyniRave.n_strings_counts(strs, tgts, devptr)
     return rtn
+
+
+def edit_distance(strs, tgt, algo=0, devptr=0):
+    """
+    Compute the edit-distance between strs and tgt.
+    Edit distance is how many character changes between strings.
+
+    Parameters
+    ----------
+        strs : nvstrings
+            The strings for this operation.
+
+        tgt : str, nvstrings
+            The string or strings to compute edit-distance with.
+
+        algo: int
+            0 = Levenshtein
+
+        devptr : GPU memory pointer
+            Must be able to hold at least strs.size() of int32 values.
+
+    Examples
+    --------
+    .. code-block:: python
+
+      import nvstrings, rave
+
+      s = nvstrings.to_device(["honda","hyundai"])
+      n = rave.edit_distance(s,"honda")
+      print(n)
+
+
+    Output:
+    .. code-block:: python
+
+      [0,3]
+
+    """
+    rtn = pyniRave.n_edit_distance(strs, tgt, algo, devptr)
+    return rtn

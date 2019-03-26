@@ -23,6 +23,7 @@
 #include "Rave.h"
 
 // utility to deference NVStrings instance from nvstrings instance
+// caller should never dextroy the return object
 NVStrings* strings_from_object(PyObject* pystrs)
 {
     if( pystrs == Py_None )
@@ -43,6 +44,7 @@ NVStrings* strings_from_object(PyObject* pystrs)
 }
 
 // utility to create NVStrings instance from a list of strings
+// caller must destroy the returned object
 NVStrings* strings_from_list(PyObject* listObj)
 {
     unsigned int count = (unsigned int)PyList_Size(listObj);
@@ -143,6 +145,8 @@ static PyObject* n_contains_strings( PyObject* self, PyObject* args )
     }
     if( tgts->size()==0 )
     {
+        if( cname.compare("list")==0 )
+            NVStrings::destroy(tgts);
         PyErr_Format(PyExc_ValueError,"tgts argument is empty");
         Py_RETURN_NONE;
     }
@@ -151,6 +155,8 @@ static PyObject* n_contains_strings( PyObject* self, PyObject* args )
     if( devptr )
     {
         unsigned int rtn = Rave::contains_strings(*strs,*tgts,devptr);
+        if( cname.compare("list")==0 )
+            NVStrings::destroy(tgts);
         return PyLong_FromLong((long)rtn);
     }
     //
@@ -158,7 +164,11 @@ static PyObject* n_contains_strings( PyObject* self, PyObject* args )
     unsigned int columns = tgts->size();
     PyObject* ret = PyList_New(rows);
     if( rows==0 )
+    {
+        if( cname.compare("list")==0 )
+            NVStrings::destroy(tgts);
         return ret;
+    }
     bool* rtn = new bool[rows*columns];
     Rave::contains_strings(*strs,*tgts,rtn,false);
     for(unsigned int idx=0; idx < rows; idx++)
@@ -169,6 +179,8 @@ static PyObject* n_contains_strings( PyObject* self, PyObject* args )
         PyList_SetItem(ret, idx, row);
     }
     delete rtn;
+    if( cname.compare("list")==0 )
+        NVStrings::destroy(tgts);
     return ret;
 }
 
@@ -199,6 +211,8 @@ static PyObject* n_strings_counts( PyObject* self, PyObject* args )
     }
     if( tgts->size()==0 )
     {
+        if( cname.compare("list")==0 )
+            NVStrings::destroy(tgts);
         PyErr_Format(PyExc_ValueError,"tgts argument is empty");
         Py_RETURN_NONE;
     }
@@ -208,6 +222,8 @@ static PyObject* n_strings_counts( PyObject* self, PyObject* args )
     if( devptr )
     {
         unsigned int rtn = Rave::strings_counts(*strs,*tgts,devptr);
+        if( cname.compare("list")==0 )
+            NVStrings::destroy(tgts);
         return PyLong_FromLong((long)rtn);
     }
     // or fill in python list with host memory
@@ -215,7 +231,11 @@ static PyObject* n_strings_counts( PyObject* self, PyObject* args )
     unsigned int columns = tgts->size();
     PyObject* ret = PyList_New(rows);
     if( rows==0 )
+    {
+        if( cname.compare("list")==0 )
+            NVStrings::destroy(tgts);
         return ret;
+    }
     unsigned int* rtn = new unsigned int[rows*columns];
     Rave::strings_counts(*strs,*tgts,rtn,false);
     for(unsigned int idx=0; idx < rows; idx++)
@@ -226,6 +246,77 @@ static PyObject* n_strings_counts( PyObject* self, PyObject* args )
         PyList_SetItem(ret, idx, row);
     }
     delete rtn;
+    if( cname.compare("list")==0 )
+        NVStrings::destroy(tgts);
+    return ret;
+}
+
+static PyObject* n_edit_distance( PyObject* self, PyObject* args )
+{
+    PyObject* pystrs = PyTuple_GetItem(args,0);
+    NVStrings* strs = strings_from_object(pystrs);
+    if( strs==0 )
+        Py_RETURN_NONE;
+    //
+    PyObject* pytgts = PyTuple_GetItem(args,1);
+    if( pytgts == Py_None )
+    {
+        PyErr_Format(PyExc_ValueError,"tgt argument must be specified");
+        Py_RETURN_NONE;
+    }
+
+    unsigned int count = strs->size();
+    unsigned int* devptr = (unsigned int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,2));
+    std::string cname = pytgts->ob_type->tp_name;
+    if( cname.compare("str")==0 )
+    {
+        const char* tgt = PyUnicode_AsUTF8(pytgts);
+        if( devptr )
+        {
+            Rave::edit_distance(Rave::levenshtein,*strs,tgt,devptr);
+            Py_RETURN_NONE;
+        }
+        // or fill in python list with host memory
+        PyObject* ret = PyList_New(count);
+        if( count==0 )
+            return ret;
+        std::vector<unsigned int> rtn(count);
+        Rave::edit_distance(Rave::levenshtein,*strs,tgt,rtn.data(),false);
+        for(unsigned int idx=0; idx < count; idx++)
+            PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));
+        return ret;
+    }
+    NVStrings* tgts = 0;
+    if( cname.compare("nvstrings")==0 )
+        tgts = (NVStrings*)PyLong_AsVoidPtr(PyObject_GetAttrString(pytgts,"m_cptr"));
+    else if( cname.compare("list")==0 )
+        tgts = strings_from_list(pytgts);
+    if( !tgts )
+    {
+        PyErr_Format(PyExc_ValueError,"invalid tgt parameter");
+        Py_RETURN_NONE;
+    }
+    if( tgts->size() != strs->size() )
+    {
+        PyErr_Format(PyExc_ValueError,"strs and tgt must have the same number of strings");
+        Py_RETURN_NONE;
+    }
+    if( devptr )
+    {
+        Rave::edit_distance(Rave::levenshtein,*strs,*tgts,devptr);
+        if( cname.compare("list")==0 )
+            NVStrings::destroy(tgts);
+        Py_RETURN_NONE;
+    }
+    PyObject* ret = PyList_New(count);
+    if( count==0 )
+        return ret;
+    std::vector<unsigned int> rtn(count);
+    Rave::edit_distance(Rave::levenshtein,*strs,*tgts,rtn.data(),false);
+    for(unsigned int idx=0; idx < count; idx++)
+        PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));
+    if( cname.compare("list")==0 )
+        NVStrings::destroy(tgts);
     return ret;
 }
 
@@ -235,6 +326,7 @@ static PyMethodDef s_Methods[] = {
     { "n_token_count", n_token_count, METH_VARARGS, "" },
     { "n_contains_strings", n_contains_strings, METH_VARARGS, "" },
     { "n_strings_counts", n_strings_counts, METH_VARARGS, "" },
+    { "n_edit_distance", n_edit_distance, METH_VARARGS, "" },
     { NULL, NULL, 0, NULL }
 };
 

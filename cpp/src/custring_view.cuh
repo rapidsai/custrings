@@ -45,13 +45,17 @@ typedef unsigned int Char;
 //    https://en.wikipedia.org/wiki/Wikipedia:Size_comparisons
 // Wikipedia recommends breaking up any article over 50KB.
 // A different string class that handles parallelizing over characters seems
-// more appropriate for processing single large documents like tokenizing CSV files or
-// Wikipedia articles.
+// more appropriate for processing single large documents like tokenizing CSV files
+// or Wikipedia articles.
 //
 class custring_view
 {
     custring_view(); // prevent creating instance directly
                      // use the create_from methods to provide memory for the object to reside
+    custring_view(const custring_view&);
+    ~custring_view();
+    custring_view& operator=(const custring_view&);
+
 protected:
     unsigned int m_bytes;  // combining these two did not save space
     unsigned int m_chars;  // number of characters
@@ -59,7 +63,7 @@ protected:
                            // pointer is now calculated on demand
 
     __device__ static custring_view* create_from(void* buffer);
-    __device__ void init_fields(unsigned int bytes);
+    __host__ __device__ void init_fields(unsigned int bytes);
     __device__ unsigned int offset_for_char_pos(unsigned int chpos) const;
     __device__ void offsets_for_char_pos(unsigned int& spos, unsigned int& epos) const;
     __device__ unsigned int char_offset(unsigned int bytepos) const;
@@ -71,8 +75,10 @@ public:
     // returns the amount of memory needed to manage character array of this size
     __host__ __device__ static unsigned int alloc_size(unsigned int bytes, unsigned int chars);
     // these can be used to create instances in already allocated memory
-    __device__ static custring_view* create_from(void* buffer, const char* data, unsigned int size);
+    __host__ __device__ static custring_view* create_from(void* buffer, const char* data, unsigned int size);
     __device__ static custring_view* create_from(void* buffer, custring_view& str);
+    // use this one create a single custring_view instance in device memory from a CPU character array
+    __host__ static custring_view* create_from_host(void* devmem, const char* data, unsigned int size);
 
     // return how much memory is used by this instance
     __device__ unsigned int alloc_size() const;
