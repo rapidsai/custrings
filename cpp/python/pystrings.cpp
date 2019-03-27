@@ -159,6 +159,20 @@ static PyObject* n_destroyStrings( PyObject* self, PyObject* args )
     return PyLong_FromLong(0);
 }
 
+// called to sending via IPC
+static PyObject* n_getMemBuffer( PyObject* self, PyObject* args )
+{
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    return PyLong_FromVoidPtr(tptr->getHandleBuffer());
+}
+
+// called to sending via IPC
+static PyObject* n_getViews( PyObject* self, PyObject* args )
+{
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    return PyLong_FromVoidPtr(tptr->getHandleViews());
+}
+
 // called in cases where the host code will want the strings back from the device
 static PyObject* n_createHostStrings( PyObject* self, PyObject* args )
 {
@@ -2390,6 +2404,8 @@ static PyObject* n_isupper( PyObject* self, PyObject* args )
 static PyMethodDef s_Methods[] = {
     { "n_createFromHostStrings", n_createFromHostStrings, METH_VARARGS, "" },
     { "n_destroyStrings", n_destroyStrings, METH_VARARGS, "" },
+    { "n_getMemBuffer", n_getMemBuffer, METH_VARARGS, "" },
+    { "n_getViews", n_getViews, METH_VARARGS, "" },
     { "n_createHostStrings", n_createHostStrings, METH_VARARGS, "" },
     { "n_createFromCSV", n_createFromCSV, METH_VARARGS, "" },
     { "n_createFromOffsets", n_createFromOffsets, METH_VARARGS, "" },

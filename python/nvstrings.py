@@ -318,6 +318,18 @@ class nvstrings:
         """
         return self.m_cptr
 
+    def get_cpointer_membuffer(self):
+        """
+        Returns memory pointer to underlying C++ memoryBuffer member from NVStringsImpl.
+        """
+        return pyniNVStrings.n_getMemBuffer(self.m_cptr)
+
+    def get_cpointer_views(self):
+        """
+        Returns memory pointer to underlying C++ pList member from NVStringsImpl.
+        """
+        return pyniNVStrings.n_getViews(self.m_cptr)
+
     def to_host(self):
         """
         Copies strings back to CPU memory into a Python array.

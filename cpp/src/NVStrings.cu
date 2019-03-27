@@ -15,6 +15,27 @@
 #include "custring_view.cuh"
 
 
+static void* BuildCudaIpcMemHandler (void *data) {
+    std::basic_string<int8_t>* bytes = new std::basic_string<int8_t>;
+
+    if (data != nullptr) {
+      cudaIpcMemHandle_t ipc_memhandle;
+      cudaIpcGetMemHandle((cudaIpcMemHandle_t *) &ipc_memhandle, (void *) data); //check cuda error?
+
+      bytes->resize(sizeof(cudaIpcMemHandle_t));
+      memcpy((void*)bytes->data(), (int8_t*)(&ipc_memhandle), sizeof(cudaIpcMemHandle_t));
+    }
+    return (void*)bytes;
+}
+
+void* NVStrings::getHandleBuffer(){
+    return BuildCudaIpcMemHandler((void*) pImpl->memoryBuffer);
+}
+
+void* NVStrings::getHandleViews(){
+    return BuildCudaIpcMemHandler((void*) pImpl->pList->data().get());
+}
+
 // ctor and dtor are private to control the memory allocation in a single shared-object module
 NVStrings::NVStrings(unsigned int count)
 {

@@ -47,6 +47,8 @@
 * Users Notice.
 */
 
+#pragma once
+
 #include <cstddef>
 #include <vector>
 
@@ -251,4 +253,8 @@ public:
     void print( int pos=0, int end=-1, int maxwidth=-1, const char* delimiter = "\n" );
     // for performance analysis
     void printTimingRecords();
+
+    // IPC
+    void* getHandleBuffer();
+    void* getHandleViews();
 };

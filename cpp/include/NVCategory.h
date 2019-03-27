@@ -46,6 +46,9 @@
 * comments to the code, the above Disclaimer and U.S. Government End
 * Users Notice.
 */
+
+#pragma once
+
 #include <cstddef>
 #include <vector>
 
