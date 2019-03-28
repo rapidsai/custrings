@@ -34,22 +34,18 @@ def from_offsets(sbuf, obuf, scount, nbuf=None, ncount=0):
     ----------
     sbuf : CPU memory address or buffer
         Strings characters encoded as UTF-8.
-
     obuf : CPU memory address or buffer
         Array of int32 byte offsets to beginning of each string in sbuf.
         There should be scount+1 values where the last value is the
         number of bytes in sbuf.
-
     scount : int
         Number of strings.
-
-    nbuf : CPU memory address or buffer
+    nbuf : CPU memory address or buffer, optional
         Optional null bitmask in arrow format.
         Strings with no lengths are empty strings unless specified as
         null by this bitmask.
-
-    ncount : int
-        Optional number of null strings.
+    ncount : int, optional
+        Optional number of null strings (the default is 0).
 
     Examples
     --------
@@ -242,7 +238,6 @@ class nvcategory:
         ----------
         key : str
             key whose values should be returned
-
         devptr : GPU memory pointer
             Where index values will be written.
             Must be able to hold int32 values for this key.
@@ -425,14 +420,14 @@ class nvcategory:
         ----------
         indexes : List of ints or GPU memory pointer
             0-based indexes of keys to return as an nvstrings object
-
         count : int
             Number of ints if indexes parm is a device pointer.
             Otherwise it is ignored.
 
         Returns
         -------
-        nvstrings: strings list based on indexes
+        nvstrings
+            strings list based on indexes
 
         Examples
         --------
@@ -465,7 +460,6 @@ class nvcategory:
         ----------
         indexes : list or GPU memory pointer
             List of ints or GPU memory pointer to array of int32 values.
-
         count : int
             Number of ints if indexes parm is a device pointer.
             Otherwise it is ignored.
@@ -500,14 +494,14 @@ class nvcategory:
         ----------
         indexes : list or GPU memory pointer
             List of ints or GPU memory pointer to array of int32 values.
-
         count : int
             Number of ints if indexes parm is a device pointer.
             Otherwise it is ignored.
 
         Returns
         -------
-        nvcategory: keys and values based on indexes provided
+        nvcategory
+            keys and values based on indexes provided
 
         Examples
         --------
