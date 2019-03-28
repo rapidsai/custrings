@@ -51,6 +51,7 @@
 
 #include <cstddef>
 #include <vector>
+#include <cuda_runtime.h>
 
 class custring_view;
 class NVStringsImpl;
@@ -255,6 +256,6 @@ public:
     void printTimingRecords();
 
     // IPC
-    void* getHandleBuffer();
-    void* getHandleViews();
+    cudaIpcMemHandle_t getHandleBuffer();
+    cudaIpcMemHandle_t getHandleViews();
 };

@@ -163,14 +163,28 @@ static PyObject* n_destroyStrings( PyObject* self, PyObject* args )
 static PyObject* n_getMemBuffer( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    return PyLong_FromVoidPtr(tptr->getHandleBuffer());
+
+    cudaIpcMemHandle_t ipc_memhandle  = tptr->getHandleBuffer();
+
+    std::basic_string<char>* bytes = new std::basic_string<char>;
+    bytes->resize(sizeof(cudaIpcMemHandle_t));
+    memcpy((void*)bytes->data(), (char*)(&ipc_memhandle), sizeof(cudaIpcMemHandle_t));
+
+    return PyByteArray_FromStringAndSize(bytes->data(), sizeof(cudaIpcMemHandle_t));
 }
 
 // called to sending via IPC
 static PyObject* n_getViews( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    return PyLong_FromVoidPtr(tptr->getHandleViews());
+
+    cudaIpcMemHandle_t ipc_memhandle  = tptr->getHandleViews();
+
+    std::basic_string<char>* bytes = new std::basic_string<char>;
+    bytes->resize(sizeof(cudaIpcMemHandle_t));
+    memcpy((void*)bytes->data(), (char*)(&ipc_memhandle), sizeof(cudaIpcMemHandle_t));
+
+    return PyByteArray_FromStringAndSize(bytes->data(), sizeof(cudaIpcMemHandle_t));
 }
 
 // called in cases where the host code will want the strings back from the device
