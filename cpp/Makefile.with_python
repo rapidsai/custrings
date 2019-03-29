@@ -13,7 +13,7 @@ RPATH=-Wl,-rpath,.
 #RPATH=-Wl,-rpath,/conda/envs/gdf/lib/python3.6/site-packages/nvstrings-0.0.1a0-py3.6.egg
 #RPATH='-Wl,-rpath,$$ORIGIN/../../..'
 
-all: pyniNVStrings.so pyniNVCategory.so pyniRave.so
+all: pyniNVStrings.so pyniNVCategory.so pyniNVText.so
 
 custring_view.o: src/custring_view.cu src/custring_view.cuh
 	nvcc $(NVCFLAGS) $(GENCODE) -dc $< -o $@
@@ -36,7 +36,7 @@ NVStrings.o: src/NVStrings.cu include/NVStrings.h src/custring_view.cuh src/rege
 NVCategory.o: src/NVCategory.cu include/NVCategory.h include/NVStrings.h src/custring_view.cuh src/custring.cuh
 	nvcc $(NVCFLAGS) $(GENCODE) -dc $< -o $@
 
-Rave.o: src/Rave.cu include/Rave.h include/NVStrings.h src/custring_view.cuh src/custring.cuh
+NVText.o: src/NVText.cu include/NVText.h include/NVStrings.h src/custring_view.cuh src/custring.cuh
 	nvcc $(NVCFLAGS) $(GENCODE) -dc $< -o $@
 
 link_nvstrings.o: NVStrings.o util.o custring_view.o custring.o regexec.o regcomp.o
@@ -45,7 +45,7 @@ link_nvstrings.o: NVStrings.o util.o custring_view.o custring.o regexec.o regcom
 link_nvcategory.o: NVCategory.o custring_view.o custring.o
 	nvcc -Xcompiler -fPIC $(GENCODE) -dlink $^ -o $@
 
-link_rave.o: Rave.o custring_view.o custring.o
+link_nvtext.o: NVText.o custring_view.o custring.o
 	nvcc -Xcompiler -fPIC $(GENCODE) -dlink $^ -o $@
 
 libNVStrings.so: NVStrings.o custring_view.o custring.o util.o regexec.o regcomp.o link_nvstrings.o
@@ -57,7 +57,7 @@ libNVCategory.so: NVCategory.o custring_view.o custring.o link_nvcategory.o libN
 	g++ -shared -fPIC $^ $(NVLFLAGS) -o $@ -Wl,-soname,$@ $(RPATH)
 	cp $@ $(BUILD)/.
 
-libRave.so: Rave.o custring_view.o custring.o link_rave.o libNVStrings.so
+libNVText.so: NVText.o custring_view.o custring.o link_nvtext.o libNVStrings.so
 	g++ -shared -fPIC $^ $(NVLFLAGS) -o $@ -Wl,-soname,$@ $(RPATH)
 	cp $@ $(BUILD)/.
 
@@ -69,8 +69,8 @@ pyniNVCategory.so: python/pycategory.cpp libNVCategory.so libNVStrings.so
 	g++ $(CFLAGS) $< $(LFLAGS) -lNVCategory -lNVStrings -o $@ -Wl,-soname,$@ $(RPATH)
 	cp $@ $(BUILD)/.
 
-pyniRave.so: python/pyrave.cpp libRave.so libRave.so
-	g++ $(CFLAGS) $< $(LFLAGS) -lRave -lNVStrings -o $@ -Wl,-soname,$@ $(RPATH)
+pyniNVText.so: python/pytext.cpp libNVText.so libNVText.so
+	g++ $(CFLAGS) $< $(LFLAGS) -lNVText -lNVStrings -o $@ -Wl,-soname,$@ $(RPATH)
 	cp $@ $(BUILD)/.
 
 .PHONY: clean

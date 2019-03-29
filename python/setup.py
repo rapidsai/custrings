@@ -72,9 +72,11 @@ setup(name=name,
       ext_modules=[CMakeExtension('NVStrings', '../cpp'),
                    CMakeExtension('pyniNVStrings', '../cpp'),
                    CMakeExtension('NVCategory', '../cpp'),
-                   CMakeExtension('pyniNVCategory', '../cpp')],
+                   CMakeExtension('pyniNVCategory', '../cpp'),
+                   CMakeExtension('NVText', '../cpp'),
+                   CMakeExtension('pyniNVText', '../cpp')],
       cmdclass={'build_ext': CMakeBuildExt},
-      headers=['../cpp/include/NVStrings.h', '../cpp/include/NVCategory.h'],
+      headers=['../cpp/include/NVStrings.h', '../cpp/include/NVCategory.h', '../cpp/include/NVText.h'],
       zip_safe=False
       )
 
