@@ -832,7 +832,7 @@ NVStrings* NVStrings::create_from_bools(const bool* values, unsigned int count, 
     if( !bdevmem )
     {
         RMM_ALLOC(&d_values,count*sizeof(bool),0);
-        cudaMemcpy(d_values,values,count*sizeof(int),cudaMemcpyHostToDevice);
+        cudaMemcpy(d_values,values,count*sizeof(bool),cudaMemcpyHostToDevice);
         if( nullbitmask )
         {
             RMM_ALLOC(&d_nulls,((count+7)/8)*sizeof(unsigned char),0);

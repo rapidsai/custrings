@@ -272,8 +272,8 @@ def int2timestamp(values, count=0, nulls=None, units='seconds', bdevmem=False):
     return rtn
 
 
-def from_bools(values, count=0, nulls=None,
-               true='True', false='False', bdevmem=False):
+def from_booleans(values, count=0, nulls=None,
+                  true='True', false='False', bdevmem=False):
     """
     Create strings from an array of bool values.
     Each string will be created using the true and false strings provided.
@@ -792,7 +792,7 @@ class nvstrings:
         rtn = pyniNVStrings.n_htoi(self.m_cptr, devptr)
         return rtn
 
-    def to_bools(self, true="True", devptr=0):
+    def to_booleans(self, true="True", devptr=0):
         """
         Returns boolean value represented by each string.
 
@@ -812,7 +812,7 @@ class nvstrings:
           import nvstrings
 
           s = nvstrings.to_device(["True","False","",None])
-          print(s.to_bools())
+          print(s.to_booleans())
 
         Output:
 

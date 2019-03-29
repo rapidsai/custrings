@@ -15,7 +15,8 @@
 
 #Bug Fixes
 
-..
+- PR #186 Fixed memory error in booleans to strings method
+
 
 # cuStrings/nvStrings 0.3.0 (15 Mar 2019)
 
