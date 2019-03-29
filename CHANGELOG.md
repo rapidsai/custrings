@@ -2,7 +2,8 @@
 
 ## New Features
 
-- PR #180 Added edit-distaance to rave module
+- PR #188 Rename rave to nvtext and publish in nvstrings package
+- PR #180 Added edit-distance to rave module
 - PR #176 Added match_strings to nvstrings
 - PR #172 Added to/from boolean conversion methods
 - PR #171 Added conversion to/from subset of ISO8601 format

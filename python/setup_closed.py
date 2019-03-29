@@ -6,5 +6,5 @@ setup(name='nvstrings',
       py_modules=['nvstrings', 'nvcategory', 'rave'],
       data_files=[('', ['build/pyniNVStrings.so',
                         'build/pyniNVCategory.so',
-                        'build/pyniRave.so'])],
+                        'build/pyniNVText.so'])],
       zip_safe=False)
