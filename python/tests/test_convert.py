@@ -95,8 +95,8 @@ print("int2timestamp(ms)",nvstrings.int2timestamp([1553085296789,1582934400000],
 
 s = nvstrings.to_device(["true","false",None,"","true"])
 print(s)
-print(".to_bools()",s.to_bools(true="true"))
-print("from_bools",nvstrings.from_bools([True,False,False,True],nulls=[11]))
+print(".to_booleans()",s.to_booleans(true="true"))
+print("from_booleans",nvstrings.from_booleans([True,False,False,True],nulls=[11]))
 
 
 s = None

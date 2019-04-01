@@ -74,39 +74,39 @@ add_library(NVCategory SHARED
             src/custring_view.cu
             src/custring.cu)
 
-add_library(Rave SHARED
-            src/Rave.cu
+add_library(NVText SHARED
+            src/NVText.cu
             src/custring_view.cu
             src/custring.cu)
 
 target_link_libraries(NVStrings rmm)
 target_link_libraries(NVCategory NVStrings rmm)
-target_link_libraries(Rave NVStrings rmm)
+target_link_libraries(NVText NVStrings rmm)
 
 add_library(pyniNVStrings SHARED python/pystrings.cpp)
 add_library(pyniNVCategory SHARED python/pycategory.cpp)
-add_library(pyniRave SHARED python/pyrave.cpp)
+add_library(pyniNVText SHARED python/pytext.cpp)
 
 if (WIN32) 
 set_target_properties(pyniNVStrings PROPERTIES SUFFIX ".pyd")
 set_target_properties(pyniNVCategory PROPERTIES SUFFIX ".pyd")
-set_target_properties(pyniRave PROPERTIES SUFFIX ".pyd")
+set_target_properties(pyniNVText PROPERTIES SUFFIX ".pyd")
 else()
 set_target_properties(pyniNVStrings PROPERTIES SUFFIX ".so")
 set_target_properties(pyniNVStrings PROPERTIES PREFIX "")
 set_target_properties(pyniNVCategory PROPERTIES SUFFIX ".so")
 set_target_properties(pyniNVCategory PROPERTIES PREFIX "")
-set_target_properties(pyniRave PROPERTIES SUFFIX ".so")
-set_target_properties(pyniRave PROPERTIES PREFIX "")
+set_target_properties(pyniNVText PROPERTIES SUFFIX ".so")
+set_target_properties(pyniNVText PROPERTIES PREFIX "")
 endif()
 
 target_link_libraries(pyniNVStrings ${PYTHON_LIBRARIES} NVStrings)
 target_link_libraries(pyniNVCategory ${PYTHON_LIBRARIES} NVStrings NVCategory)
-target_link_libraries(pyniRave ${PYTHON_LIBRARIES} NVStrings Rave)
+target_link_libraries(pyniNVText ${PYTHON_LIBRARIES} NVStrings NVText)
 
 install(TARGETS NVStrings LIBRARY DESTINATION lib)
 install(TARGETS NVCategory LIBRARY DESTINATION lib)
-install(TARGETS Rave LIBRARY DESTINATION lib)
+install(TARGETS NVText LIBRARY DESTINATION lib)
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/ DESTINATION include/nvstrings PATTERN "*.h")
 
 # Doxygen documentation

@@ -1,5 +1,5 @@
 
-import pyniRave
+import pyniNVText
 import nvstrings as nvs
 
 
@@ -21,10 +21,10 @@ def unique_tokens(strs, delimiter=' '):
     --------
     .. code-block:: python
 
-    import nvstrings, rave
+    import nvstrings, nvtext
 
     s = nvstrings.to_device(["hello world","goodbye world","hello goodbye"])
-    ut = rave.unique_tokens(s)
+    ut = nvtext.unique_tokens(s)
     print(ut)
 
     Output:
@@ -34,7 +34,7 @@ def unique_tokens(strs, delimiter=' '):
     ["goodbye","hello","world"]
 
     """
-    rtn = pyniRave.n_unique_tokens(strs, delimiter)
+    rtn = pyniNVText.n_unique_tokens(strs, delimiter)
     if rtn is not None:
         rtn = nvs.nvstrings(rtn)
     return rtn
@@ -60,10 +60,10 @@ def token_count(strs, delimiter=' ', devptr=0):
     Examples
     --------
     .. code-block:: python
-      import nvstrings, rave
+      import nvstrings, nvtext
 
       s = nvstrings.to_device(["hello world","goodbye",""])
-      n = rave.token_count(s)
+      n = nvtext.token_count(s)
       print(n)
 
 
@@ -73,7 +73,7 @@ def token_count(strs, delimiter=' ', devptr=0):
       [2,1,0]
 
     """
-    rtn = pyniRave.n_token_count(strs, delimiter, devptr)
+    rtn = pyniNVText.n_token_count(strs, delimiter, devptr)
     return rtn
 
 
@@ -98,11 +98,11 @@ def contains_strings(strs, tgts, devptr=0):
     --------
     .. code-block:: python
 
-      import nvstrings, rave
+      import nvstrings, nvtext
 
       s = nvstrings.to_device(["hello","goodbye",""])
       t = nvstrings.to_device(['o','y'])
-      n = rave.contains_strings(s,t)
+      n = nvtext.contains_strings(s,t)
       print(n)
 
     Output:
@@ -111,7 +111,7 @@ def contains_strings(strs, tgts, devptr=0):
       [[True,False],[True,True],[False,False]]
 
     """
-    rtn = pyniRave.n_contains_strings(strs, tgts, devptr)
+    rtn = pyniNVText.n_contains_strings(strs, tgts, devptr)
     return rtn
 
 
@@ -136,11 +136,11 @@ def strings_counts(strs, tgts, devptr=0):
     --------
     .. code-block:: python
 
-      import nvstrings, rave
+      import nvstrings, nvtext
 
       s = nvstrings.to_device(["hello","goodbye",""])
       t = nvstrings.to_device(['o','y'])
-      n = rave.strings_counts(s,t)
+      n = nvtext.strings_counts(s,t)
       print(n)
 
 
@@ -150,7 +150,7 @@ def strings_counts(strs, tgts, devptr=0):
       [[1,0],[2,1],[0,0]]
 
     """
-    rtn = pyniRave.n_strings_counts(strs, tgts, devptr)
+    rtn = pyniNVText.n_strings_counts(strs, tgts, devptr)
     return rtn
 
 
@@ -177,10 +177,10 @@ def edit_distance(strs, tgt, algo=0, devptr=0):
     --------
     .. code-block:: python
 
-      import nvstrings, rave
+      import nvstrings, nvtext
 
       s = nvstrings.to_device(["honda","hyundai"])
-      n = rave.edit_distance(s,"honda")
+      n = nvtext.edit_distance(s,"honda")
       print(n)
 
 
@@ -190,5 +190,5 @@ def edit_distance(strs, tgt, algo=0, devptr=0):
       [0,3]
 
     """
-    rtn = pyniRave.n_edit_distance(strs, tgt, algo, devptr)
+    rtn = pyniNVText.n_edit_distance(strs, tgt, algo, devptr)
     return rtn

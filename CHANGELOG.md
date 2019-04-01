@@ -4,7 +4,8 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 
 ## New Features
 
-- PR #180 Added edit-distaance to rave module
+- PR #188 Rename rave to nvtext and publish in nvstrings package
+- PR #180 Added edit-distance to rave module
 - PR #176 Added match_strings to nvstrings
 - PR #172 Added to/from boolean conversion methods
 - PR #171 Added conversion to/from subset of ISO8601 format
@@ -18,7 +19,8 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 
 #Bug Fixes
 
-..
+- PR #186 Fixed memory error in booleans to strings method
+
 
 # cuStrings/nvStrings 0.3.0 (15 Mar 2019)
 

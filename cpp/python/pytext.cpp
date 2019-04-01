@@ -20,7 +20,7 @@
 #include <stdio.h>
 #include "NVStrings.h"
 #include "util.h"
-#include "Rave.h"
+#include "NVText.h"
 
 // utility to deference NVStrings instance from nvstrings instance
 // caller should never dextroy the return object
@@ -28,18 +28,18 @@ NVStrings* strings_from_object(PyObject* pystrs)
 {
     if( pystrs == Py_None )
     {
-        PyErr_Format(PyExc_ValueError,"rave: parameter required");
+        PyErr_Format(PyExc_ValueError,"nvtext: parameter required");
         return 0;
     }
     std::string cname = pystrs->ob_type->tp_name;
     if( cname.compare("nvstrings")!=0 )
     {
-        PyErr_Format(PyExc_ValueError,"rave: argument must be nvstrings object");
+        PyErr_Format(PyExc_ValueError,"nvtext: argument must be nvstrings object");
         return 0;
     }
     NVStrings* strs = (NVStrings*)PyLong_AsVoidPtr(PyObject_GetAttrString(pystrs,"m_cptr"));
     if( strs==0 )
-        PyErr_Format(PyExc_ValueError,"rave: invalid nvstrings object");
+        PyErr_Format(PyExc_ValueError,"nvtext: invalid nvstrings object");
     return strs;
 }
 
@@ -79,7 +79,7 @@ static PyObject* n_unique_tokens( PyObject* self, PyObject* args )
     if( argDelim != Py_None )
         delimiter = PyUnicode_AsUTF8(argDelim);
 
-    strs = Rave::unique_tokens(*strs,delimiter);
+    strs = NVText::unique_tokens(*strs,delimiter);
     if( strs==0 )
         Py_RETURN_NONE;
     return PyLong_FromVoidPtr((void*)strs);
@@ -101,7 +101,7 @@ static PyObject* n_token_count( PyObject* self, PyObject* args )
     unsigned int* devptr = (unsigned int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,2));
     if( devptr )
     {
-        unsigned int rtn = Rave::token_count(*strs,delimiter,devptr);
+        unsigned int rtn = NVText::token_count(*strs,delimiter,devptr);
         return PyLong_FromLong((long)rtn);
     }
     //
@@ -110,7 +110,7 @@ static PyObject* n_token_count( PyObject* self, PyObject* args )
     if( count==0 )
         return ret;
     unsigned int* rtn = new unsigned int[count];
-    Rave::token_count(*strs,delimiter,rtn,false);
+    NVText::token_count(*strs,delimiter,rtn,false);
     for(unsigned int idx=0; idx < count; idx++)
         PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));
     delete rtn;
@@ -154,7 +154,7 @@ static PyObject* n_contains_strings( PyObject* self, PyObject* args )
     bool* devptr = (bool*)PyLong_AsVoidPtr(PyTuple_GetItem(args,2));
     if( devptr )
     {
-        unsigned int rtn = Rave::contains_strings(*strs,*tgts,devptr);
+        unsigned int rtn = NVText::contains_strings(*strs,*tgts,devptr);
         if( cname.compare("list")==0 )
             NVStrings::destroy(tgts);
         return PyLong_FromLong((long)rtn);
@@ -170,7 +170,7 @@ static PyObject* n_contains_strings( PyObject* self, PyObject* args )
         return ret;
     }
     bool* rtn = new bool[rows*columns];
-    Rave::contains_strings(*strs,*tgts,rtn,false);
+    NVText::contains_strings(*strs,*tgts,rtn,false);
     for(unsigned int idx=0; idx < rows; idx++)
     {
         PyObject* row = PyList_New(columns);
@@ -221,7 +221,7 @@ static PyObject* n_strings_counts( PyObject* self, PyObject* args )
     unsigned int* devptr = (unsigned int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,2));
     if( devptr )
     {
-        unsigned int rtn = Rave::strings_counts(*strs,*tgts,devptr);
+        unsigned int rtn = NVText::strings_counts(*strs,*tgts,devptr);
         if( cname.compare("list")==0 )
             NVStrings::destroy(tgts);
         return PyLong_FromLong((long)rtn);
@@ -237,7 +237,7 @@ static PyObject* n_strings_counts( PyObject* self, PyObject* args )
         return ret;
     }
     unsigned int* rtn = new unsigned int[rows*columns];
-    Rave::strings_counts(*strs,*tgts,rtn,false);
+    NVText::strings_counts(*strs,*tgts,rtn,false);
     for(unsigned int idx=0; idx < rows; idx++)
     {
         PyObject* row = PyList_New(columns);
@@ -273,7 +273,7 @@ static PyObject* n_edit_distance( PyObject* self, PyObject* args )
         const char* tgt = PyUnicode_AsUTF8(pytgts);
         if( devptr )
         {
-            Rave::edit_distance(Rave::levenshtein,*strs,tgt,devptr);
+            NVText::edit_distance(NVText::levenshtein,*strs,tgt,devptr);
             Py_RETURN_NONE;
         }
         // or fill in python list with host memory
@@ -281,7 +281,7 @@ static PyObject* n_edit_distance( PyObject* self, PyObject* args )
         if( count==0 )
             return ret;
         std::vector<unsigned int> rtn(count);
-        Rave::edit_distance(Rave::levenshtein,*strs,tgt,rtn.data(),false);
+        NVText::edit_distance(NVText::levenshtein,*strs,tgt,rtn.data(),false);
         for(unsigned int idx=0; idx < count; idx++)
             PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));
         return ret;
@@ -303,7 +303,7 @@ static PyObject* n_edit_distance( PyObject* self, PyObject* args )
     }
     if( devptr )
     {
-        Rave::edit_distance(Rave::levenshtein,*strs,*tgts,devptr);
+        NVText::edit_distance(NVText::levenshtein,*strs,*tgts,devptr);
         if( cname.compare("list")==0 )
             NVStrings::destroy(tgts);
         Py_RETURN_NONE;
@@ -312,7 +312,7 @@ static PyObject* n_edit_distance( PyObject* self, PyObject* args )
     if( count==0 )
         return ret;
     std::vector<unsigned int> rtn(count);
-    Rave::edit_distance(Rave::levenshtein,*strs,*tgts,rtn.data(),false);
+    NVText::edit_distance(NVText::levenshtein,*strs,*tgts,rtn.data(),false);
     for(unsigned int idx=0; idx < count; idx++)
         PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));
     if( cname.compare("list")==0 )
@@ -330,9 +330,9 @@ static PyMethodDef s_Methods[] = {
     { NULL, NULL, 0, NULL }
 };
 
-static struct PyModuleDef cModPyDem = {	PyModuleDef_HEAD_INIT, "Rave_module", "", -1, s_Methods };
+static struct PyModuleDef cModPyDem = {	PyModuleDef_HEAD_INIT, "NVText_module", "", -1, s_Methods };
 
-PyMODINIT_FUNC PyInit_pyniRave(void)
+PyMODINIT_FUNC PyInit_pyniNVText(void)
 {
     return PyModule_Create(&cModPyDem);
 }

@@ -19,7 +19,7 @@
 class NVStrings;
 //
 //
-class Rave
+class NVText
 {
 
 public:

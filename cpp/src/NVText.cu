@@ -29,7 +29,7 @@
 #include "NVStrings.h"
 #include "custring_view.cuh"
 #include "custring.cuh"
-#include "Rave.h"
+#include "NVText.h"
 
 static void printCudaError( cudaError_t err, const char* prefix="\t" )
 {
@@ -38,7 +38,7 @@ static void printCudaError( cudaError_t err, const char* prefix="\t" )
 }
 
 // return unique set of tokens within all the strings using the specified delimiter
-NVStrings* Rave::unique_tokens(NVStrings& strs, const char* delimiter )
+NVStrings* NVText::unique_tokens(NVStrings& strs, const char* delimiter )
 {
     int bytes = (int)strlen(delimiter);
     char* d_delimiter = 0;
@@ -147,7 +147,7 @@ NVStrings* Rave::unique_tokens(NVStrings& strs, const char* delimiter )
 }
 
 // return a count of the number of tokens for each string when applying the specified delimiter
-unsigned int Rave::token_count( NVStrings& strs, const char* delimiter, unsigned int* results, bool bdevmem )
+unsigned int NVText::token_count( NVStrings& strs, const char* delimiter, unsigned int* results, bool bdevmem )
 {
     int bytes = (int)strlen(delimiter);
     char* d_delimiter = 0;
@@ -187,7 +187,7 @@ unsigned int Rave::token_count( NVStrings& strs, const char* delimiter, unsigned
 }
 
 // return boolean value for each token if found in the provided strings
-unsigned int Rave::contains_strings( NVStrings& strs, NVStrings& tkns, bool* results, bool todevice )
+unsigned int NVText::contains_strings( NVStrings& strs, NVStrings& tkns, bool* results, bool todevice )
 {
     unsigned int count = strs.size();
     unsigned int tcount = tkns.size();
@@ -239,7 +239,7 @@ unsigned int Rave::contains_strings( NVStrings& strs, NVStrings& tkns, bool* res
 // "aabbcc"    1     0     2
 // "abbbbc"    0     1     1
 // ...
-unsigned int Rave::strings_counts( NVStrings& strs, NVStrings& tkns, unsigned int* results, bool todevice )
+unsigned int NVText::strings_counts( NVStrings& strs, NVStrings& tkns, unsigned int* results, bool todevice )
 {
     unsigned int count = strs.size();
     unsigned int tcount = tkns.size();
@@ -382,7 +382,7 @@ struct editdistance_levenshtein_algorithm
     }
 };
 
-unsigned int Rave::edit_distance( distance_type algo, NVStrings& strs, const char* str, unsigned int* results, bool bdevmem )
+unsigned int NVText::edit_distance( distance_type algo, NVStrings& strs, const char* str, unsigned int* results, bool bdevmem )
 {
     if( algo != levenshtein || str==0 || results==0 )
         throw std::invalid_argument("invalid algorithm");
@@ -443,7 +443,7 @@ unsigned int Rave::edit_distance( distance_type algo, NVStrings& strs, const cha
     return 0;
 }
 
-unsigned int Rave::edit_distance( distance_type algo, NVStrings& strs1, NVStrings& strs2, unsigned int* results, bool bdevmem )
+unsigned int NVText::edit_distance( distance_type algo, NVStrings& strs1, NVStrings& strs2, unsigned int* results, bool bdevmem )
 {
     if( algo != levenshtein )
         throw std::invalid_argument("invalid algorithm");
