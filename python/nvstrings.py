@@ -428,7 +428,7 @@ class nvstrings:
         >>> from librmm_cffi import librmm
         >>> import numpy as np
 
-         # example passing device memory pointer
+        Example passing device memory pointer
 
         >>> s = nvstrings.to_device(["abc","d","ef"])
         >>> arr = np.arange(s.size(),dtype=np.int32)
@@ -459,7 +459,7 @@ class nvstrings:
         >>> import numpy as np
         >>> from librmm_cffi import librmm
 
-        # example passing device memory pointer
+        Example passing device memory pointer
 
         >>> s = nvstrings.to_device(["abc","d","ef"])
         >>> arr = np.arange(s.size(),dtype=np.int32)
@@ -510,7 +510,7 @@ class nvstrings:
         --------
         >>> import nvstrings
 
-        # example passing device memory pointer
+        Example passing device memory pointer
 
         >>> s = nvstrings.to_device(["abc","",None])
         >>> print("nulls",s.null_count())
