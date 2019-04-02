@@ -40,6 +40,7 @@ env
 
 logger "Activate conda env..."
 source activate gdf
+cat /root/.condarc
 conda install librmm==0.7*
 pip install cmake_setuptools
 
