@@ -16,8 +16,9 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 - PR #173 Added flake8 checks to for /python files
 - PR #167 Added doxygen to NVStrings.h and NVCategory.h
 - PR #183 Align version to 0.7
+- PR #181 Update python docstrings to numpydoc style
 
-#Bug Fixes
+## Bug Fixes
 
 - PR #186 Fixed memory error in booleans to strings method
 
@@ -97,4 +98,3 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 - PR #31 Change NVCategory values type from unsigned to signed int32
 - PR #11 handle unescaped end-brace edge-case
 - PR #157 Fix Python not being found by CMake
-
