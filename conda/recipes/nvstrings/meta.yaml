@@ -30,7 +30,7 @@ requirements:
   host:
     - python
     - setuptools
-    - librmm 0.7.*
+    - librmm 0.7*
   run:
     - python
     - {{ pin_compatible('librmm') }}
