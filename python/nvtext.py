@@ -19,7 +19,9 @@ def unique_tokens(strs, delimiter=' '):
     Examples
     --------
     >>> import nvstrings, nvtext
-    >>> s = nvstrings.to_device(["hello world","goodbye world","hello goodbye"])
+    >>> s = nvstrings.to_device(["hello world",
+    ...                          "goodbye world",
+    ...                          "hello goodbye"])
     >>> ut = nvtext.unique_tokens(s)
     >>> print(ut)
     ["goodbye","hello","world"]
