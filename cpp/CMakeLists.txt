@@ -75,21 +75,6 @@ endif(CMAKE_BUILD_TYPE MATCHES Debug)
 option(BUILD_TESTS "Configure CMake to build tests" OFF)
 
 ###################################################################################################
-# - include paths ---------------------------------------------------------------------------------
-
-include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}"
-                    "${PYTHON_INCLUDE_DIRS}"
-                    "${CMAKE_BINARY_DIR}/include"
-                    "${CMAKE_SOURCE_DIR}/include"
-                    "${CMAKE_SOURCE_DIR}/src")
-
-###################################################################################################
-# - library paths ---------------------------------------------------------------------------------
-
-link_directories("${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES}"
-                 "${CMAKE_BINARY_DIR}/lib")
-
-###################################################################################################
 # - rmm -------------------------------------------------------------------------------------------
 
 find_file(RMM_INCLUDE "rmm.h"
@@ -109,6 +94,21 @@ if(RMM_INCLUDE AND RMM_LIBRARY)
                     COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR} ln -snf ${NVSTRINGS_INCLUDE} ${CMAKE_BINARY_DIR}/include/rmm/rmm.h
                     COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR} ln -snf ${NVSTRINGS_LIBRARY} ${CMAKE_BINARY_DIR}/lib/librmm.so)
 endif(RMM_INCLUDE AND RMM_LIBRARY)
+
+###################################################################################################
+# - include paths ---------------------------------------------------------------------------------
+
+include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}"
+                    "${PYTHON_INCLUDE_DIRS}"
+                    "${CMAKE_BINARY_DIR}/include"
+                    "${CMAKE_SOURCE_DIR}/include"
+                    "${CMAKE_SOURCE_DIR}/src")
+
+###################################################################################################
+# - library paths ---------------------------------------------------------------------------------
+
+link_directories("${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES}"
+                 "${CMAKE_BINARY_DIR}/lib")
 
 ###################################################################################################
 # - python ----------------------------------------------------------------------------------------
