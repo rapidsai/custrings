@@ -26,16 +26,14 @@ build:
 requirements:
   build:
     - cmake
-    - python 3.6.* # [py==36]
-    - python 3.7.* # [py==37]
+    - python
   host:
-    - python 3.6.* # [py==36]
-    - python 3.7.* # [py==37]
+    - python
     - setuptools
+    - librmm 0.7.*
   run:
-    - python 3.6.* # [py==36]
-    - python 3.7.* # [py==37]
-    - setuptools
+    - python
+    - {{ pin_compatible('librmm') }}
 
 test:
   requires:
