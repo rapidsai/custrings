@@ -50,7 +50,11 @@ public:
         memoryBuffer = (char*)ptr;
         bufferSize = memSize;
     }
-    void setMemoryHandle(cudaIpcMemHandle_t& hdl, size_t memSize);
+    void setMemoryHandle(void* ptr, size_t memSize)
+    {
+        setMemoryBuffer(ptr,memSize);
+        bIpcHandle = true;
+    }
 
     void addOpTimes( const char* op, double sizeTime, double opTime );
     void printTimingRecords();

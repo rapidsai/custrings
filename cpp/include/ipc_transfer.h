@@ -23,6 +23,50 @@
 struct nvstrings_ipc_transfer
 {
     char* base_address;
-    cudaIpcMemHandle_t hdl_strs, hdl_mem;
-    size_t count, size;
+    cudaIpcMemHandle_t hstrs;
+    unsigned int count;
+    void* strs;
+
+    cudaIpcMemHandle_t hmem;
+    size_t size;
+    void* mem;
+
+    nvstrings_ipc_transfer() 
+    : base_address(0), count(0), strs(0), size(0), mem(0) {}
+
+    ~nvstrings_ipc_transfer()
+    {
+        if( strs )
+            cudaIpcCloseMemHandle(strs);
+        if( mem )
+            cudaIpcCloseMemHandle(mem);
+    }
+
+    void setStrsHandle(void* in, char* base, unsigned int c)
+    {
+        count = c;
+        base_address = base;
+        cudaIpcGetMemHandle(&hstrs,in);
+    }
+
+    void setMemHandle(void* in, size_t sz)
+    {
+        size = sz;
+        cudaIpcGetMemHandle(&hmem,in);
+    }
+
+    void* getStringsPtr()
+    {
+        if( !strs && count )
+            cudaIpcOpenMemHandle((void**)&strs,hstrs,cudaIpcMemLazyEnablePeerAccess);
+        return strs;
+    }
+
+    void* getMemoryPtr()
+    {
+        if( !mem && size )
+            cudaIpcOpenMemHandle((void**)&mem,hmem,cudaIpcMemLazyEnablePeerAccess);
+        return mem;
+    }
 };
+

@@ -125,21 +125,12 @@ NVStrings* NVStrings::create_from_ipc( nvstrings_ipc_transfer& ipc )
     NVStrings* rtn = new NVStrings(count);
     if( count==0 )
         return rtn;
-    custring_view_array strings = 0;
-    rtn->pImpl->setMemoryHandle(ipc.hdl_mem,ipc.size);
-    if( cudaSuccess != cudaIpcOpenMemHandle((void**)&strings,ipc.hdl_strs,cudaIpcMemLazyEnablePeerAccess) )
-    {
-        delete rtn;
-        // throw exception here
-        return 0;
-    }
+    rtn->pImpl->setMemoryHandle(ipc.getMemoryPtr(),ipc.size);
+    custring_view_array strings = (custring_view_array)ipc.getStringsPtr();
     // copy the pointers so they can be fixed up
     cudaMemcpy(rtn->pImpl->getStringsPtr(),strings,count*sizeof(custring_view*),cudaMemcpyDeviceToDevice);
     // fix up the pointers for this context
     NVStrings_fixup_pointers(rtn->pImpl,ipc.base_address);
-    // do this after the fixup for some reason
-    cudaIpcCloseMemHandle(strings);
-    // done
     return rtn;
 }
 
@@ -482,11 +473,8 @@ int NVStrings::create_offsets( char* strs, int* offsets, unsigned char* nullbitm
 
 int NVStrings::create_ipc_transfer( nvstrings_ipc_transfer& ipc )
 {
-    ipc.base_address = pImpl->getMemoryPtr();
-    ipc.size = pImpl->getMemorySize();
-    ipc.count = size();
-    cudaIpcGetMemHandle(&(ipc.hdl_strs), pImpl->getStringsPtr());
-    cudaIpcGetMemHandle(&(ipc.hdl_mem),pImpl->getMemoryPtr());
+    ipc.setStrsHandle(pImpl->getStringsPtr(),pImpl->getMemoryPtr(),size());
+    ipc.setMemHandle(pImpl->getMemoryPtr(),pImpl->getMemorySize());
     return 0;
 }
 

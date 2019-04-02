@@ -105,13 +105,8 @@ NVStringsImpl::NVStringsImpl(unsigned int count)
 
 NVStringsImpl::~NVStringsImpl()
 {
-    if( memoryBuffer )
-    {
-        if( bIpcHandle )
-            cudaIpcCloseMemHandle(memoryBuffer);
-        else
-            RMM_FREE(memoryBuffer,0);
-    }
+    if( memoryBuffer && !bIpcHandle )
+        RMM_FREE(memoryBuffer,0);
     memoryBuffer = 0;
     delete pList;
     pList = 0;
@@ -128,13 +123,6 @@ char* NVStringsImpl::createMemoryFor( size_t* d_lengths )
     RMM_ALLOC(&memoryBuffer,outsize,0);
     bufferSize = outsize;
     return memoryBuffer;
-}
-
-void NVStringsImpl::setMemoryHandle(cudaIpcMemHandle_t& hdl, size_t size)
-{
-    cudaIpcOpenMemHandle((void**)&memoryBuffer,hdl,cudaIpcMemLazyEnablePeerAccess);
-    bIpcHandle = true;
-    bufferSize = size;
 }
 
 void NVStringsImpl::addOpTimes( const char* op, double sizeTime, double opTime )
