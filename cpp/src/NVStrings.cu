@@ -30,6 +30,7 @@
 #include <rmm/thrust_rmm_allocator.h>
 #include "NVStrings.h"
 #include "NVStringsImpl.h"
+#include "ipc_transfer.h"
 #include "custring_view.cuh"
 #include "StringsStatistics.h"
 #include "unicode/is_flags.h"
@@ -115,6 +116,30 @@ NVStrings* NVStrings::create_from_strings( std::vector<NVStrings*> strs )
     NVStrings* rtn = new NVStrings(count);
     if( count )
         NVStrings_copy_strings(rtn->pImpl,strs);
+    return rtn;
+}
+
+NVStrings* NVStrings::create_from_ipc( nvstrings_ipc_transfer& ipc )
+{
+    unsigned count = ipc.count;
+    NVStrings* rtn = new NVStrings(count);
+    if( count==0 )
+        return rtn;
+    custring_view_array strings = 0;
+    rtn->pImpl->setMemoryHandle(ipc.hdl_mem,ipc.size);
+    if( cudaSuccess != cudaIpcOpenMemHandle((void**)&strings,ipc.hdl_strs,cudaIpcMemLazyEnablePeerAccess) )
+    {
+        delete rtn;
+        // throw exception here
+        return 0;
+    }
+    // copy the pointers so they can be fixed up
+    cudaMemcpy(rtn->pImpl->getStringsPtr(),strings,count*sizeof(custring_view*),cudaMemcpyDeviceToDevice);
+    // fix up the pointers for this context
+    NVStrings_fixup_pointers(rtn->pImpl,ipc.base_address);
+    // do this after the fixup for some reason
+    cudaIpcCloseMemHandle(strings);
+    // done
     return rtn;
 }
 
@@ -455,6 +480,16 @@ int NVStrings::create_offsets( char* strs, int* offsets, unsigned char* nullbitm
     return 0;
 }
 
+int NVStrings::create_ipc_transfer( nvstrings_ipc_transfer& ipc )
+{
+    ipc.base_address = pImpl->getMemoryPtr();
+    ipc.size = pImpl->getMemorySize();
+    ipc.count = size();
+    cudaIpcGetMemHandle(&(ipc.hdl_strs), pImpl->getStringsPtr());
+    cudaIpcGetMemHandle(&(ipc.hdl_mem),pImpl->getMemoryPtr());
+    return 0;
+}
+
 // fills in a bitarray with 0 for null values and 1 for non-null values
 // if emptyIsNull=true, empty strings will have bit values of 0 as well
 unsigned int NVStrings::set_null_bitarray( unsigned char* bitarray, bool emptyIsNull, bool devmem )
@@ -648,18 +683,18 @@ void NVStrings::compute_statistics(StringsStatistics& stats)
     // digits
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         statistics_attrs(d_strings, d_flags, d_values, 4));
-    stats.digits_count = thrust::reduce(execpol->on(0), values.begin(), values.end());        
+    stats.digits_count = thrust::reduce(execpol->on(0), values.begin(), values.end());
     // uppercase
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         statistics_attrs(d_strings, d_flags, d_values, 32));
-    stats.uppercase_count = thrust::reduce(execpol->on(0), values.begin(), values.end());        
+    stats.uppercase_count = thrust::reduce(execpol->on(0), values.begin(), values.end());
     // lowercase
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         statistics_attrs(d_strings, d_flags, d_values, 64));
-    stats.lowercase_count = thrust::reduce(execpol->on(0), values.begin(), values.end());        
+    stats.lowercase_count = thrust::reduce(execpol->on(0), values.begin(), values.end());
 
     // count strings
-    stats.total_nulls = thrust::count_if(execpol->on(0), d_strings, d_strings + count, 
+    stats.total_nulls = thrust::count_if(execpol->on(0), d_strings, d_strings + count,
         [] __device__ (custring_view* dstr) { return dstr==0; });
     stats.total_empty = thrust::count_if(execpol->on(0), d_strings, d_strings + count,
         [] __device__ (custring_view* dstr) { return dstr && dstr->empty(); });
@@ -668,7 +703,7 @@ void NVStrings::compute_statistics(StringsStatistics& stats)
         // make a copy of the pointers so we can sort them
         rmm::device_vector<custring_view*> sortcopy(*(pImpl->pList));
         custring_view_array d_sortcopy = sortcopy.data().get();
-        thrust::sort(execpol->on(0), d_sortcopy, d_sortcopy+count, 
+        thrust::sort(execpol->on(0), d_sortcopy, d_sortcopy+count,
             [] __device__ (custring_view*& lhs, custring_view*& rhs) {
                 return (lhs && rhs) ? (lhs->compare(*rhs) < 0): rhs!=0;
             });

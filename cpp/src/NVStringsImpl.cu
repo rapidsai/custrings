@@ -97,7 +97,8 @@ unsigned short* get_charcases()
 }
 
 //
-NVStringsImpl::NVStringsImpl(unsigned int count) : bufferSize(0), memoryBuffer(0), stream_id(0)
+NVStringsImpl::NVStringsImpl(unsigned int count)
+              : bufferSize(0), memoryBuffer(0), bIpcHandle(false), stream_id(0)
 {
     pList = new rmm::device_vector<custring_view*>(count,nullptr);
 }
@@ -105,7 +106,12 @@ NVStringsImpl::NVStringsImpl(unsigned int count) : bufferSize(0), memoryBuffer(0
 NVStringsImpl::~NVStringsImpl()
 {
     if( memoryBuffer )
-        RMM_FREE(memoryBuffer,0);
+    {
+        if( bIpcHandle )
+            cudaIpcCloseMemHandle(memoryBuffer);
+        else
+            RMM_FREE(memoryBuffer,0);
+    }
     memoryBuffer = 0;
     delete pList;
     pList = 0;
@@ -124,6 +130,12 @@ char* NVStringsImpl::createMemoryFor( size_t* d_lengths )
     return memoryBuffer;
 }
 
+void NVStringsImpl::setMemoryHandle(cudaIpcMemHandle_t& hdl, size_t size)
+{
+    cudaIpcOpenMemHandle((void**)&memoryBuffer,hdl,cudaIpcMemLazyEnablePeerAccess);
+    bIpcHandle = true;
+    bufferSize = size;
+}
 
 void NVStringsImpl::addOpTimes( const char* op, double sizeTime, double opTime )
 {
@@ -541,5 +553,38 @@ int NVStrings_copy_strings( NVStringsImpl* pImpl, std::vector<NVStrings*>& strsl
     if( err!=cudaSuccess )
         printCudaError(err,"nvs-cs");
     pImpl->setMemoryBuffer(d_buffer,nbytes);
+    return count;
+}
+
+int NVStrings_fixup_pointers( NVStringsImpl* pImpl, char* baseaddr )
+{
+    auto execpol = rmm::exec_policy(0);
+    auto pList = pImpl->pList;
+    unsigned int count = (unsigned int)pList->size();
+
+    custring_view_array d_strings = pImpl->getStringsPtr();
+    //---- the following can be used to find the base-address of the original memory  ----
+    //---- instead of passing it across the ipc boundary; leaving it here for now     ----
+    //custring_view** first = thrust::min_element(execpol->on(0),d_strings,d_strings+count,
+    //    [] __device__ (custring_view* lhs, custring_view* rhs) {
+    //        return (lhs && rhs) ? (lhs < rhs) : rhs==0;
+    //    });
+    //cudaError_t err = cudaMemcpy(&baseaddr,first,sizeof(custring_view*),cudaMemcpyDeviceToHost);
+    //if( err!=cudaSuccess )
+    //    fprintf(stderr, "fixup: cudaMemcpy(%p,%p,%d)=%d\n",&baseaddr,first,(int)sizeof(custring_view*),(int)err);
+    //
+    char* buffer = pImpl->getMemoryPtr();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [buffer, baseaddr, d_strings] __device__(unsigned int idx){
+            char* dstr = (char*)d_strings[idx];
+            if( !dstr )
+                return;
+            size_t diff = dstr - baseaddr;
+            char* newaddr = buffer + diff;
+            d_strings[idx] = (custring_view*)newaddr;
+        });
+    cudaError_t err = cudaDeviceSynchronize();
+    if( err!=cudaSuccess )
+        printCudaError(err,"nvs-fixup");
     return count;
 }

@@ -34,6 +34,7 @@ public:
     size_t bufferSize; // size of memoryBuffer only
     std::map<std::string,timing_record> mapTimes;
     cudaStream_t stream_id;
+    bool bIpcHandle; // whether memoryBuffer is ipc-handle or not
 
     //
     NVStringsImpl(unsigned int count);
@@ -49,6 +50,7 @@ public:
         memoryBuffer = (char*)ptr;
         bufferSize = memSize;
     }
+    void setMemoryHandle(cudaIpcMemHandle_t& hdl, size_t memSize);
 
     void addOpTimes( const char* op, double sizeTime, double opTime );
     void printTimingRecords();
@@ -70,3 +72,4 @@ int NVStrings_init_from_strings(NVStringsImpl* pImpl, const char** strs, unsigne
 int NVStrings_init_from_indexes( NVStringsImpl* pImpl, std::pair<const char*,size_t>* indexes, unsigned int count, bool bdevmem, NVStrings::sorttype stype );
 int NVStrings_init_from_offsets( NVStringsImpl* pImpl, const char* strs, int count, const int* offsets, const unsigned char* bitmask, int nulls );
 int NVStrings_copy_strings( NVStringsImpl* pImpl, std::vector<NVStrings*>& strslist );
+int NVStrings_fixup_pointers( NVStringsImpl* pImpl, char* baseaddr );

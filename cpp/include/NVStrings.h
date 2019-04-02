@@ -22,6 +22,7 @@
  * @brief Class definition for NVStrings.
  */
 
+struct nvstrings_ipc_transfer;
 struct StringsStatistics;
 class custring_view;
 class NVStringsImpl;
@@ -122,6 +123,13 @@ public:
      * @return Instance with copy of the strings provided.
      */
     static NVStrings* create_from_strings( std::vector<NVStrings*> strs );
+    /**
+     * @brief Create an instance from an IPC-transfer object built from create_ipc_transfer.
+     *
+     * @param[in] ipc Data needed to create a new instance.
+     * @return Instance with data provided.
+     */
+    static NVStrings* create_from_ipc( nvstrings_ipc_transfer& ipc );
     ///@}
 
     /**
@@ -183,6 +191,13 @@ public:
      * @return 0 if successful.
      */
     int create_offsets( char* strs, int* offsets, unsigned char* nullbitmask=0, bool devmem=true );
+    /**
+     * @brief Create IPC-transfer data from this instance.
+     *
+     * @param[in,out] ipc Structure will be set with data needed by create_from_ipc method.
+     * @return 0 if successful.
+     */
+    int create_ipc_transfer( nvstrings_ipc_transfer& ipc );
     /**
      * @brief Set bit-array identifying the null strings.
      *
