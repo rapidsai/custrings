@@ -16,6 +16,7 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 - PR #173 Added flake8 checks to for /python files
 - PR #167 Added doxygen to NVStrings.h and NVCategory.h
 - PR #183 Align version to 0.7
+- PR #192 Rework CMakeLists and separate RMM, update conda recipe and setup.py
 
 #Bug Fixes
 
