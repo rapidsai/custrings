@@ -107,7 +107,7 @@ if(RMM_INCLUDE AND RMM_LIBRARY)
                     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/lib)
     execute_process(WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
                     COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR} ln -snf ${NVSTRINGS_INCLUDE} ${CMAKE_BINARY_DIR}/include/rmm/rmm.h
-                    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR} ln -snf ${NVSTRINGS_LIBRARY} ${CMAKE_BINARY_DIR}/lib/librmm.so
+                    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR} ln -snf ${NVSTRINGS_LIBRARY} ${CMAKE_BINARY_DIR}/lib/librmm.so)
 endif(RMM_INCLUDE AND RMM_LIBRARY)
 
 ###################################################################################################
