@@ -37,12 +37,12 @@ export GIT_DESCRIBE_NUMBER=`git rev-list ${GIT_DESCRIBE_TAG}..HEAD --count`
 
 logger "Get env..."
 env
-
-logger "Activate conda env..."
-source activate gdf
 export USER=`whoami`
 echo $USER
 eval echo "~$USER"
+
+logger "Activate conda env..."
+source activate gdf
 conda install -c rapidsai/label/cuda${CUDA_REL} -c rapidsai-nightly/label/cuda${CUDA_REL} librmm==0.7.*
 pip install cmake_setuptools
 
@@ -93,7 +93,6 @@ make -j${PARALLEL_LEVEL}
 
 #logger "Install custrings..."
 #make -j${PARALLEL_LEVEL} install
-cp rmm/librmm.so .
 cp ../../python/*.py .
 cp ../../python/tests/*.py .
 

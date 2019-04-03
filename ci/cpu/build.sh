@@ -36,6 +36,9 @@ export GIT_DESCRIBE_NUMBER=`git rev-list ${GIT_DESCRIBE_TAG}..HEAD --count`
 
 logger "Get env..."
 env
+export USER=`whoami`
+echo $USER
+eval echo "~$USER"
 
 logger "Activate conda env..."
 source activate gdf
