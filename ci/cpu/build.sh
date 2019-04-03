@@ -45,6 +45,7 @@ logger "Check versions..."
 python --version
 $CC --version
 $CXX --version
+conda config --get channels
 conda list
 $CUDACXX --version
 
