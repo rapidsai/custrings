@@ -389,6 +389,46 @@ static PyObject* n_createFromIntegers( PyObject* self, PyObject* args )
     Py_RETURN_NONE;
 }
 
+static PyObject* n_createFromFloats( PyObject* self, PyObject* args )
+{
+    PyObject* pyvals = PyTuple_GetItem(args,0);
+    PyObject* pycount = PyTuple_GetItem(args,1);
+    PyObject* pynulls = PyTuple_GetItem(args,2);
+    PyObject* pybmem = PyTuple_GetItem(args,3);
+
+    bool bdevmem = (bool)PyObject_IsTrue(pybmem);
+
+    DataBuffer<float> dbvalues(pyvals);
+    if( dbvalues.is_error() )
+    {
+        PyErr_Format(PyExc_TypeError,"nvstrings.ftos(): unknown type %s",dbvalues.get_name());
+        Py_RETURN_NONE;
+    }
+
+    float* values = dbvalues.get_values();
+    unsigned int count = dbvalues.get_count();
+    if( count==0 )
+        count = (unsigned int)PyLong_AsLong(pycount);
+
+    NVStrings* rtn = 0;
+    if( pynulls == Py_None )
+        rtn = NVStrings::ftos(values,count,0,bdevmem);
+    else
+    {   // get the nulls
+        DataBuffer<unsigned char> dbnulls(pynulls);
+        if( dbnulls.is_error() )
+        {
+            PyErr_Format(PyExc_TypeError,"nvstrings.ftos(): unknown type %s",dbnulls.get_name());
+            Py_RETURN_NONE;
+        }
+        unsigned char* nulls = dbnulls.get_values();
+        rtn = NVStrings::ftos(values,count,nulls,bdevmem);
+    }
+    if( rtn )
+        return PyLong_FromVoidPtr((void*)rtn);
+    Py_RETURN_NONE;
+}
+
 static PyObject* n_createFromIPv4Integers( PyObject* self, PyObject* args )
 {
     PyObject* pyvals = PyTuple_GetItem(args,0);
@@ -2704,6 +2744,7 @@ static PyMethodDef s_Methods[] = {
     { "n_createFromOffsets", n_createFromOffsets, METH_VARARGS, "" },
     { "n_createFromNVStrings", n_createFromNVStrings, METH_VARARGS, "" },
     { "n_createFromIntegers", n_createFromIntegers, METH_VARARGS, "" },
+    { "n_createFromFloats", n_createFromFloats, METH_VARARGS, "" },
     { "n_createFromIPv4Integers", n_createFromIPv4Integers, METH_VARARGS, "" },
     { "n_createFromTimestamp", n_createFromTimestamp, METH_VARARGS, "" },
     { "n_createFromBools", n_createFromBools, METH_VARARGS, "" },

@@ -170,6 +170,30 @@ def itos(values, count=0, nulls=None, bdevmem=False):
     return rtn
 
 
+def ftos(values, count=0, nulls=None, bdevmem=False):
+    """
+    Create strings from an array of float32 values.
+
+    Parameters
+    ----------
+    values : list, memory address or buffer
+        Array of float32 values to convert to strings.
+    count : int
+        Number of floats in values.
+        This is only required if values is a memptr.
+    nulls : list, memory address or buffer
+        Bit array indicating which values should be considered null.
+        Uses the arrow format for valid bitmask.
+    bdevmem : boolean
+        Default (False) interprets memory pointers as CPU memory.
+
+    """
+    rtn = pyniNVStrings.n_createFromFloats(values, count, nulls, bdevmem)
+    if rtn is not None:
+        rtn = nvstrings(rtn)
+    return rtn
+
+
 def int2ip(values, count=0, nulls=None, bdevmem=False):
     """
     Create ip address strings from an array of uint32 values.
