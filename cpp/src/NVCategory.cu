@@ -34,6 +34,7 @@
 #include "NVStrings.h"
 #include "custring_view.cuh"
 #include "custring.cuh"
+#include "ipc_transfer.h"
 
 //
 typedef custring_view** custring_view_array;
@@ -92,6 +93,13 @@ public:
         return rtn;
     }
 
+    inline custring_view_array createStringsListFrom( custring_view_array strings, unsigned int keys )
+    {
+        pList = new rmm::device_vector<custring_view*>(keys);
+        cudaMemcpy(pList->data().get(), strings, keys*sizeof(custring_view*), cudaMemcpyDeviceToDevice);
+        return pList->data().get();
+    }
+
     inline char* getMemoryPtr() { return (char*)memoryBuffer; }
 
     inline int* getMapPtr()
@@ -102,16 +110,22 @@ public:
         return rtn;
     }
 
+    inline int* createMapFrom( int* vals, unsigned int count )
+    {
+        pMap = new rmm::device_vector<int>(count);
+        cudaMemcpy(pMap->data().get(), vals, count*sizeof(int), cudaMemcpyDeviceToDevice);
+        return pMap->data().get();
+    }
+
     inline void setMemoryBuffer( void* ptr, size_t memSize )
     {
         bufferSize = memSize;
         memoryBuffer = ptr;
     }
 
-    inline void setMemoryHandle( cudaIpcMemHandle_t hdl, size_t memSize )
+    inline void setMemoryHandle( void* ptr, size_t memSize )
     {
-        cudaIpcOpenMemHandle((void**)&memoryBuffer,hdl,cudaIpcMemLazyEnablePeerAccess);
-        bufferSize = memSize;
+        setMemoryBuffer(ptr,memSize);
         bIpcHandle = true;
     }
 };
@@ -288,7 +302,7 @@ void NVCategoryImpl_init(NVCategoryImpl* pImpl, std::pair<const char*,size_t>* p
     NVCategoryImpl_keys_from_index(pImpl,d_pairs,ucount);
     err = cudaDeviceSynchronize();
     if( err!=cudaSuccess )
-        printf("category: error(%d) creating %'d strings\n",(int)err,ucount);
+        fprintf(stderr,"category: error(%d) creating %'d strings\n",(int)err,ucount);
     if( !bindexescopied )
         RMM_FREE(d_pairs,0);
 }
@@ -364,6 +378,35 @@ NVCategory* NVCategory::create_from_offsets(const char* strs, unsigned int count
     NVCategoryImpl_init(rtn->pImpl,indexes,count,true,true);
     RMM_FREE(indexes,0);
     NVStrings::destroy(dstrs);
+    return rtn;
+}
+
+// create instance from ipc handle(s)
+NVCategory* NVCategory::create_from_ipc( nvcategory_ipc_transfer& ipc )
+{
+    NVCategory* rtn = new NVCategory;
+    unsigned int keys = ipc.keys;
+    if( keys==0 )
+        return rtn;
+    rtn->pImpl->setMemoryHandle(ipc.getMemoryPtr(),ipc.size);
+    custring_view_array d_strings = rtn->pImpl->createStringsListFrom((custring_view_array)ipc.getStringsPtr(),ipc.keys);
+    // fix up the pointers for this context
+    auto execpol = rmm::exec_policy(0);
+    char* baseaddr = (char*)ipc.base_address;
+    char* buffer = rtn->pImpl->getMemoryPtr();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), keys,
+        [buffer, baseaddr, d_strings] __device__(unsigned int idx){
+            char* dstr = (char*)d_strings[idx];
+            if( !dstr )
+                return;
+            size_t diff = dstr - baseaddr;
+            char* newaddr = buffer + diff;
+            d_strings[idx] = (custring_view*)newaddr;
+        });
+    cudaDeviceSynchronize();
+    // set the map values
+    rtn->pImpl->createMapFrom( (int*)ipc.getMapPtr(), ipc.count );
+    // done
     return rtn;
 }
 
@@ -673,6 +716,14 @@ int NVCategory::create_index(std::pair<const char*,size_t>* strs, bool bdevmem )
         cudaMemcpy( strs, indexes.data().get(), count * sizeof(std::pair<const char*,size_t>), cudaMemcpyDeviceToDevice );
     else
         cudaMemcpy( strs, indexes.data().get(), count * sizeof(std::pair<const char*,size_t>), cudaMemcpyDeviceToHost );
+    return 0;
+}
+
+int NVCategory::create_ipc_transfer( nvcategory_ipc_transfer& ipc )
+{
+    ipc.setStrsHandle(pImpl->getStringsPtr(),pImpl->getMemoryPtr(),keys_size());
+    ipc.setMemHandle(pImpl->getMemoryPtr(),pImpl->bufferSize);
+    ipc.setMapHandle(pImpl->getMapPtr(),size());
     return 0;
 }
 

@@ -127,7 +127,7 @@ public:
      * @param[in] ipc Data needed to create a new instance.
      * @return Instance with data provided.
      */
-    static NVStrings* create_from_ipc( nvcategory_ipc_transfer& ipc );
+    static NVCategory* create_from_ipc( nvcategory_ipc_transfer& ipc );
     ///@}
 
     /**
