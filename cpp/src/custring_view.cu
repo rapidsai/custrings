@@ -15,6 +15,7 @@
 */
 
 #include <memory.h>
+#include <math.h>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 #include <thrust/system/cuda/execution_policy.h>
@@ -1687,31 +1688,62 @@ __device__ float custring_view::stof() const
     char* ptr = (char*)data();
     if(!ptr)
         return 0.0f; // probably should be an assert
-
-    float value = 0, factor = 1;
     unsigned int sz = size();
+    if( sz==0 )
+        return 0.0f;
+    char* end = ptr + sz;
+    float sign = 1;
     if(*ptr == '-' || *ptr == '+')
     {
-        factor = (*ptr == '-' ? -1 : 1);
+        sign = (*ptr == '-' ? -1 : 1);
         ++ptr;
         --sz;
     }
+    unsigned int digits = 0;
+    int exp_off = 0;
     bool decimal = false;
-    for(unsigned int idx = 0; idx < sz; ++idx)
+    while( ptr < end )
     {
-        char ch = *ptr++;
+        char ch = *ptr;
         if(ch == '.')
         {
             decimal = true;
+            ++ptr;
             continue;
         }
         if(ch < '0' || ch > '9')
             break;
-        if(decimal)
-            factor /= 10.0f;
-        value = value * 10.0f + (float)(ch - '0'); // this seems like we could run out of space in value
+        digits = (digits * 10) + (unsigned int)(ch-'0');
+        exp_off -= (int)decimal;
+        ++ptr;
     }
-    return value * factor;
+    // check for exponent char
+    int exp10 = 0;
+    int exp_sign = 1;
+    if( ptr < end )
+    {
+        char ch = *ptr++;
+        if( ch=='e' || ch=='E' )
+        {
+            if( ptr < end )
+            {
+                ch = *ptr++;
+                if( ch=='-' || ch=='+' )
+                    exp_sign = (ch=='-' ? -1 : 1);
+                while( ptr < end )
+                {
+                    ch = *ptr++;
+                    if(ch < '0' || ch > '9')
+                        break;
+                    exp10 = (exp10 * 10) + (int)(ch-'0');
+                }
+            }
+        }
+    }
+    exp10 *= exp_sign;
+    exp10 += exp_off;
+    double value = (double)digits * pow(10.0,(double)exp10);
+    return (float)(value * sign);
 }
 
 __device__ double custring_view::stod() const
