@@ -40,8 +40,10 @@ env
 
 logger "Activate conda env..."
 source activate gdf
-cat /root/.condarc
-conda install librmm==0.7*
+export USER=`whoami`
+echo $USER
+eval echo "~$USER"
+conda install -c rapidsai/label/cuda${CUDA_REL} -c rapidsai-nightly/label/cuda${CUDA_REL} librmm==0.7*
 pip install cmake_setuptools
 
 logger "Check versions..."
