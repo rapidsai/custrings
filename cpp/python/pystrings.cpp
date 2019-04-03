@@ -224,34 +224,6 @@ static PyObject* n_destroyStrings( PyObject* self, PyObject* args )
     return PyLong_FromLong(0);
 }
 
-// called to sending via IPC
-static PyObject* n_getMemBuffer( PyObject* self, PyObject* args )
-{
-    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-
-    cudaIpcMemHandle_t ipc_memhandle  = tptr->getHandleBuffer();
-
-    std::basic_string<char>* bytes = new std::basic_string<char>;
-    bytes->resize(sizeof(cudaIpcMemHandle_t));
-    memcpy((void*)bytes->data(), (char*)(&ipc_memhandle), sizeof(cudaIpcMemHandle_t));
-
-    return PyByteArray_FromStringAndSize(bytes->data(), sizeof(cudaIpcMemHandle_t));
-}
-
-// called to sending via IPC
-static PyObject* n_getViews( PyObject* self, PyObject* args )
-{
-    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-
-    cudaIpcMemHandle_t ipc_memhandle  = tptr->getHandleViews();
-
-    std::basic_string<char>* bytes = new std::basic_string<char>;
-    bytes->resize(sizeof(cudaIpcMemHandle_t));
-    memcpy((void*)bytes->data(), (char*)(&ipc_memhandle), sizeof(cudaIpcMemHandle_t));
-
-    return PyByteArray_FromStringAndSize(bytes->data(), sizeof(cudaIpcMemHandle_t));
-}
-
 // called in cases where the host code will want the strings back from the device
 static PyObject* n_createHostStrings( PyObject* self, PyObject* args )
 {
@@ -2774,8 +2746,6 @@ static PyObject* n_isupper( PyObject* self, PyObject* args )
 static PyMethodDef s_Methods[] = {
     { "n_createFromHostStrings", n_createFromHostStrings, METH_VARARGS, "" },
     { "n_destroyStrings", n_destroyStrings, METH_VARARGS, "" },
-    { "n_getMemBuffer", n_getMemBuffer, METH_VARARGS, "" },
-    { "n_getViews", n_getViews, METH_VARARGS, "" },
     { "n_createFromIPC", n_createFromIPC, METH_VARARGS, "" },
     { "n_getIPCData", n_getIPCData, METH_VARARGS, "" },
     { "n_createHostStrings", n_createHostStrings, METH_VARARGS, "" },

@@ -339,17 +339,11 @@ class nvstrings:
         """
         return self.m_cptr
 
-    def get_cpointer_membuffer(self):
+    def create_from_ipc(self):
         """
-        Returns memory pointer to underlying C++ memoryBuffer member from NVStringsImpl.
+        Returns a valid NVStrings object from IPC data.
         """
-        return pyniNVStrings.n_getMemBuffer(self.m_cptr)
-
-    def get_cpointer_views(self):
-        """
-        Returns memory pointer to underlying C++ pList member from NVStringsImpl.
-        """
-        return pyniNVStrings.n_getViews(self.m_cptr)
+        return pyniNVStrings.n_createFromIPC(self.m_cptr)
 
     def get_ipc_data(self):
         """
