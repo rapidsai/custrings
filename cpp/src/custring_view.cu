@@ -1,4 +1,19 @@
-//
+/*
+* Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*     http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+
 #include <memory.h>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
@@ -16,7 +31,7 @@ typedef unsigned char BYTE;
 
 // this allows overlapping memory segments
 // useful the _apply methods that work within the memory they are provided
-__device__ inline void _memmove(void* dest, void* source, size_t len)
+__host__ __device__ inline void _memmove(void* dest, void* source, size_t len)
 {
     char* dst = (char*)dest;
     char* src = (char*)source;
@@ -52,7 +67,7 @@ __host__ __device__ inline unsigned int _bytes_in_char(BYTE byte)
 // Example: string "Résidéntial" is 12 bytes but 10 characters
 //          resolve this to lengths 1,2,0,1,1,1,2,0,1,1,1,1,1
 //          and copy them into a 2-bit array.
-__device__ inline void _fillCharsLengths(const char* str, unsigned int bytes, BYTE* charlens, unsigned int nchars)
+__host__ __device__ inline void _fillCharsLengths(const char* str, unsigned int bytes, BYTE* charlens, unsigned int nchars)
 {
     unsigned int blocks = (nchars + 3) / 4; // working with whole bytes
     unsigned int sidx = 0;
@@ -143,9 +158,10 @@ __host__ __device__ unsigned int custring_view::alloc_size(unsigned int bytes, u
 }
 
 // only here so that users cannot instantiate this class directly
-custring_view::custring_view()
-{
-}
+custring_view::custring_view() {}
+custring_view::custring_view(const custring_view&) {}
+custring_view::~custring_view() {}
+custring_view& custring_view::operator=(const custring_view&) { return *this; }
 
 __device__ unsigned int custring_view::alloc_size() const
 {
@@ -161,21 +177,16 @@ __device__ unsigned int custring_view::alloc_size() const
     return nsz;
 }
 
-__device__ custring_view* custring_view::create_from(void* buffer, const char* data, unsigned int bytes)
+__host__ __device__ custring_view* custring_view::create_from(void* buffer, const char* data, unsigned int bytes)
 {
     char* ptr = (char*)buffer;
     custring_view* dout = (custring_view*)ptr;
     ptr += ALIGN_SIZE(sizeof(custring_view));
-    {
-        // buffer and data contents may overlap
-        if(bytes > 0) // put data into proper spot first
-            _memmove(ptr, (void*)data, bytes);
-        // now set the rest of the fields
-        //dout->m_bytes = bytes;
-        //dout->m_chars = 0;
-        //if(bytes > 0)
-            dout->init_fields(bytes);
-    }
+    // buffer and data contents may overlap
+    if(bytes > 0) // put data into proper spot first
+        _memmove(ptr, (void*)data, bytes);
+    // now set the rest of the fields
+    dout->init_fields(bytes);
     //printf("cf: b=%p d=%p\n",buffer,ptr);
     return dout;
 }
@@ -223,8 +234,20 @@ __device__ custring_view* custring_view::create_from(void* buffer)
     return dout;
 }
 
+__host__ custring_view* custring_view::create_from_host(void* devmem, const char* data, unsigned int size)
+{
+    if( data==0 || devmem==0 )
+        return 0; // nulls is as nulls does Mrs Blue
+    unsigned int alsz = alloc_size(data,size);
+    char* buffer = new char[alsz];
+    custring_view* hstr = create_from(buffer,data,size);
+    cudaMemcpy(devmem,buffer,alsz,cudaMemcpyHostToDevice);
+    delete buffer;
+    return (custring_view*)devmem;
+}
+
 // called to finalize the impl fields
-__device__ void custring_view::init_fields(unsigned int bytes)
+__host__ __device__ void custring_view::init_fields(unsigned int bytes)
 {
     m_bytes = bytes;
     //char* data = m_data;

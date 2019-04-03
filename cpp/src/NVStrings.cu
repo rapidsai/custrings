@@ -1,3 +1,18 @@
+/*
+* Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*     http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
 
 #include <stdlib.h>
 #include <cuda_runtime.h>
@@ -6,13 +21,23 @@
 #include <thrust/host_vector.h>
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
+#include <thrust/extrema.h>
 #include <thrust/count.h>
 #include <thrust/remove.h>
+#include <thrust/sort.h>
+#include <thrust/unique.h>
 #include <rmm/rmm.h>
 #include <rmm/thrust_rmm_allocator.h>
 #include "NVStrings.h"
 #include "NVStringsImpl.h"
+#include "ipc_transfer.h"
 #include "custring_view.cuh"
+#include "StringsStatistics.h"
+#include "unicode/is_flags.h"
+
+#ifdef __INTELLISENSE__
+unsigned int atomicAdd(unsigned int* address, unsigned int val);
+#endif
 
 
 static cudaIpcMemHandle_t BuildCudaIpcMemHandler (void *data) {
@@ -109,6 +134,21 @@ NVStrings* NVStrings::create_from_strings( std::vector<NVStrings*> strs )
     NVStrings* rtn = new NVStrings(count);
     if( count )
         NVStrings_copy_strings(rtn->pImpl,strs);
+    return rtn;
+}
+
+NVStrings* NVStrings::create_from_ipc( nvstrings_ipc_transfer& ipc )
+{
+    unsigned count = ipc.count;
+    NVStrings* rtn = new NVStrings(count);
+    if( count==0 )
+        return rtn;
+    rtn->pImpl->setMemoryHandle(ipc.getMemoryPtr(),ipc.size);
+    custring_view_array strings = (custring_view_array)ipc.getStringsPtr();
+    // copy the pointers so they can be fixed up
+    cudaMemcpy(rtn->pImpl->getStringsPtr(),strings,count*sizeof(custring_view*),cudaMemcpyDeviceToDevice);
+    // fix up the pointers for this context
+    NVStrings_fixup_pointers(rtn->pImpl,ipc.base_address);
     return rtn;
 }
 
@@ -449,6 +489,13 @@ int NVStrings::create_offsets( char* strs, int* offsets, unsigned char* nullbitm
     return 0;
 }
 
+int NVStrings::create_ipc_transfer( nvstrings_ipc_transfer& ipc )
+{
+    ipc.setStrsHandle(pImpl->getStringsPtr(),pImpl->getMemoryPtr(),size());
+    ipc.setMemHandle(pImpl->getMemoryPtr(),pImpl->getMemorySize());
+    return 0;
+}
+
 // fills in a bitarray with 0 for null values and 1 for non-null values
 // if emptyIsNull=true, empty strings will have bit values of 0 as well
 unsigned int NVStrings::set_null_bitarray( unsigned char* bitarray, bool emptyIsNull, bool devmem )
@@ -556,3 +603,166 @@ unsigned int NVStrings::size() const
     return (unsigned int)pImpl->pList->size();
 }
 
+struct statistics_attrs
+{
+    custring_view_array d_strings;
+    unsigned char* d_flags;
+    size_t* d_values;
+    unsigned int d_mask;
+
+    statistics_attrs( custring_view_array strings, unsigned char* flags, size_t* values, unsigned int mask )
+    : d_strings(strings), d_flags(flags), d_values(values), d_mask(mask) {}
+
+    __device__ void operator()(unsigned int idx)
+    {
+            custring_view* dstr = d_strings[idx];
+            size_t spaces = 0;
+            if( dstr )
+            {
+                for( auto itr = dstr->begin(); itr != dstr->end(); itr++ )
+                {
+                    unsigned int uni = u82u(*itr);
+                    unsigned int flg = uni <= 0x00FFFF ? d_flags[uni] : 0;
+                    spaces += (size_t)((flg & d_mask)>0);
+                }
+            }
+            d_values[idx] = spaces;
+    }
+};
+
+void NVStrings::compute_statistics(StringsStatistics& stats)
+{
+    unsigned int count = size();
+    memset((void*)&stats,0,sizeof(stats));
+    if( count==0 )
+        return;
+
+    stats.total_strings = count;
+    auto execpol = rmm::exec_policy(0);
+    size_t stringsmem = pImpl->getMemorySize();
+    size_t ptrsmem = pImpl->pList->size() * sizeof(custring_view*);
+    stats.total_memory = stringsmem + ptrsmem;
+
+    custring_view_array d_strings = pImpl->getStringsPtr();
+    rmm::device_vector<size_t> values(count,0);
+    size_t* d_values = values.data().get();
+
+    // bytes
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_strings, d_values] __device__ (unsigned int idx) {
+            custring_view* dstr = d_strings[idx];
+            d_values[idx] = dstr ? dstr->size() : 0;
+        });
+    stats.bytes_max = *thrust::max_element(execpol->on(0), values.begin(), values.end());
+    stats.bytes_min = *thrust::min_element(execpol->on(0), values.begin(), values.end());
+    stats.total_bytes = thrust::reduce(execpol->on(0), values.begin(), values.end());
+    stats.bytes_avg = stats.total_bytes / count;
+
+    // chars
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_strings, d_values] __device__ (unsigned int idx) {
+            custring_view* dstr = d_strings[idx];
+            d_values[idx] = dstr ? dstr->chars_count() : 0;
+        });
+    stats.chars_max = *thrust::max_element(execpol->on(0), values.begin(), values.end());
+    stats.chars_min = *thrust::min_element(execpol->on(0), values.begin(), values.end());
+    stats.total_chars = thrust::reduce(execpol->on(0), values.begin(), values.end());
+    stats.chars_avg = stats.total_bytes / count;
+
+    // memory
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_strings, d_values] __device__ (unsigned int idx) {
+            custring_view* dstr = d_strings[idx];
+            d_values[idx] = dstr ? dstr->alloc_size() : 0;
+        });
+    stats.mem_max = *thrust::max_element(execpol->on(0), values.begin(), values.end());
+    stats.mem_min = *thrust::min_element(execpol->on(0), values.begin(), values.end());
+    size_t mem_total = thrust::reduce(execpol->on(0), values.begin(), values.end());
+    stats.mem_avg = mem_total / count;
+
+    // attrs
+    unsigned char* d_flags = get_unicode_flags();
+    // spaces
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        statistics_attrs(d_strings, d_flags, d_values, 16));
+    stats.whitespace_count = thrust::reduce(execpol->on(0), values.begin(), values.end());
+    // digits
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        statistics_attrs(d_strings, d_flags, d_values, 4));
+    stats.digits_count = thrust::reduce(execpol->on(0), values.begin(), values.end());
+    // uppercase
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        statistics_attrs(d_strings, d_flags, d_values, 32));
+    stats.uppercase_count = thrust::reduce(execpol->on(0), values.begin(), values.end());
+    // lowercase
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        statistics_attrs(d_strings, d_flags, d_values, 64));
+    stats.lowercase_count = thrust::reduce(execpol->on(0), values.begin(), values.end());
+
+    // count strings
+    stats.total_nulls = thrust::count_if(execpol->on(0), d_strings, d_strings + count,
+        [] __device__ (custring_view* dstr) { return dstr==0; });
+    stats.total_empty = thrust::count_if(execpol->on(0), d_strings, d_strings + count,
+        [] __device__ (custring_view* dstr) { return dstr && dstr->empty(); });
+    // unique strings
+    {
+        // make a copy of the pointers so we can sort them
+        rmm::device_vector<custring_view*> sortcopy(*(pImpl->pList));
+        custring_view_array d_sortcopy = sortcopy.data().get();
+        thrust::sort(execpol->on(0), d_sortcopy, d_sortcopy+count,
+            [] __device__ (custring_view*& lhs, custring_view*& rhs) {
+                return (lhs && rhs) ? (lhs->compare(*rhs) < 0): rhs!=0;
+            });
+        auto nend = thrust::unique(execpol->on(0), d_sortcopy, d_sortcopy+count,
+            [] __device__ (custring_view* lhs, custring_view* rhs) {
+                if( lhs==0 || rhs==0 )
+                    return lhs==rhs;
+                return lhs->compare(*rhs)==0;
+            });
+        stats.unique_strings = (size_t)(nend - d_sortcopy);
+    }
+    // histogram the characters
+    {
+        unsigned int uset_count = 0x010000;
+        rmm::device_vector<unsigned int> charset(uset_count,0);
+        unsigned int* d_charset = charset.data().get();
+        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+            [d_strings, d_charset] __device__ (unsigned int idx) {
+                custring_view* dstr = d_strings[idx];
+                if( !dstr )
+                    return;
+                for( auto itr = dstr->begin(); itr != dstr->end(); itr++ )
+                {
+                    unsigned int uni = u82u(*itr);
+                    if( uni <= 0x00FFFF )
+                        atomicAdd(&(d_charset[uni]),1);
+                }
+            });
+        rmm::device_vector<thrust::pair<unsigned int, unsigned int> > charcounts(uset_count);
+        thrust::pair<unsigned int,unsigned int>* d_charcounts = charcounts.data().get();
+        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), uset_count,
+            [d_charset, d_charcounts] __device__ (unsigned int idx) {
+                unsigned int val = d_charset[idx];
+                if( val )
+                {
+                    d_charcounts[idx].first = u2u8(idx);
+                    d_charcounts[idx].second = val;
+                }
+                else
+                {
+                    d_charcounts[idx].first = 0;
+                    d_charcounts[idx].second = 0;
+                }
+            });
+        auto nend = thrust::remove_if(execpol->on(0), d_charcounts, d_charcounts + uset_count,
+            [] __device__ (thrust::pair<unsigned int,unsigned int> cc) { return cc.first==0; });
+        // allocate host memory
+        size_t elems = (size_t)(nend - d_charcounts);
+        std::vector<std::pair<unsigned int, unsigned int> > hcharcounts(elems);
+        // copy d_charcounts to host memory
+        cudaMemcpy(hcharcounts.data(),d_charcounts,elems*sizeof(std::pair<unsigned int,unsigned int>),cudaMemcpyDeviceToHost);
+        // copy hcharcounts to stats.char_counts;
+        stats.char_counts.reserve(uset_count);
+        stats.char_counts.swap(hcharcounts);
+    }
+}

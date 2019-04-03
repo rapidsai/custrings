@@ -1,16 +1,27 @@
-# cuStrings/nvStrings 0.4.0 (TBD)
+# cuStrings/nvStrings 0.7.0 (TBD)
+
+Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 
 ## New Features
 
-..
+- PR #188 Rename rave to nvtext and publish in nvstrings package
+- PR #180 Added edit-distance to rave module
+- PR #176 Added match_strings to nvstrings
+- PR #172 Added to/from boolean conversion methods
+- PR #171 Added conversion to/from subset of ISO8601 format
 
 ## Improvements
 
-..
+- PR #178 Added compute_statistics to C++ interface
+- PR #173 Added flake8 checks to for /python files
+- PR #167 Added doxygen to NVStrings.h and NVCategory.h
+- PR #183 Align version to 0.7
+- PR #181 Update python docstrings to numpydoc style
 
-#Bug Fixes
+## Bug Fixes
 
-..
+- PR #186 Fixed memory error in booleans to strings method
+
 
 # cuStrings/nvStrings 0.3.0 (15 Mar 2019)
 
@@ -87,4 +98,3 @@
 - PR #31 Change NVCategory values type from unsigned to signed int32
 - PR #11 handle unescaped end-brace edge-case
 - PR #157 Fix Python not being found by CMake
-
