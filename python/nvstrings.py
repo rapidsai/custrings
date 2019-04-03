@@ -351,6 +351,12 @@ class nvstrings:
         """
         return pyniNVStrings.n_getViews(self.m_cptr)
 
+    def get_ipc_data(self):
+        """
+        Returns IPC data to underlying C++ object from NVStringsImpl.
+        """
+        return pyniNVStrings.n_getIPCData(self.m_cptr)
+
     def to_host(self):
         """
         Copies strings back to CPU memory into a Python array.
