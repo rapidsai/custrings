@@ -1003,8 +1003,4 @@ public:
 
     /** For performance analysis only. Not complete. */
     void printTimingRecords();
-
-    // IPC
-    cudaIpcMemHandle_t getHandleBuffer();
-    cudaIpcMemHandle_t getHandleViews();
 };

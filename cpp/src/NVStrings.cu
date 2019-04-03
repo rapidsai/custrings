@@ -40,24 +40,6 @@ unsigned int atomicAdd(unsigned int* address, unsigned int val);
 #endif
 
 
-static cudaIpcMemHandle_t BuildCudaIpcMemHandler (void *data) {
-    cudaIpcMemHandle_t ipc_memhandle;
-
-    if (data != nullptr) {
-      cudaIpcGetMemHandle((cudaIpcMemHandle_t *) &ipc_memhandle, (void *) data); //check cuda error?
-    }
-
-    return ipc_memhandle;
-}
-
-cudaIpcMemHandle_t NVStrings::getHandleBuffer(){
-    return BuildCudaIpcMemHandler((void*)pImpl->memoryBuffer);
-}
-
-cudaIpcMemHandle_t NVStrings::getHandleViews(){
-    return BuildCudaIpcMemHandler((void*)pImpl->pList->data().get());
-}
-
 // ctor and dtor are private to control the memory allocation in a single shared-object module
 NVStrings::NVStrings(unsigned int count)
 {
