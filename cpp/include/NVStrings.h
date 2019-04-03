@@ -16,7 +16,6 @@
 #pragma once
 #include <cstddef>
 #include <vector>
-#include <cuda_runtime.h>
 
 /**
  * @file NVStrings.h
