@@ -43,7 +43,7 @@ source activate gdf
 export USER=`whoami`
 echo $USER
 eval echo "~$USER"
-conda install -c rapidsai/label/cuda${CUDA_REL} -c rapidsai-nightly/label/cuda${CUDA_REL} librmm==0.7*
+conda install -c rapidsai/label/cuda${CUDA_REL} -c rapidsai-nightly/label/cuda${CUDA_REL} librmm==0.7.*
 pip install cmake_setuptools
 
 logger "Check versions..."
