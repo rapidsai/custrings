@@ -62,16 +62,22 @@ public:
     void* memoryBuffer;
     size_t bufferSize; // total memory size
     cudaStream_t stream_id;
+    bool bIpcHandle;
 
     //
     NVCategoryImpl()
-    : bufferSize(0), memoryBuffer(0), pList(0), pMap(0), stream_id(0)
+    : bufferSize(0), memoryBuffer(0), pList(0), pMap(0), stream_id(0), bIpcHandle(false)
     {}
 
     ~NVCategoryImpl()
     {
         if( memoryBuffer )
-            RMM_FREE(memoryBuffer,0);
+        {
+            if( bIpcHandle )
+                cudaIpcCloseMemHandle(memoryBuffer);
+            else
+                RMM_FREE(memoryBuffer,0);
+        }
         delete pList;
         delete pMap;
         memoryBuffer = 0;
@@ -86,6 +92,8 @@ public:
         return rtn;
     }
 
+    inline char* getMemoryPtr() { return (char*)memoryBuffer; }
+
     inline int* getMapPtr()
     {
         int* rtn = 0;
@@ -94,10 +102,17 @@ public:
         return rtn;
     }
 
-    inline void addMemoryBuffer( void* ptr, size_t memSize )
+    inline void setMemoryBuffer( void* ptr, size_t memSize )
     {
-        bufferSize += memSize;
+        bufferSize = memSize;
         memoryBuffer = ptr;
+    }
+
+    inline void setMemoryHandle( cudaIpcMemHandle_t hdl, size_t memSize )
+    {
+        cudaIpcOpenMemHandle((void**)&memoryBuffer,hdl,cudaIpcMemLazyEnablePeerAccess);
+        bufferSize = memSize;
+        bIpcHandle = true;
     }
 };
 
@@ -131,7 +146,7 @@ void NVCategoryImpl_keys_from_index( NVCategoryImpl* pImpl, thrust::pair<const c
     size_t outsize = thrust::reduce(execpol->on(0), lengths.begin(), lengths.end());
     char* d_buffer = 0;
     RMM_ALLOC(&d_buffer,outsize,0);
-    pImpl->addMemoryBuffer(d_buffer,outsize);
+    pImpl->setMemoryBuffer(d_buffer,outsize);
     rmm::device_vector<size_t> offsets(ucount,0);
     thrust::exclusive_scan(execpol->on(0),lengths.begin(),lengths.end(),offsets.begin());
     size_t* d_offsets = offsets.data().get();
@@ -167,7 +182,7 @@ void NVCategoryImpl_keys_from_custringarray( NVCategoryImpl* pImpl, custring_vie
     size_t outsize = thrust::reduce(execpol->on(0), lengths.begin(), lengths.end());
     char* d_buffer = 0;
     RMM_ALLOC(&d_buffer,outsize,0);
-    pImpl->addMemoryBuffer(d_buffer,outsize);
+    pImpl->setMemoryBuffer(d_buffer,outsize);
     rmm::device_vector<size_t> offsets(ucount,0);
     thrust::exclusive_scan(execpol->on(0),lengths.begin(),lengths.end(),offsets.begin());
     size_t* d_offsets = offsets.data().get();
@@ -507,7 +522,7 @@ void NVCategoryImpl_copy( NVCategoryImpl& dest, NVCategoryImpl& src )
             }
         });
     dest.pList = pNewList;
-    dest.addMemoryBuffer( d_newbuffer, bufsize );
+    dest.setMemoryBuffer( d_newbuffer, bufsize );
 }
 
 NVCategory::NVCategory(const NVCategory& cat)
