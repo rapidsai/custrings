@@ -36,10 +36,6 @@ struct nvstrings_ipc_transfer
 
     ~nvstrings_ipc_transfer()
     {
-        if( strs )
-            cudaIpcCloseMemHandle(strs);
-        if( mem )
-            cudaIpcCloseMemHandle(mem);
     }
 
     void setStrsHandle(void* in, char* base, unsigned int c)
