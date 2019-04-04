@@ -58,14 +58,22 @@ struct nvstrings_ipc_transfer
     void* getStringsPtr()
     {
         if( !strs && count )
-            cudaIpcOpenMemHandle((void**)&strs,hstrs,cudaIpcMemLazyEnablePeerAccess);
+        {
+            cudaError_t err = cudaIpcOpenMemHandle((void**)&strs,hstrs,cudaIpcMemLazyEnablePeerAccess);
+            if( err!=cudaSuccess )
+                printf("%d nvs-getStringsPtr", err);
+        }
         return strs;
     }
 
     void* getMemoryPtr()
     {
         if( !mem && size )
-            cudaIpcOpenMemHandle((void**)&mem,hmem,cudaIpcMemLazyEnablePeerAccess);
+        {
+            cudaError_t err = cudaIpcOpenMemHandle((void**)&mem,hmem,cudaIpcMemLazyEnablePeerAccess);
+            if( err!=cudaSuccess )
+                printf("%d nvs-getMemoryPtr", err);
+        }
         return mem;
     }
 };

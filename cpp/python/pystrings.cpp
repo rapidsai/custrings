@@ -136,14 +136,16 @@ bool parse_args( const char* fn, PyObject* pyargs, const char* pyfmt, ... )
     return rtn;
 }
 
-static std::basic_string<char> ConvertCudaIpcMemHandler (cudaIpcMemHandle_t ipc_memhandle) {
+static std::basic_string<char> ConvertCudaIpcMemHandler ( cudaIpcMemHandle_t ipc_memhandle )
+{
     std::basic_string<char> bytes;
     bytes.resize(sizeof(cudaIpcMemHandle_t));
     memcpy((void*)bytes.data(), (char*)(&ipc_memhandle), sizeof(cudaIpcMemHandle_t));
     return bytes;
 }
 
-static cudaIpcMemHandle_t ConvertByteArray (PyObject* bytearray) {
+static cudaIpcMemHandle_t ConvertByteArray ( PyObject* bytearray )
+{
     char* string_array = PyByteArray_AsString(bytearray);
     cudaIpcMemHandle_t ipc_memhandle;
     memcpy((char*)&ipc_memhandle, string_array, sizeof(cudaIpcMemHandle_t));
@@ -152,16 +154,19 @@ static cudaIpcMemHandle_t ConvertByteArray (PyObject* bytearray) {
 
 static PyObject* n_createFromIPC( PyObject* self, PyObject* args )
 {
-    nvstrings_ipc_transfer ipc;
+    nvstrings_ipc_transfer* ipc = new nvstrings_ipc_transfer;
 
-    ipc.hstrs = ConvertByteArray(PyTuple_GetItem(args,0)); // cudaIpcMemHandle_t
-    ipc.count = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,1)); // unsigned int
-    ipc.hmem = ConvertByteArray(PyTuple_GetItem(args,2)); // cudaIpcMemHandle_t
-    ipc.size = (size_t)PyLong_AsLong(PyTuple_GetItem(args,3)); // size_t
-    ipc.base_address = reinterpret_cast<char*>(PyLong_AsLong(PyTuple_GetItem(args,4))); // char*
+    PyObject* pylist = PyTuple_GetItem(args,0); // only one param expected
 
-    NVStrings* thisptr = NVStrings::create_from_ipc(ipc);
+    ipc->hstrs = ConvertByteArray(PyList_GetItem(pylist, 0)); // cudaIpcMemHandle_t
+    ipc->count = (unsigned int)PyLong_AsLong(PyList_GetItem(pylist, 1)); // unsigned int
+    ipc->hmem = ConvertByteArray(PyList_GetItem(pylist, 2)); // cudaIpcMemHandle_t
+    ipc->size = (size_t)PyLong_AsLong(PyList_GetItem(pylist, 3)); // size_t
+    ipc->base_address = reinterpret_cast<char*>(PyLong_AsLong(PyList_GetItem(pylist, 4))); // char*
 
+    NVStrings* thisptr = NVStrings::create_from_ipc(*ipc);
+
+    //delete ipc;
     return PyLong_FromVoidPtr((void*)thisptr);
 }
 
@@ -169,16 +174,17 @@ static PyObject* n_getIPCData( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
 
-    nvstrings_ipc_transfer ipc;
-    tptr->create_ipc_transfer(ipc);
+    nvstrings_ipc_transfer* ipc = new nvstrings_ipc_transfer;
+    tptr->create_ipc_transfer(*ipc);
 
     PyObject* ipc_data = PyList_New(5);
-    PyList_SetItem(ipc_data, 0, PyByteArray_FromStringAndSize(ConvertCudaIpcMemHandler(ipc.hstrs).data(), sizeof(cudaIpcMemHandle_t))); //custrings_views
-    PyList_SetItem(ipc_data, 1, PyLong_FromLong(ipc.count)); //custrings_views_count
-    PyList_SetItem(ipc_data, 2, PyByteArray_FromStringAndSize(ConvertCudaIpcMemHandler(ipc.hmem).data(), sizeof(cudaIpcMemHandle_t))); //custrings_membuffer
-    PyList_SetItem(ipc_data, 3, PyLong_FromLong(ipc.size)); //custrings_membuffer_size
-    PyList_SetItem(ipc_data, 4, PyLong_FromLong(reinterpret_cast<long>(ipc.base_address))); //custrings_base_ptr
+    PyList_SetItem(ipc_data, 0, PyByteArray_FromStringAndSize(ConvertCudaIpcMemHandler(ipc->hstrs).data(), sizeof(cudaIpcMemHandle_t))); //custrings_views
+    PyList_SetItem(ipc_data, 1, PyLong_FromLong(ipc->count)); //custrings_views_count
+    PyList_SetItem(ipc_data, 2, PyByteArray_FromStringAndSize(ConvertCudaIpcMemHandler(ipc->hmem).data(), sizeof(cudaIpcMemHandle_t))); //custrings_membuffer
+    PyList_SetItem(ipc_data, 3, PyLong_FromLong(ipc->size)); //custrings_membuffer_size
+    PyList_SetItem(ipc_data, 4, PyLong_FromLong(reinterpret_cast<long>(ipc->base_address))); //custrings_base_ptr
 
+    //delete ipc;
     return ipc_data;
 }
 

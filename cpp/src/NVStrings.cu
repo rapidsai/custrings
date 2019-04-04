@@ -128,7 +128,9 @@ NVStrings* NVStrings::create_from_ipc( nvstrings_ipc_transfer& ipc )
     rtn->pImpl->setMemoryHandle(ipc.getMemoryPtr(),ipc.size);
     custring_view_array strings = (custring_view_array)ipc.getStringsPtr();
     // copy the pointers so they can be fixed up
-    cudaMemcpy(rtn->pImpl->getStringsPtr(),strings,count*sizeof(custring_view*),cudaMemcpyDeviceToDevice);
+    cudaError_t err = cudaMemcpy(rtn->pImpl->getStringsPtr(),strings,count*sizeof(custring_view*),cudaMemcpyDeviceToDevice);
+    if( err!=cudaSuccess )
+        printCudaError(err,"nvs-create-ipc");
     // fix up the pointers for this context
     NVStrings_fixup_pointers(rtn->pImpl,ipc.base_address);
     return rtn;
