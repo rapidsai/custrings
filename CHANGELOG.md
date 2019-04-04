@@ -19,6 +19,7 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 - PR #167 Added doxygen to NVStrings.h and NVCategory.h
 - PR #183 Align version to 0.7
 - PR #181 Update python docstrings to numpydoc style
+- PR #196 Include nvtext in python module setup
 
 ## Bug Fixes
 
