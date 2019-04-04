@@ -4,6 +4,7 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 
 ## New Features
 
+- PR #195 Added IPC python bindings
 - PR #188 Rename rave to nvtext and publish in nvstrings package
 - PR #180 Added edit-distance to rave module
 - PR #176 Added match_strings to nvstrings

@@ -257,6 +257,7 @@ def from_booleans(values, count=0, nulls=None,
         rtn = nvstrings(rtn)
     return rtn
 
+
 def create_from_ipc(ipc_data):
     """
     Returns a valid NVStrings object from IPC data.
@@ -270,6 +271,7 @@ def create_from_ipc(ipc_data):
     if rtn is not None:
         rtn = nvstrings(rtn)
     return rtn
+
 
 def free(dstrs):
     """Force free resources for the specified instance."""
