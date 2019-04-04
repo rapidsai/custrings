@@ -5,6 +5,8 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 ## New Features
 
 - PR #195 Added IPC python bindings
+- PR #194 Added method to create strings from array of floats
+- PR #193 Added IPC transfer methods to C++ interface
 - PR #188 Rename rave to nvtext and publish in nvstrings package
 - PR #180 Added edit-distance to rave module
 - PR #176 Added match_strings to nvstrings
@@ -18,6 +20,7 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 - PR #167 Added doxygen to NVStrings.h and NVCategory.h
 - PR #183 Align version to 0.7
 - PR #181 Update python docstrings to numpydoc style
+- PR #196 Include nvtext in python module setup
 
 ## Bug Fixes
 

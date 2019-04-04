@@ -908,6 +908,20 @@ public:
      */
     static NVStrings* itos(const int* values, unsigned int count, const unsigned char* nullbitmask=0, bool devmem=true);
     /**
+     * @brief Returns string representation for the provided float values.
+     *
+     * Upto 10 significant digits are recorded.
+     * Numbers above 10^9 and numbers below 10^5 may be converted to scientific notation.
+     * @param[in] values Array of float values to convert to strings.
+     * @param count The number of float values in the values parameter.
+     * @param[in] nullbitmask Indicates which entries should result in a null string.
+     *                        If specified, this array should be at least (count+7)/8 bytes.
+     *                        The bits are expected to be organized in Arrow format.
+     * @param devmem Indicates whether results and nullbitmask points to device memory or CPU memory.
+     * @return New instance with string representation of the floats as appropriate.
+     */
+    static NVStrings* ftos(const float* values, unsigned int count, const unsigned char* nullbitmask=0, bool devmem=true);
+    /**
      * @brief Returns boolean representation of the strings in this instance.
      *
      * This will do a compare of the target string and return true when matched and false when not.

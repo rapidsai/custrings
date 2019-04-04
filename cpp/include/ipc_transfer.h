@@ -31,7 +31,7 @@ struct nvstrings_ipc_transfer
     size_t size;
     void* mem;
 
-    nvstrings_ipc_transfer() 
+    nvstrings_ipc_transfer()
     : base_address(0), count(0), strs(0), size(0), mem(0) {}
 
     ~nvstrings_ipc_transfer()
@@ -74,3 +74,71 @@ struct nvstrings_ipc_transfer
     }
 };
 
+struct nvcategory_ipc_transfer
+{
+    char* base_address;
+    cudaIpcMemHandle_t hstrs;
+    unsigned int keys;
+    void* strs;
+
+    cudaIpcMemHandle_t hmem;
+    size_t size;
+    void* mem;
+
+    cudaIpcMemHandle_t hmap;
+    unsigned int count;
+    void* vals;
+
+    nvcategory_ipc_transfer()
+    : base_address(0), keys(0), strs(0), size(0), mem(0), count(0), vals(0) {}
+
+    ~nvcategory_ipc_transfer()
+    {
+        if( strs )
+            cudaIpcCloseMemHandle(strs);
+        if( mem )
+            cudaIpcCloseMemHandle(mem);
+        if( vals )
+            cudaIpcCloseMemHandle(vals);
+    }
+
+    void setStrsHandle(void* in, char* base, unsigned int n)
+    {
+        keys = n;
+        base_address = base;
+        cudaIpcGetMemHandle(&hstrs,in);
+    }
+
+    void setMemHandle(void* in, size_t sz)
+    {
+        size = sz;
+        cudaIpcGetMemHandle(&hmem,in);
+    }
+
+    void setMapHandle(void* in, unsigned int n)
+    {
+        count = n;
+        cudaIpcGetMemHandle(&hmap,in);
+    }
+
+    void* getStringsPtr()
+    {
+        if( !strs && keys )
+            cudaIpcOpenMemHandle((void**)&strs,hstrs,cudaIpcMemLazyEnablePeerAccess);
+        return strs;
+    }
+
+    void* getMemoryPtr()
+    {
+        if( !mem && size )
+            cudaIpcOpenMemHandle((void**)&mem,hmem,cudaIpcMemLazyEnablePeerAccess);
+        return mem;
+    }
+
+    void* getMapPtr()
+    {
+        if( !vals && count )
+            cudaIpcOpenMemHandle((void**)&vals,hmap,cudaIpcMemLazyEnablePeerAccess);
+        return vals;
+    }
+};
