@@ -5,6 +5,7 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 ## New Features
 
 - PR #195 Added IPC python bindings
+- PR #204 Added stol/ltos and stod/dtos number converters
 - PR #194 Added method to create strings from array of floats
 - PR #193 Added IPC transfer methods to C++ interface
 - PR #188 Rename rave to nvtext and publish in nvstrings package
@@ -24,6 +25,8 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 
 ## Bug Fixes
 
+- PR #202 Allow insert on start=stop in replace
+- PR #201 Fixed some pad examples in nvstrings.py doc comments
 - PR #186 Fixed memory error in booleans to strings method
 
 
