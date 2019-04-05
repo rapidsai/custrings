@@ -53,7 +53,15 @@ NVStrings* NVStrings::slice_replace( const char* repl, int start, int stop )
             custring_view* dstr = d_strings[idx];
             if( !dstr )
                 return;
-            unsigned int len = dstr->replace_size((unsigned)start,(unsigned)(stop-start),d_repl,replen);
+            unsigned int len = 0;
+            if( start < dstr->chars_count() )
+                len = dstr->replace_size((unsigned)start,(unsigned)(stop-start),d_repl,replen);
+            else
+            {   // another odd pandas case: if out-of-bounds, just append
+                int bytes = dstr->size() + replen;
+                int nchars = dstr->chars_count() + custring_view::chars_in_string(d_repl,replen);
+                len = custring_view::alloc_size(bytes,nchars);
+            }
             len = ALIGN_SIZE(len);
             d_lengths[idx] = (size_t)len;
         });
@@ -81,7 +89,19 @@ NVStrings* NVStrings::slice_replace( const char* repl, int start, int stop )
             if( !dstr )
                 return;
             char* buffer = d_buffer + d_offsets[idx];
-            custring_view* dout = dstr->replace((unsigned)start,(unsigned)(stop-start),d_repl,replen,buffer);
+            custring_view* dout = 0;
+            if( start < dstr->chars_count() )
+                dout = dstr->replace((unsigned)start,(unsigned)(stop-start),d_repl,replen,buffer);
+            else
+            {   // append for pandas consistency
+                int bytes = dstr->size();
+                char* ptr = buffer;
+                memcpy( ptr, dstr->data(), bytes );
+                ptr += bytes;
+                memcpy( ptr, d_repl, replen );
+                bytes += replen;
+                dout = custring_view::create_from(buffer,buffer,bytes);
+            }
             d_results[idx] = dout;
         });
     //

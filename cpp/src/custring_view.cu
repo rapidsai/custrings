@@ -1070,8 +1070,8 @@ __device__ custring_view* custring_view::replace(unsigned int pos, unsigned int 
     char* sptr = (char*)(this->data());
     custring_view* str = create_from(mem);
     char* optr = str->data();
-    if((pos >= end) || // range overlaps itself
-        (pos > nchars)) // outside of string's range
+    if((pos > end) ||  // range overlaps itself
+       (pos > nchars)) // outside of string's range
     {
         memcpy(optr, sptr, sz);
         str->init_fields(sz);
@@ -1110,8 +1110,8 @@ __device__ custring_view* custring_view::replace(unsigned int pos, unsigned int 
     char* sptr = this->data();
     custring_view* str = create_from(mem);
     char* optr = str->data();
-    if((pos >= end) || // range overlaps itself
-        (pos > nchars)) // outside of string's range
+    if((pos > end) ||  // range overlaps itself
+       (pos > nchars)) // outside of string's range
     {
         memcpy(optr, sptr, sz);
         str->init_fields(sz);
@@ -1152,8 +1152,8 @@ __device__ unsigned int custring_view::replace_size(unsigned int pos, unsigned i
     unsigned int end = pos + length;
     if(end > chars) // end is non-inclusize
         end = chars;
-    if((pos >= end) || // range overlaps itself
-        (pos > chars))  // outside of string's range
+    if((pos > end) ||  // range overlaps itself
+       (pos > chars))  // outside of string's range
         return alloc_size();
     //
     unsigned int left = offset_for_char_pos(pos);
@@ -1173,8 +1173,8 @@ __device__ unsigned int custring_view::replace_size(unsigned int pos, unsigned i
     unsigned int end = pos + length;
     if(end > chars) // end is non-inclusize
         end = chars;
-    if((pos >= end) || // range overlaps itself
-        (pos > chars))  // outside of string's range
+    if((pos > end) ||  // range overlaps itself
+       (pos > chars))  // outside of string's range
         return alloc_size();
     //
     unsigned int left = offset_for_char_pos(pos);
