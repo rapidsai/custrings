@@ -45,13 +45,14 @@ class DataBuffer
     std::string name;
     enum datatype { none, error, list, device_ndarray, buffer, pointer };
     datatype dtype;
+    unsigned int type_width;
 
     T* values;
     unsigned int count;
 
 public:
     //
-    DataBuffer( PyObject* obj ) : pyobj(obj), pdata(0), values(0), count(0), dtype(none)
+    DataBuffer( PyObject* obj ) : pyobj(obj), pdata(0), values(0), count(0), dtype(none), type_width(4)
     {
         if( pyobj == Py_None )
             return;
@@ -78,10 +79,15 @@ public:
         else if( name.compare("DeviceNDArray")==0 )
         {
             dtype = device_ndarray;
-            PyObject* pysize = PyObject_GetAttr(pyobj,PyUnicode_FromString("alloc_size"));
+            PyObject* pyasize = PyObject_GetAttr(pyobj,PyUnicode_FromString("alloc_size"));
+            PyObject* pysize = PyObject_GetAttr(pyobj,PyUnicode_FromString("size"));
             PyObject* pydcp = PyObject_GetAttr(pyobj,PyUnicode_FromString("device_ctypes_pointer"));
             pyobj = PyObject_GetAttr(pydcp,PyUnicode_FromString("value"));
-            count = (unsigned int)(PyLong_AsLong(pysize)/sizeof(T)); ///xxxx
+            //printf("dnda: size=%d, alloc_size=%d\n",(int)PyLong_AsLong(pysize),(int)PyLong_AsLong(pyasize));
+            count = (unsigned int)PyLong_AsLong(pysize);
+            if( count > 0 )
+                type_width = PyLong_AsLong(pyasize)/count;
+            //printf("dnda: count=%d, twidth=%d\n",(int)count,(int)type_width);
             if( pyobj != Py_None )
                 values = (T*)PyLong_AsVoidPtr(pyobj);
         }
@@ -120,6 +126,7 @@ public:
 
     T* get_values()          { return values; }
     unsigned int get_count() { return count; }
+    unsigned int get_type_width() { return type_width; }
 };
 
 // PyArg_VaParse format types are documented here:
@@ -349,7 +356,7 @@ static PyObject* n_createFromOffsets( PyObject* self, PyObject* args )
     Py_RETURN_NONE;
 }
 
-static PyObject* n_createFromIntegers( PyObject* self, PyObject* args )
+static PyObject* n_createFromInt32s( PyObject* self, PyObject* args )
 {
     PyObject* pyvals = PyTuple_GetItem(args,0);
     PyObject* pycount = PyTuple_GetItem(args,1);
@@ -372,7 +379,7 @@ static PyObject* n_createFromIntegers( PyObject* self, PyObject* args )
 
     NVStrings* rtn = 0;
     if( pynulls == Py_None )
-        rtn = NVStrings::itos(values,count,0,bdevmem);
+            rtn = NVStrings::itos(values,count,0,bdevmem);
     else
     {   // get the nulls
         DataBuffer<unsigned char> dbnulls(pynulls);
@@ -389,7 +396,47 @@ static PyObject* n_createFromIntegers( PyObject* self, PyObject* args )
     Py_RETURN_NONE;
 }
 
-static PyObject* n_createFromFloats( PyObject* self, PyObject* args )
+static PyObject* n_createFromInt64s( PyObject* self, PyObject* args )
+{
+    PyObject* pyvals = PyTuple_GetItem(args,0);
+    PyObject* pycount = PyTuple_GetItem(args,1);
+    PyObject* pynulls = PyTuple_GetItem(args,2);
+    PyObject* pybmem = PyTuple_GetItem(args,3);
+
+    bool bdevmem = (bool)PyObject_IsTrue(pybmem);
+
+    DataBuffer<long> dbvalues(pyvals);
+    if( dbvalues.is_error() )
+    {
+        PyErr_Format(PyExc_TypeError,"nvstrings.ltos(): unknown type %s",dbvalues.get_name());
+        Py_RETURN_NONE;
+    }
+
+    long* values = dbvalues.get_values();
+    unsigned int count = dbvalues.get_count();
+    if( count==0 )
+        count = (unsigned int)PyLong_AsLong(pycount);
+
+    NVStrings* rtn = 0;
+    if( pynulls == Py_None )
+            rtn = NVStrings::ltos(values,count,0,bdevmem);
+    else
+    {   // get the nulls
+        DataBuffer<unsigned char> dbnulls(pynulls);
+        if( dbnulls.is_error() )
+        {
+            PyErr_Format(PyExc_TypeError,"nvstrings.ltos(): unknown type %s",dbnulls.get_name());
+            Py_RETURN_NONE;
+        }
+        unsigned char* nulls = dbnulls.get_values();
+        rtn = NVStrings::ltos(values,count,nulls,bdevmem);
+    }
+    if( rtn )
+        return PyLong_FromVoidPtr((void*)rtn);
+    Py_RETURN_NONE;
+}
+
+static PyObject* n_createFromFloat32s( PyObject* self, PyObject* args )
 {
     PyObject* pyvals = PyTuple_GetItem(args,0);
     PyObject* pycount = PyTuple_GetItem(args,1);
@@ -423,6 +470,46 @@ static PyObject* n_createFromFloats( PyObject* self, PyObject* args )
         }
         unsigned char* nulls = dbnulls.get_values();
         rtn = NVStrings::ftos(values,count,nulls,bdevmem);
+    }
+    if( rtn )
+        return PyLong_FromVoidPtr((void*)rtn);
+    Py_RETURN_NONE;
+}
+
+static PyObject* n_createFromFloat64s( PyObject* self, PyObject* args )
+{
+    PyObject* pyvals = PyTuple_GetItem(args,0);
+    PyObject* pycount = PyTuple_GetItem(args,1);
+    PyObject* pynulls = PyTuple_GetItem(args,2);
+    PyObject* pybmem = PyTuple_GetItem(args,3);
+
+    bool bdevmem = (bool)PyObject_IsTrue(pybmem);
+
+    DataBuffer<double> dbvalues(pyvals);
+    if( dbvalues.is_error() )
+    {
+        PyErr_Format(PyExc_TypeError,"nvstrings.dtos(): unknown type %s",dbvalues.get_name());
+        Py_RETURN_NONE;
+    }
+
+    double* values = dbvalues.get_values();
+    unsigned int count = dbvalues.get_count();
+    if( count==0 )
+        count = (unsigned int)PyLong_AsLong(pycount);
+
+    NVStrings* rtn = 0;
+    if( pynulls == Py_None )
+        rtn = NVStrings::dtos((double*)values,count,0,bdevmem);
+    else
+    {   // get the nulls
+        DataBuffer<unsigned char> dbnulls(pynulls);
+        if( dbnulls.is_error() )
+        {
+            PyErr_Format(PyExc_TypeError,"nvstrings.ftos(): unknown type %s",dbnulls.get_name());
+            Py_RETURN_NONE;
+        }
+        unsigned char* nulls = dbnulls.get_values();
+        rtn = NVStrings::dtos((double*)values,count,nulls,bdevmem);
     }
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
@@ -829,6 +916,41 @@ static PyObject* n_stoi( PyObject* self, PyObject* args )
     return ret;
 }
 
+// convert the strings to long integers
+static PyObject* n_stol( PyObject* self, PyObject* args )
+{
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    unsigned int count = tptr->size();
+    PyObject* ret = PyList_New(count);
+    if( count==0 )
+        return ret;
+    //
+    long* devptr = (long*)PyLong_AsVoidPtr(PyTuple_GetItem(args,1));
+    if( devptr )
+    {
+        tptr->stol(devptr);
+        return PyLong_FromVoidPtr((void*)devptr);
+    }
+
+    // copy to host option
+    long* rtn = new long[count];
+    tptr->stol(rtn,false);
+    std::vector<unsigned char> nulls(((count+7)/8),0);
+    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    for(size_t idx=0; idx < count; idx++)
+    {
+        if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
+        {
+            Py_INCREF(Py_None);
+            PyList_SetItem(ret, idx, Py_None);
+            continue;
+        }
+        PyList_SetItem(ret, idx, PyLong_FromLong(rtn[idx]));
+    }
+    delete rtn;
+    return ret;
+}
+
 // convert the strings to floats
 static PyObject* n_stof( PyObject* self, PyObject* args )
 {
@@ -857,6 +979,39 @@ static PyObject* n_stof( PyObject* self, PyObject* args )
             continue;
         }
         PyList_SetItem(ret, idx, PyFloat_FromDouble((double)rtn[idx]));
+    }
+    delete rtn;
+    return ret;
+}
+
+// convert the strings to doubles
+static PyObject* n_stod( PyObject* self, PyObject* args )
+{
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    unsigned int count = tptr->size();
+    PyObject* ret = PyList_New(count);
+    if( count==0 )
+        return ret;
+    //
+    double* devptr = (double*)PyLong_AsVoidPtr(PyTuple_GetItem(args,1));
+    if( devptr )
+    {
+        tptr->stod(devptr);
+        return PyLong_FromVoidPtr((void*)devptr);
+    }
+    double* rtn = new double[count];
+    tptr->stod(rtn,false);
+    std::vector<unsigned char> nulls(((count+7)/8),0);
+    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    for(size_t idx=0; idx < count; idx++)
+    {
+        if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
+        {
+            Py_INCREF(Py_None);
+            PyList_SetItem(ret, idx, Py_None);
+            continue;
+        }
+        PyList_SetItem(ret, idx, PyFloat_FromDouble(rtn[idx]));
     }
     delete rtn;
     return ret;
@@ -2743,8 +2898,10 @@ static PyMethodDef s_Methods[] = {
     { "n_createFromCSV", n_createFromCSV, METH_VARARGS, "" },
     { "n_createFromOffsets", n_createFromOffsets, METH_VARARGS, "" },
     { "n_createFromNVStrings", n_createFromNVStrings, METH_VARARGS, "" },
-    { "n_createFromIntegers", n_createFromIntegers, METH_VARARGS, "" },
-    { "n_createFromFloats", n_createFromFloats, METH_VARARGS, "" },
+    { "n_createFromInt32s", n_createFromInt32s, METH_VARARGS, "" },
+    { "n_createFromInt64s", n_createFromInt64s, METH_VARARGS, "" },
+    { "n_createFromFloat32s", n_createFromFloat32s, METH_VARARGS, "" },
+    { "n_createFromFloat64s", n_createFromFloat64s, METH_VARARGS, "" },
     { "n_createFromIPv4Integers", n_createFromIPv4Integers, METH_VARARGS, "" },
     { "n_createFromTimestamp", n_createFromTimestamp, METH_VARARGS, "" },
     { "n_createFromBools", n_createFromBools, METH_VARARGS, "" },
@@ -2758,7 +2915,9 @@ static PyMethodDef s_Methods[] = {
     { "n_add_strings", n_add_strings, METH_VARARGS, "" },
     { "n_compare", n_compare, METH_VARARGS, "" },
     { "n_stoi", n_stoi, METH_VARARGS, "" },
+    { "n_stol", n_stol, METH_VARARGS, "" },
     { "n_stof", n_stof, METH_VARARGS, "" },
+    { "n_stod", n_stod, METH_VARARGS, "" },
     { "n_htoi", n_htoi, METH_VARARGS, "" },
     { "n_ip2int", n_ip2int, METH_VARARGS, "" },
     { "n_timestamp2int", n_timestamp2int, METH_VARARGS, "" },
