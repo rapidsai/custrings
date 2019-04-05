@@ -16,6 +16,7 @@
 
 #include <cuda_runtime.h>
 #include <memory.h>
+#include <math.h>
 #include "custring.cuh"
 
 
@@ -24,24 +25,7 @@ namespace custr
     // convert string with numerical characters to number
     __device__ int stoi( const char* str, size_t bytes )
     {
-        const char* ptr = str;
-        if( !ptr || !bytes )
-            return 0; // probably should be an assert
-        int value = 0, sign = 1, size = (int)bytes;
-        if( *ptr == '-' || *ptr == '+' )
-        {
-            sign = (*ptr=='-' ? -1:1);
-            ++ptr;
-            --size;
-        }
-        for( int idx=0; idx < size; ++idx )
-        {
-            char chr = *ptr++;
-            if( chr < '0' || chr > '9' )
-                break;
-            value = (value * 10) + (int)(chr - '0');
-        }
-        return value * sign;
+        return (int)stol(str,bytes);
     }
 
     __device__ long stol( const char* str, size_t bytes )
@@ -72,7 +56,7 @@ namespace custr
         const char* ptr = str;
         if( !ptr || !bytes )
             return 0; // probably should be an assert
-        
+
         unsigned long value = 0;
         int size = (int)bytes;
         for( int idx=0; idx < size; ++idx )
@@ -84,69 +68,70 @@ namespace custr
         }
         return value;
     }
-    
+
     __device__ float stof( const char* str, size_t bytes )
     {
-        const char* ptr = str;
-        if( !ptr || !bytes )
-            return 0.0f; // probably should be an assert
-    
-        float value = 0, factor = 1;
-        int size = (int)bytes;
-        if(*ptr == '-' || *ptr == '+')
-        {
-            factor = (*ptr=='-' ? -1:1);
-            ++ptr;
-            --size;
-        }
-        bool decimal = false;
-        for(int idx = 0; idx < size; ++idx )
-        {
-            char chr = *ptr++;
-            if( chr == '.' )
-            {
-                decimal = true;
-                continue;
-            }
-            if( chr < '0' || chr > '9' )
-                break;
-            if( decimal )
-                factor /= 10.0f;
-            value = value * 10.0f + (float)(chr - '0'); // this seems like we could run out of space in value
-        }
-        return value * factor;
+        return (float)stod(str,bytes);
     }
-    
+
     __device__ double stod( const char* str, size_t bytes )
     {
-        const char* ptr = str;
+        char* ptr = (char*)str;
         if( !ptr || !bytes )
             return 0.0; // probably should be an assert
-    
-        double value = 0, factor = 1;
-        int size = (int)bytes;
+
+        char* end = ptr + bytes;
+        double sign = 1.0;
         if(*ptr == '-' || *ptr == '+')
         {
-            factor = (*ptr=='-' ? -1:1);
+            sign = (*ptr == '-' ? -1 : 1);
             ++ptr;
-            --size;
         }
+        unsigned int digits = 0;
+        int exp_off = 0;
         bool decimal = false;
-        for(int idx = 0; idx < size; ++idx )
+        while( ptr < end )
         {
-            char chr = *ptr++;
-            if( chr == '.' )
+            char ch = *ptr;
+            if(ch == '.')
             {
                 decimal = true;
+                ++ptr;
                 continue;
             }
-            if( chr < '0' || chr > '9' )
+            if(ch < '0' || ch > '9')
                 break;
-            if( decimal )
-                factor /= 10.0;
-            value = value * 10.0 + (double)(chr - '0'); // see float above
+            digits = (digits * 10) + (unsigned int)(ch-'0');
+            exp_off -= (int)decimal;
+            ++ptr;
         }
-        return value * factor;
+        // check for exponent char
+        int exp10 = 0;
+        int exp_sign = 1;
+        if( ptr < end )
+        {
+            char ch = *ptr++;
+            if( ch=='e' || ch=='E' )
+            {
+                if( ptr < end )
+                {
+                    ch = *ptr++;
+                    if( ch=='-' || ch=='+' )
+                        exp_sign = (ch=='-' ? -1 : 1);
+                    while( ptr < end )
+                    {
+                        ch = *ptr++;
+                        if(ch < '0' || ch > '9')
+                            break;
+                        exp10 = (exp10 * 10) + (int)(ch-'0');
+                    }
+                }
+            }
+        }
+        exp10 *= exp_sign;
+        exp10 += exp_off;
+        double value = (double)digits * pow(10.0,(double)exp10);
+        return (value * sign);
     }
 
     __device__ unsigned int hash( const char* str, unsigned int bytes )
@@ -157,7 +142,7 @@ namespace custr
             hash = hash * seed + str[i];
         return hash;
     }
-    
+
     __device__ int compare(const char* src, unsigned int sbytes, const char* tgt, unsigned int tbytes )
     {
         const char* ptr1 = src;
@@ -232,103 +217,9 @@ namespace custr
         return -1;
     }
 
-    //__device__ int find_first_of( const char* src, unsigned int bytes1, const char* chars, unsigned int bytes2 )
-    //{
-    //    return -1;
-    //}
-    //
-    //__device__ int find_first_not_of( const char* src, unsigned int bytes1, const char* chars, unsigned int bytes2 )
-    //{
-    //    return -1;
-    //}
-    //
-    //__device__ int find_last_of( const char* src, unsigned int bytes1, const char* chars, unsigned int bytes2 )
-    //{
-    //    return -1;
-    //}
-    //__device__ int find_last_not_of( const char* src, unsigned int bytes1, const char* chars, unsigned int bytes2 )
-    //{
-    //    return -1;
-    //}
-
     //
     __device__ void copy( char* dst, unsigned int bytes, const char* src )
     {
         memcpy(dst,src,bytes);
     }
-
-    //
-    __device__ void lower( char* str, unsigned int bytes )
-    {}
-    __device__ void upper( char* str, unsigned int bytes )
-    {}
-    __device__ void swapcase( char* str, unsigned int bytes )
-    {}
-    
-    // some utilities for handling individual UTF-8 characters
-    #if 0
-    __host__ __device__ int bytes_in_char( Char chr )
-    {
-        int count = 1;
-        // no if-statements means no divergence
-        count += (int)((chr & (unsigned)0x0000FF00 ) > 0);
-        count += (int)((chr & (unsigned)0x00FF0000 ) > 0);
-        count += (int)((chr & (unsigned)0xFF000000 ) > 0);
-        return count;
-    }
-
-    __host__ __device__ int Char char_to_Char( const char* str )
-    {
-        int chwidth = _bytes_in_char((BYTE)*pSrc);
-        Char ret = (Char)(*pSrc++) & 0xFF;
-        if (chwidth > 1)
-        {
-            ret |= ((Char)(*pSrc++) & 0xFF) << 8;
-            if (chwidth > 2)
-            {
-                ret |= ((Char)(*pSrc++) & 0xFF) << 16;
-                if (chwidth > 3)
-                    ret |= ((Char)(*pSrc++) & 0xFF) << 24;
-            }
-        }
-        return ret;
-    }
-
-    __host__ __device__ int Char_to_char( Char chr, char* str )
-    {
-        int chwidth = bytes_in_char(chr);
-        (*pDst++) = (char)chr & 0xFF;
-        if(chwidth > 1)
-        {
-            (*pDst++) = (char)((chr >> 8) & 0xFF);
-            if(chwidth > 2)
-            {
-                (*pDst++) = (char)((chr >> 16) & 0xFF);
-                if(chwidth > 3)
-                    (*pDst++) = (char)((chr >> 24) & 0xFF);
-            }
-        }
-        return chwidth;
-    }
-
-    __host__ __device__ int chars_in_string( const char* str, unsigned int bytes )
-    {
-        if( str==0 || bytes==0 )
-            return 0;
-        // cannot get this to compile -- dynamic parallelism this is
-        //auto citr = thrust::make_counting_iterator<int>(0);
-        //int nchars = thrust::transform_reduce(thrust::device,
-        //    citr, citr + bytes,
-        //    [str] __device__( int idx ){
-        //        BYTE chr = (BYTE)str[idx];
-        //        return (int)((chr & 0xC0) != 0x80); // ignore 'extra' bytes
-        //    },0,thrust::plus<size_t>());
-        //cudaDeviceSynchronize(); -- this too
-        // going manual; performance is not bad, especially for small strings
-        int nchars = 0;
-        for( int idx=0; idx < bytes; ++idx )
-            nchars += (int)(((BYTE)str[idx] & 0xC0) != 0x80);
-        return nchars;
-    }
-    #endif
 }

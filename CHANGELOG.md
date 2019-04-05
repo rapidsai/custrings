@@ -4,6 +4,7 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 
 ## New Features
 
+- PR #204 Added stol/ltos and stod/dtos number converters
 - PR #194 Added method to create strings from array of floats
 - PR #193 Added IPC transfer methods to C++ interface
 - PR #188 Rename rave to nvtext and publish in nvstrings package

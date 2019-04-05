@@ -164,7 +164,31 @@ def itos(values, count=0, nulls=None, bdevmem=False):
         Default (False) interprets memory pointers as CPU memory.
 
     """
-    rtn = pyniNVStrings.n_createFromIntegers(values, count, nulls, bdevmem)
+    rtn = pyniNVStrings.n_createFromInt32s(values, count, nulls, bdevmem)
+    if rtn is not None:
+        rtn = nvstrings(rtn)
+    return rtn
+
+
+def ltos(values, count=0, nulls=None, bdevmem=False):
+    """
+    Create strings from an array of int64 values.
+
+    Parameters
+    ----------
+    values : list, memory address or buffer
+        Array of int64 values to convert to strings.
+    count : int
+        Number of integers in values.
+        This is only required if values is a memptr.
+    nulls : list, memory address or buffer
+        Bit array indicating which values should be considered null.
+        Uses the arrow format for valid bitmask.
+    bdevmem : boolean
+        Default (False) interprets memory pointers as CPU memory.
+
+    """
+    rtn = pyniNVStrings.n_createFromInt64s(values, count, nulls, bdevmem)
     if rtn is not None:
         rtn = nvstrings(rtn)
     return rtn
@@ -188,7 +212,31 @@ def ftos(values, count=0, nulls=None, bdevmem=False):
         Default (False) interprets memory pointers as CPU memory.
 
     """
-    rtn = pyniNVStrings.n_createFromFloats(values, count, nulls, bdevmem)
+    rtn = pyniNVStrings.n_createFromFloat32s(values, count, nulls, bdevmem)
+    if rtn is not None:
+        rtn = nvstrings(rtn)
+    return rtn
+
+
+def dtos(values, count=0, nulls=None, bdevmem=False):
+    """
+    Create strings from an array of float64 values.
+
+    Parameters
+    ----------
+    values : list, memory address or buffer
+        Array of float64 values to convert to strings.
+    count : int
+        Number of floats in values.
+        This is only required if values is a memptr.
+    nulls : list, memory address or buffer
+        Bit array indicating which values should be considered null.
+        Uses the arrow format for valid bitmask.
+    bdevmem : boolean
+        Default (False) interprets memory pointers as CPU memory.
+
+    """
+    rtn = pyniNVStrings.n_createFromFloat64s(values, count, nulls, bdevmem)
     if rtn is not None:
         rtn = nvstrings(rtn)
     return rtn
@@ -596,7 +644,7 @@ class nvstrings:
 
     def stoi(self, devptr=0):
         """
-        Returns integer value represented by each string.
+        Returns integer values represented by each string.
 
         Parameters
         ----------
@@ -613,6 +661,27 @@ class nvstrings:
 
         """
         rtn = pyniNVStrings.n_stoi(self.m_cptr, devptr)
+        return rtn
+
+    def stol(self, devptr=0):
+        """
+        Returns int64 values represented by each string.
+
+        Parameters
+        ----------
+        devptr : GPU memory pointer
+            Where resulting integer values will be written.
+            Memory must be able to hold at least size() of int64 values.
+
+        Examples
+        --------
+        >>> import nvstrings
+        >>> s = nvstrings.to_device(["1234","-876","543.2","-0.12",".55""])
+        >>> print(s.stol())
+        [1234, -876, 543, 0, 0]
+
+        """
+        rtn = pyniNVStrings.n_stol(self.m_cptr, devptr)
         return rtn
 
     def stof(self, devptr=0):
@@ -635,6 +704,28 @@ class nvstrings:
 
         """
         rtn = pyniNVStrings.n_stof(self.m_cptr, devptr)
+        return rtn
+
+    def stod(self, devptr=0):
+        """
+        Returns float64 values represented by each string.
+
+        Parameters
+        ----------
+        devptr : GPU memory pointer
+            Where resulting float values will be written.
+            Memory must be able to hold at least size() of float64 values
+
+        Examples
+        --------
+        >>> import nvstrings
+        >>> s = nvstrings.to_device(["1234","-876","543.2","-0.12",".55"])
+        >>> print(s.stod())
+        [1234.0, -876.0, 543.2000122070312,
+         -0.11999999731779099, 0.550000011920929]
+
+        """
+        rtn = pyniNVStrings.n_stod(self.m_cptr, devptr)
         return rtn
 
     def htoi(self, devptr=0):
