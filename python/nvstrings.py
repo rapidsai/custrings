@@ -1049,8 +1049,8 @@ class nvstrings:
         --------
         >>> import nvstrings
         >>> s = nvstrings.to_device(["hello","goodbye","well"])
-        >>> print(s.pad(' ', side='left'))
-        [" hello"," goodbye"," well"]
+        >>> print(s.pad(5))
+        ['  hello', 'goodbye', '   well']
 
         """
         rtn = pyniNVStrings.n_pad(self.m_cptr, width, side, fillchar)
@@ -1105,9 +1105,8 @@ class nvstrings:
         --------
         >>> import nvstrings
         >>> s = nvstrings.to_device(["hello","goodbye","well"])
-        >>> for result in s.center(width=6):
-        ...     print(result)
-        ['hello ', 'goodbye', ' well ']
+        >>> print(s.center(7))
+        [' hello ', 'goodbye', ' well  ']
 
         """
         rtn = pyniNVStrings.n_center(self.m_cptr, width, fillchar)
@@ -1327,7 +1326,7 @@ class nvstrings:
         --------
         >>> import nvstrings
         >>> s = nvstrings.to_device(["A543","Z756"])
-        >>> print(s.replace_with_backrefs('(\\d)', 'V\\2\\1'))
+        >>> print(s.replace_with_backrefs('(\\d)(\\d)', 'V\\2\\1'))
         ['V45', 'V57']
 
         """

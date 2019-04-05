@@ -23,6 +23,7 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 
 ## Bug Fixes
 
+- PR #201 Fixed some pad examples in nvstrings.py doc comments
 - PR #186 Fixed memory error in booleans to strings method
 
 
