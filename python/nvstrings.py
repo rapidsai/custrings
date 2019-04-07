@@ -330,6 +330,21 @@ def from_booleans(values, count=0, nulls=None,
     return rtn
 
 
+def create_from_ipc(ipc_data):
+    """
+    Returns a valid NVStrings object from IPC data.
+
+    Parameters
+    ----------
+    ipc_data : list, IPC handlers data
+    """
+    rtn = pyniNVStrings.n_createFromIPC(ipc_data)
+
+    if rtn is not None:
+        rtn = nvstrings(rtn)
+    return rtn
+
+
 def free(dstrs):
     """Force free resources for the specified instance."""
     if dstrs is not None:
@@ -410,6 +425,23 @@ class nvstrings:
         Returns memory pointer to underlying C++ class instance.
         """
         return self.m_cptr
+
+    def get_ipc_data(self):
+        """
+        Returns IPC data handler to underlying C++ object from NVStrings.
+
+        Returns
+        -------
+        list
+            A list containing the IPC handler data from NVstrings.
+        Examples
+        --------
+        >>> import nvstrings
+        >>> ipc_data = nvstrings.get_ipc_data()
+        >>> print(ipc_data)
+        """
+        ipc_data = pyniNVStrings.n_getIPCData(self.m_cptr)
+        return ipc_data
 
     def to_host(self):
         """

@@ -107,6 +107,9 @@ NVStringsImpl::~NVStringsImpl()
 {
     if( memoryBuffer && !bIpcHandle )
         RMM_FREE(memoryBuffer,0);
+    if( bIpcHandle )
+        cudaIpcCloseMemHandle(memoryBuffer);
+
     memoryBuffer = 0;
     delete pList;
     pList = 0;

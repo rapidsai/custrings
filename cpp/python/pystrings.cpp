@@ -22,6 +22,7 @@
 #include <stdexcept>
 #include "NVStrings.h"
 #include "util.h"
+#include "ipc_transfer.h"
 
 //
 // These are C-functions that simply map the python objects to appropriate methods
@@ -140,6 +141,22 @@ bool parse_args( const char* fn, PyObject* pyargs, const char* pyfmt, ... )
     if( !rtn )
         PyErr_Format(PyExc_ValueError,"nvstrings.%s: invalid parameters",fn);
     return rtn;
+}
+
+static PyObject* n_createFromIPC( PyObject* self, PyObject* args )
+{
+    nvstrings_ipc_transfer ipc;
+    memcpy(&ipc,PyByteArray_AsString(PyTuple_GetItem(args,0)),sizeof(nvstrings_ipc_transfer));
+    NVStrings* thisptr = NVStrings::create_from_ipc(ipc);
+    return PyLong_FromVoidPtr((void*)thisptr);
+}
+
+static PyObject* n_getIPCData( PyObject* self, PyObject* args )
+{
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    nvstrings_ipc_transfer ipc;
+    tptr->create_ipc_transfer(ipc);
+    return PyByteArray_FromStringAndSize((char*)&ipc,sizeof(ipc));
 }
 
 // called by to_device() method in python class
@@ -2894,6 +2911,8 @@ static PyObject* n_isupper( PyObject* self, PyObject* args )
 static PyMethodDef s_Methods[] = {
     { "n_createFromHostStrings", n_createFromHostStrings, METH_VARARGS, "" },
     { "n_destroyStrings", n_destroyStrings, METH_VARARGS, "" },
+    { "n_createFromIPC", n_createFromIPC, METH_VARARGS, "" },
+    { "n_getIPCData", n_getIPCData, METH_VARARGS, "" },
     { "n_createHostStrings", n_createHostStrings, METH_VARARGS, "" },
     { "n_createFromCSV", n_createFromCSV, METH_VARARGS, "" },
     { "n_createFromOffsets", n_createFromOffsets, METH_VARARGS, "" },
