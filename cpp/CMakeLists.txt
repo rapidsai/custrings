@@ -77,7 +77,7 @@ option(BUILD_TESTS "Configure CMake to build tests" OFF)
 ###################################################################################################
 # - rmm -------------------------------------------------------------------------------------------
 
-find_path(RMM_INCLUDE "rmm.h"
+find_path(RMM_INCLUDE "rmm"
           HINTS "$ENV{RMM_ROOT}/include"
                 "$ENV{CONDA_PREFIX}/include/rmm"
                 "$ENV{CONDA_PREFIX}/include")
@@ -89,34 +89,42 @@ find_library(RMM_LIBRARY "rmm"
 message(STATUS "RMM: RMM_LIBRARY set to ${RMM_LIBRARY}")
 message(STATUS "RMM: RMM_INCLUDE set to ${RMM_INCLUDE}")
 
-if(RMM_INCLUDE AND RMM_LIBRARY)
-    execute_process(WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-                    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/include
-                    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/lib)
-    execute_process(WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-                    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR} ln -snf ${RMM_INCLUDE} ${CMAKE_BINARY_DIR}/include/rmm
-                    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR} ln -snf ${RMM_LIBRARY} ${CMAKE_BINARY_DIR}/lib/librmm.so)
-endif(RMM_INCLUDE AND RMM_LIBRARY)
+add_library(rmm SHARED IMPORTED ${RMM_LIBRARY})
+if (RMM_INCLUDE AND RMM_LIBRARY)
+    set_target_properties(rmm PROPERTIES IMPORTED_LOCATION ${RMM_LIBRARY})
+endif (RMM_INCLUDE AND RMM_LIBRARY)
 
 ###################################################################################################
 # - python ----------------------------------------------------------------------------------------
 
-find_package(PythonLibs 3 REQUIRED)
+find_package(Python3 COMPONENTS Development REQUIRED)
+
+message(STATUS "PYTHON: Python3_LIBRARIES set to ${Python3_LIBRARIES}")
+message(STATUS "PYTHON: Python3_INCLUDE_DIRS set to ${Python3_INCLUDE_DIRS}")
+message(STATUS "PYTHON: Python3_VERSION set to ${Python3_VERSION}")
+
+add_library(python3 SHARED IMPORTED ${Python3_LIBRARIES})
+if (Python3_INCLUDE_DIRS AND Python3_LIBRARIES)
+    set_target_properties(python3 PROPERTIES IMPORTED_LOCATION ${Python3_LIBRARIES})
+endif (Python3_INCLUDE_DIRS AND Python3_LIBRARIES)
 
 ###################################################################################################
 # - include paths ---------------------------------------------------------------------------------
 
 include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}"
-                    "${PYTHON_INCLUDE_DIRS}"
                     "${CMAKE_BINARY_DIR}/include"
                     "${CMAKE_SOURCE_DIR}/include"
-                    "${CMAKE_SOURCE_DIR}/src")
+                    "${CMAKE_SOURCE_DIR}/src"
+                    "${RMM_INCLUDE}"
+                    "${Python3_INCLUDE_DIRS}")
 
 ###################################################################################################
 # - library paths ---------------------------------------------------------------------------------
 
 link_directories("${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES}"
-                 "${CMAKE_BINARY_DIR}/lib")
+                 "${CMAKE_BINARY_DIR}/lib"
+                 "${RMM_LIBRARY}"
+                 "${Python3_LIBRARIES}")
 
 ###################################################################################################
 # - library targets -------------------------------------------------------------------------------
@@ -175,9 +183,9 @@ target_link_libraries(NVStrings rmm)
 target_link_libraries(NVCategory NVStrings rmm)
 target_link_libraries(NVText NVStrings rmm)
 
-target_link_libraries(pyniNVStrings ${PYTHON_LIBRARIES} NVStrings)
-target_link_libraries(pyniNVCategory ${PYTHON_LIBRARIES} NVStrings NVCategory)
-target_link_libraries(pyniNVText ${PYTHON_LIBRARIES} NVStrings NVText)
+target_link_libraries(pyniNVStrings python3 NVStrings)
+target_link_libraries(pyniNVCategory python3 NVStrings NVCategory)
+target_link_libraries(pyniNVText python3 NVStrings NVText)
 
 ###################################################################################################
 # - install targets -------------------------------------------------------------------------------
