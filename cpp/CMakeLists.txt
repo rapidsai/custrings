@@ -77,20 +77,26 @@ option(BUILD_TESTS "Configure CMake to build tests" OFF)
 ###################################################################################################
 # - rmm -------------------------------------------------------------------------------------------
 
-find_path(RMM_INCLUDE "rmm"
+find_path(RMM_INCLUDE "rmm.h"
           HINTS "$ENV{RMM_ROOT}/include"
+                "$ENV{CONDA_PREFIX}/include/rmm"
                 "$ENV{CONDA_PREFIX}/include")
 
 find_library(RMM_LIBRARY "rmm"
              HINTS "$ENV{RMM_ROOT}/lib"
                    "$ENV{CONDA_PREFIX}/lib")
 
-add_library(rmm SHARED IMPORTED)
-if (RMM_INCLUDE AND RMM_LIBRARY)
-    set_target_properties( rmm PROPERTIES IMPORTED_LOCATION ${RMM_LIBRARY})
-    message(STATUS "RMM_LIBRARY set to ${RMM_LIBRARY}")
-    message(STATUS "RMM_INCLUDE set to ${RMM_INCLUDE}")
-endif (RMM_INCLUDE AND RMM_LIBRARY)
+message(STATUS "RMM: RMM_LIBRARY set to ${RMM_LIBRARY}")
+message(STATUS "RMM: RMM_INCLUDE set to ${RMM_INCLUDE}")
+
+if(RMM_INCLUDE AND RMM_LIBRARY)
+    execute_process(WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+                    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/include
+                    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/lib)
+    execute_process(WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+                    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR} ln -snf ${RMM_INCLUDE} ${CMAKE_BINARY_DIR}/include/rmm
+                    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR} ln -snf ${RMM_LIBRARY} ${CMAKE_BINARY_DIR}/lib/librmm.so)
+endif(RMM_INCLUDE AND RMM_LIBRARY)
 
 ###################################################################################################
 # - python ----------------------------------------------------------------------------------------
@@ -102,7 +108,6 @@ find_package(PythonLibs 3 REQUIRED)
 
 include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}"
                     "${PYTHON_INCLUDE_DIRS}"
-                    "${RMM_INCLUDE}"
                     "${CMAKE_BINARY_DIR}/include"
                     "${CMAKE_SOURCE_DIR}/include"
                     "${CMAKE_SOURCE_DIR}/src")
