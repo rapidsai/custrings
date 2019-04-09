@@ -18,16 +18,9 @@ setup(name=name,
       author='NVIDIA Corporation',
       license="Apache",
       install_requires=install_requires,
-      packages=['nvstrings', 'nvcategory', 'nvtext'],
-      package_dir={
-          'nvstrings': 'nvstrings',
-          'nvcategory': 'nvcategory',
-          'nvtext': 'nvtext'
-        },
+      packages=[''],
       package_data={
-          'nvstrings': ['pyniNVStrings.so'],
-          'nvcategory': ['pyniNVCategory.so'],
-          'nvtext': ['pyniNVText.so']
+          '': ['pyniNVStrings.so', 'pyniNVCategory.so', 'pyniNVText.so'],
       },
       include_package_data=True,
       zip_safe=False

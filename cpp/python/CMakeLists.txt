@@ -169,9 +169,9 @@ add_custom_target(python_cpp DEPENDS pyniNVStrings pyniNVCategory pyniNVText)
 
 add_custom_command(OUTPUT install_python_command
                    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-                   COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/python/pyniNVStrings.so ${CMAKE_SOURCE_DIR}/../python/nvstrings/pyniNVStrings.so
-                   COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/python/pyniNVCategory.so ${CMAKE_SOURCE_DIR}/../python/nvcategory/pyniNVCategory.so
-                   COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/python/pyniNVText.so ${CMAKE_SOURCE_DIR}/../python/nvtext/pyniNVText.so
+                   COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/python/pyniNVStrings.so ${CMAKE_SOURCE_DIR}/../python/pyniNVStrings.so
+                   COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/python/pyniNVCategory.so ${CMAKE_SOURCE_DIR}/../python/pyniNVCategory.so
+                   COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/python/pyniNVText.so ${CMAKE_SOURCE_DIR}/../python/pyniNVText.so
                    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR}/../../python pip install .
                    VERBATIM)
 
@@ -179,9 +179,9 @@ add_custom_target(install_python DEPENDS install_python_command)
 
 add_custom_command(OUTPUT develop_python_command
                    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-                   COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/python/pyniNVStrings.so ${CMAKE_SOURCE_DIR}/../python/nvstrings/pyniNVStrings.so
-                   COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/python/pyniNVCategory.so ${CMAKE_SOURCE_DIR}/../python/nvcategory/pyniNVCategory.so
-                   COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/python/pyniNVText.so ${CMAKE_SOURCE_DIR}/../python/nvtext/pyniNVText.so
+                   COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/python/pyniNVStrings.so ${CMAKE_SOURCE_DIR}/../python/pyniNVStrings.so
+                   COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/python/pyniNVCategory.so ${CMAKE_SOURCE_DIR}/../python/pyniNVCategory.so
+                   COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/python/pyniNVText.so ${CMAKE_SOURCE_DIR}/../python/pyniNVText.so
                    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR}/../../python pip install -e .
                    VERBATIM)
 
