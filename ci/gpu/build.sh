@@ -106,5 +106,6 @@ logger "Check GPU usage..."
 nvidia-smi
 
 logger "Simple test..."
+cd ../../python/tests
 python test_build.py
 
