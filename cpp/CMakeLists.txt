@@ -95,11 +95,6 @@ if (RMM_INCLUDE AND RMM_LIBRARY)
 endif (RMM_INCLUDE AND RMM_LIBRARY)
 
 ###################################################################################################
-# - add pyniNVStrings -----------------------------------------------------------------------------
-
-add_subdirectory(python "${CMAKE_BINARY_DIR}/python" EXCLUDE_FROM_ALL)
-
-###################################################################################################
 # - include paths ---------------------------------------------------------------------------------
 
 include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}"

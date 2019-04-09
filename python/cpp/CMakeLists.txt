@@ -65,17 +65,7 @@ option(BUILD_TESTS "Configure CMake to build tests" OFF)
 ###################################################################################################
 # - nvstrings -------------------------------------------------------------------------------------
 
-find_file(NVSTRINGS_INCLUDE "NVStrings.h"
-          HINTS "$ENV{NVSTRINGS_ROOT}/include"
-                "$ENV{CONDA_PREFIX}/include/nvstrings"
-                "$ENV{CONDA_PREFIX}/include")
-
-find_file(NVCATEGORY_INCLUDE "NVCategory.h"
-          HINTS "$ENV{NVSTRINGS_ROOT}/include"
-                "$ENV{CONDA_PREFIX}/include/nvstrings"
-                "$ENV{CONDA_PREFIX}/include")
-
-find_file(NVTEXT_INCLUDE "NVText.h"
+find_path(NVSTRINGS_INCLUDE "nvstrings"
           HINTS "$ENV{NVSTRINGS_ROOT}/include"
                 "$ENV{CONDA_PREFIX}/include/nvstrings"
                 "$ENV{CONDA_PREFIX}/include")
@@ -88,28 +78,36 @@ find_library(NVCATEGORY_LIBRARY "NVCategory"
              HINTS "$ENV{NVSTRINGS_ROOT}/lib"
                    "$ENV{CONDA_PREFIX}/lib")
 
-find_library(NVText_LIBRARY "NVText"
+find_library(NVTEXT_LIBRARY "NVText"
              HINTS "$ENV{NVSTRINGS_ROOT}/lib"
                    "$ENV{CONDA_PREFIX}/lib")
 
-add_library(nvstrings SHARED IMPORTED ${NVSTRINGS_LIBRARY})
+message(STATUS "NVSTRINGS: NVSTRINGS_INCLUDE set to ${NVSTRINGS_INCLUDE}")
+message(STATUS "NVSTRINGS: NVSTRINGS_LIBRARY set to ${NVSTRINGS_LIBRARY}")
+message(STATUS "NVSTRINGS: NVCATEGORY_LIBRARY set to ${NVCATEGORY_LIBRARY}")
+message(STATUS "NVSTRINGS: NVTEXT_LIBRARY set to ${NVTEXT_LIBRARY}")
+
+add_library(NVStrings SHARED IMPORTED ${NVSTRINGS_LIBRARY})
 if (NVSTRINGS_INCLUDE AND NVSTRINGS_LIBRARY)
-    set_target_properties(nvstrings PROPERTIES IMPORTED_LOCATION ${NVSTRINGS_LIBRARY})
+    set_target_properties(NVStrings PROPERTIES IMPORTED_LOCATION ${NVSTRINGS_LIBRARY})
 endif (NVSTRINGS_INCLUDE AND NVSTRINGS_LIBRARY)
 
-add_library(nvcategory SHARED IMPORTED ${NVCATEGORY_LIBRARY})
-if (NVCATEGORY_INCLUDE AND NVCATEGORY_LIBRARY)
-    set_target_properties(nvcategory PROPERTIES IMPORTED_LOCATION ${NVCATEGORY_LIBRARY})
-endif (NVCATEGORY_INCLUDE AND NVCATEGORY_LIBRARY)
+add_library(NVCategory SHARED IMPORTED ${NVCATEGORY_LIBRARY})
+if (NVSTRINGS_INCLUDE AND NVCATEGORY_LIBRARY)
+    set_target_properties(NVCategory PROPERTIES IMPORTED_LOCATION ${NVCATEGORY_LIBRARY})
+endif (NVSTRINGS_INCLUDE AND NVCATEGORY_LIBRARY)
 
-add_library(nvtext SHARED IMPORTED ${NVTEXT_LIBRARY})
-if (NVTEXT_INCLUDE AND NVTEXT_LIBRARY)
-    set_target_properties(nvtext PROPERTIES IMPORTED_LOCATION ${NVTEXT_LIBRARY})
-endif (NVTEXT_INCLUDE AND NVTEXT_LIBRARY)
+add_library(NVText SHARED IMPORTED ${NVTEXT_LIBRARY})
+if (NVSTRINGS_INCLUDE AND NVTEXT_LIBRARY)
+    set_target_properties(NVText PROPERTIES IMPORTED_LOCATION ${NVTEXT_LIBRARY})
+endif (NVSTRINGS_INCLUDE AND NVTEXT_LIBRARY)
 
 ###################################################################################################
 # - python ----------------------------------------------------------------------------------------
 
+# if (DEFINED ENV{CONDA_PREFIX})
+#     set(Python3_ROOT_DIR "$ENV{CONDA_PREFIX}")
+# endif (DEFINED ENV{CONDA_PREFIX})
 find_package(Python3 COMPONENTS Development REQUIRED)
 
 message(STATUS "PYTHON: Python3_LIBRARIES set to ${Python3_LIBRARIES}")
@@ -127,13 +125,17 @@ endif (Python3_INCLUDE_DIRS AND Python3_LIBRARIES)
 include_directories("${CMAKE_BINARY_DIR}/include"
                     "${CMAKE_SOURCE_DIR}/include"
                     "${CMAKE_SOURCE_DIR}/src"
-                    "${Python3_INCLUDE_DIRS}")
+                    "${Python3_INCLUDE_DIRS}"
+                    "${NVSTRINGS_INCLUDE}")
 
 ###################################################################################################
 # - library paths ---------------------------------------------------------------------------------
 
 link_directories("${CMAKE_BINARY_DIR}/lib"
-                 "${Python3_LIBRARIES}")
+                 "${Python3_LIBRARIES}"
+                 "${NVSTRINGS_LIBRARY}"
+                 "${NVCATEGORY_LIBRARY}"
+                 "${NVTEXT_LIBRARY}")
 
 ###################################################################################################
 # - library targets -------------------------------------------------------------------------------
@@ -161,28 +163,3 @@ endif()
 target_link_libraries(pyniNVStrings python3 NVStrings)
 target_link_libraries(pyniNVCategory python3 NVStrings NVCategory)
 target_link_libraries(pyniNVText python3 NVStrings NVText)
-
-###################################################################################################
-# - install targets -------------------------------------------------------------------------------
-
-add_custom_target(python_cpp DEPENDS pyniNVStrings pyniNVCategory pyniNVText)
-
-add_custom_command(OUTPUT install_python_command
-                   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-                   COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/python/pyniNVStrings.so ${CMAKE_SOURCE_DIR}/../python/pyniNVStrings.so
-                   COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/python/pyniNVCategory.so ${CMAKE_SOURCE_DIR}/../python/pyniNVCategory.so
-                   COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/python/pyniNVText.so ${CMAKE_SOURCE_DIR}/../python/pyniNVText.so
-                   COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR}/../../python pip install .
-                   VERBATIM)
-
-add_custom_target(install_python DEPENDS install_python_command python_cpp)
-
-add_custom_command(OUTPUT develop_python_command
-                   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-                   COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/python/pyniNVStrings.so ${CMAKE_SOURCE_DIR}/../python/pyniNVStrings.so
-                   COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/python/pyniNVCategory.so ${CMAKE_SOURCE_DIR}/../python/pyniNVCategory.so
-                   COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/python/pyniNVText.so ${CMAKE_SOURCE_DIR}/../python/pyniNVText.so
-                   COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR}/../../python pip install -e .
-                   VERBATIM)
-
-add_custom_target(develop_python DEPENDS develop_python_command python_cpp)

@@ -39,8 +39,8 @@ logger "Get env..."
 env
 
 logger "Activate conda env..."
-source activate gdf
-conda install librmm==0.7.*
+conda activate gdf
+conda install -y librmm==0.7.*
 
 logger "Check versions..."
 python --version

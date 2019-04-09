@@ -1,8 +1,8 @@
-
 import os
 
-from setuptools import setup, find_packages
+from setuptools import setup
 from pip_correction import convert_to_manylinux
+from cmake_setuptools import CMakeExtension, CMakeBuildExt
 
 install_requires = []
 
@@ -25,14 +25,12 @@ setup(
     author='NVIDIA Corporation',
     license="Apache",
     install_requires=install_requires,
-    data_files=[('', ['pyniNVStrings.so', 'pyniNVCategory.so', 'pyniNVText.so'])],
-    packages=[''],
-    package_data={
-        '': [
-            'pyniNVStrings.so', 'pyniNVCategory.so', 'pyniNVText.so'
-        ],
-    },
-    include_package_data=True,
+    ext_modules=[
+        CMakeExtension('pyniNVStrings', 'cpp'),
+        CMakeExtension('pyniNVCategory', 'cpp'),
+        CMakeExtension('pyniNVText', 'cpp')
+    ],
+    cmdclass={'build_ext': CMakeBuildExt},
     zip_safe=False
 )
 

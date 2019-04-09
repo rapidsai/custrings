@@ -18,9 +18,9 @@
 #include <vector>
 #include <string>
 #include <stdio.h>
-#include "NVStrings.h"
-#include "util.h"
-#include "NVText.h"
+#include <nvstrings/NVStrings.h>
+#include <nvstrings/NVText.h>
+#include <nvstrings/util.h>
 
 // utility to deference NVStrings instance from nvstrings instance
 // caller should never dextroy the return object
