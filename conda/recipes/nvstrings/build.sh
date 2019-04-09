@@ -1,11 +1,17 @@
 #!/usr/bin/env bash
-cd python
-$PYTHON setup.py install
-mkdir -p $PREFIX/include/nvstrings
-mkdir -p $PREFIX/lib
-cp ../cpp/include/NVStrings.h $PREFIX/include/nvstrings
-cp ../cpp/include/NVCategory.h $PREFIX/include/nvstrings
-cp ../cpp/include/NVText.h $PREFIX/include/nvstrings
-cp build/lib.linux-x86_64*/libNVStrings.so $PREFIX/lib
-cp build/lib.linux-x86_64*/libNVCategory.so $PREFIX/lib
-cp build/lib.linux-x86_64*/libNVText.so $PREFIX/lib
+
+CMAKE_COMMON_VARIABLES=" -DCMAKE_INSTALL_PREFIX=$PREFIX -DCMAKE_BUILD_TYPE=Release"
+
+# show environment
+printenv
+# Cleanup local git
+git clean -xdf
+# Change directory for build process
+cd cpp
+# Use CMake-based build procedure
+mkdir build
+cd build
+# configure
+cmake $CMAKE_COMMON_VARIABLES ..
+# build
+make -j${PARALLEL_LEVEL} VERBOSE=1 install_python

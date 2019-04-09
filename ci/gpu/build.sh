@@ -37,22 +37,18 @@ export GIT_DESCRIBE_NUMBER=`git rev-list ${GIT_DESCRIBE_TAG}..HEAD --count`
 
 logger "Get env..."
 env
-export USER=`whoami`
-echo $USER
-eval echo "~$USER"
 
 logger "Activate conda env..."
 source activate gdf
 conda install -c rapidsai/label/cuda${CUDA_REL} -c rapidsai-nightly/label/cuda${CUDA_REL} librmm==0.7.*
-pip install cmake_setuptools
 
 logger "Check versions..."
 python --version
 $CC --version
 $CXX --version
+$CUDACXX --version
 conda config --get channels
 conda list
-$CUDACXX --version
 
 # FIX Added to deal with Anancoda SSL verification issues during conda builds
 conda config --set ssl_verify False
@@ -91,10 +87,16 @@ make clean
 logger "Make custrings..."
 make -j${PARALLEL_LEVEL}
 
-#logger "Install custrings..."
-#make -j${PARALLEL_LEVEL} install
-cp ../../python/*.py .
-cp ../../python/tests/*.py .
+logger "Install custrings cpp..."
+make install
+
+logger "Install custrings python..."
+make install_python
+
+# logger "Install custrings..."
+# make -j${PARALLEL_LEVEL} install
+# cp ../../python/*.py .
+# cp ../../python/tests/*.py .
 
 ################################################################################
 # TEST - something
