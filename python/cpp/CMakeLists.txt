@@ -68,19 +68,24 @@ option(BUILD_TESTS "Configure CMake to build tests" OFF)
 find_path(NVSTRINGS_INCLUDE "nvstrings"
           HINTS "$ENV{NVSTRINGS_ROOT}/include"
                 "$ENV{CONDA_PREFIX}/include/nvstrings"
-                "$ENV{CONDA_PREFIX}/include")
+                "$ENV{CONDA_PREFIX}/include"
+                "$ENV{PREFIX}/include/nvstrings"
+                "$ENV{PREFIX/include")
 
 find_library(NVSTRINGS_LIBRARY "NVStrings"
              HINTS "$ENV{NVSTRINGS_ROOT}/lib"
-                   "$ENV{CONDA_PREFIX}/lib")
+                   "$ENV{CONDA_PREFIX}/lib"
+                   "$ENV{PREFIX/lib")
 
 find_library(NVCATEGORY_LIBRARY "NVCategory"
              HINTS "$ENV{NVSTRINGS_ROOT}/lib"
-                   "$ENV{CONDA_PREFIX}/lib")
+                   "$ENV{CONDA_PREFIX}/lib"
+                   "$ENV{PREFIX/lib")
 
 find_library(NVTEXT_LIBRARY "NVText"
              HINTS "$ENV{NVSTRINGS_ROOT}/lib"
-                   "$ENV{CONDA_PREFIX}/lib")
+                   "$ENV{CONDA_PREFIX}/lib"
+                   "$ENV{PREFIX/lib")
 
 message(STATUS "NVSTRINGS: NVSTRINGS_INCLUDE set to ${NVSTRINGS_INCLUDE}")
 message(STATUS "NVSTRINGS: NVSTRINGS_LIBRARY set to ${NVSTRINGS_LIBRARY}")
