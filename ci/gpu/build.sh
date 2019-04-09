@@ -91,12 +91,8 @@ logger "Install custrings cpp..."
 make install
 
 logger "Install custrings python..."
-make install_python
-
-# logger "Install custrings..."
-# make -j${PARALLEL_LEVEL} install
-# cp ../../python/*.py .
-# cp ../../python/tests/*.py .
+cd ../../python
+pip install .
 
 ################################################################################
 # TEST - something
@@ -106,6 +102,6 @@ logger "Check GPU usage..."
 nvidia-smi
 
 logger "Simple test..."
-cd ../../python/tests
+cd tests
 python test_build.py
 

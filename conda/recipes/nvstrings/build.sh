@@ -16,4 +16,5 @@ cmake $CMAKE_COMMON_VARIABLES ..
 # build/install cpp
 make -j${PARALLEL_LEVEL} VERBOSE=1 install
 # build/install python
-make -j${PARALLEL_LEVEL} VERBOSE=1 install_python
+cd ../../python
+pip install .
