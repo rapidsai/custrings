@@ -40,8 +40,7 @@ env
 
 logger "Activate conda env..."
 source activate gdf
-conda install -y librmm==0.7.*
-pip install cmake_setuptools
+conda install -y 'librmm==0.7.*' 'cmake_setuptools>=0.1.3'
 
 logger "Check versions..."
 python --version
