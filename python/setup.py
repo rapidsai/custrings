@@ -1,7 +1,7 @@
 
 import os
 
-from setuptools import setup
+from setuptools import setup, find_packages
 from pip_correction import convert_to_manylinux
 
 install_requires = []
@@ -18,7 +18,7 @@ setup(name=name,
       author='NVIDIA Corporation',
       license="Apache",
       install_requires=install_requires,
-      packages=[''],
+      packages=find_packages(),
       package_data={
           '': ['pyniNVStrings.so', 'pyniNVCategory.so', 'pyniNVText.so'],
       },
