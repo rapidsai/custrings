@@ -13,5 +13,7 @@ mkdir build
 cd build
 # configure
 cmake $CMAKE_COMMON_VARIABLES ..
-# build
+# build/install cpp
+make -j${PARALLEL_LEVEL} VERBOSE=1 install
+# build/install python
 make -j${PARALLEL_LEVEL} VERBOSE=1 install_python
