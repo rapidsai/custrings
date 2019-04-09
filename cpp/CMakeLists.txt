@@ -95,18 +95,9 @@ if (RMM_INCLUDE AND RMM_LIBRARY)
 endif (RMM_INCLUDE AND RMM_LIBRARY)
 
 ###################################################################################################
-# - python ----------------------------------------------------------------------------------------
+# - add pyniNVStrings -----------------------------------------------------------------------------
 
-find_package(Python3 COMPONENTS Development REQUIRED)
-
-message(STATUS "PYTHON: Python3_LIBRARIES set to ${Python3_LIBRARIES}")
-message(STATUS "PYTHON: Python3_INCLUDE_DIRS set to ${Python3_INCLUDE_DIRS}")
-message(STATUS "PYTHON: Python3_VERSION set to ${Python3_VERSION}")
-
-add_library(python3 SHARED IMPORTED ${Python3_LIBRARIES})
-if (Python3_INCLUDE_DIRS AND Python3_LIBRARIES)
-    set_target_properties(python3 PROPERTIES IMPORTED_LOCATION ${Python3_LIBRARIES})
-endif (Python3_INCLUDE_DIRS AND Python3_LIBRARIES)
+add_subdirectory(python "${CMAKE_BINARY_DIR}/python" EXCLUDE_FROM_ALL)
 
 ###################################################################################################
 # - include paths ---------------------------------------------------------------------------------
@@ -115,16 +106,14 @@ include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}"
                     "${CMAKE_BINARY_DIR}/include"
                     "${CMAKE_SOURCE_DIR}/include"
                     "${CMAKE_SOURCE_DIR}/src"
-                    "${RMM_INCLUDE}"
-                    "${Python3_INCLUDE_DIRS}")
+                    "${RMM_INCLUDE}")
 
 ###################################################################################################
 # - library paths ---------------------------------------------------------------------------------
 
 link_directories("${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES}"
                  "${CMAKE_BINARY_DIR}/lib"
-                 "${RMM_LIBRARY}"
-                 "${Python3_LIBRARIES}")
+                 "${RMM_LIBRARY}")
 
 ###################################################################################################
 # - library targets -------------------------------------------------------------------------------
@@ -159,33 +148,12 @@ add_library(NVText SHARED
             src/custring_view.cu
             src/custring.cu)
 
-add_library(pyniNVStrings SHARED python/pystrings.cpp)
-add_library(pyniNVCategory SHARED python/pycategory.cpp)
-add_library(pyniNVText SHARED python/pytext.cpp)
-
-if (WIN32) 
-    set_target_properties(pyniNVStrings PROPERTIES SUFFIX ".pyd")
-    set_target_properties(pyniNVCategory PROPERTIES SUFFIX ".pyd")
-    set_target_properties(pyniNVText PROPERTIES SUFFIX ".pyd")
-else()
-    set_target_properties(pyniNVStrings PROPERTIES SUFFIX ".so")
-    set_target_properties(pyniNVStrings PROPERTIES PREFIX "")
-    set_target_properties(pyniNVCategory PROPERTIES SUFFIX ".so")
-    set_target_properties(pyniNVCategory PROPERTIES PREFIX "")
-    set_target_properties(pyniNVText PROPERTIES SUFFIX ".so")
-    set_target_properties(pyniNVText PROPERTIES PREFIX "")
-endif()
-
 ###################################################################################################
 # - link libraries --------------------------------------------------------------------------------
 
 target_link_libraries(NVStrings rmm)
 target_link_libraries(NVCategory NVStrings rmm)
 target_link_libraries(NVText NVStrings rmm)
-
-target_link_libraries(pyniNVStrings python3 NVStrings)
-target_link_libraries(pyniNVCategory python3 NVStrings NVCategory)
-target_link_libraries(pyniNVText python3 NVStrings NVText)
 
 ###################################################################################################
 # - install targets -------------------------------------------------------------------------------
