@@ -41,6 +41,7 @@ env
 logger "Activate conda env..."
 conda activate gdf
 conda install -y librmm==0.7.*
+pip install cmake_setuptools
 
 logger "Check versions..."
 python --version
@@ -104,4 +105,3 @@ nvidia-smi
 logger "Simple test..."
 cd tests
 python test_build.py
-
