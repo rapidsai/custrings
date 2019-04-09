@@ -105,19 +105,16 @@ endif (NVSTRINGS_INCLUDE AND NVTEXT_LIBRARY)
 ###################################################################################################
 # - python ----------------------------------------------------------------------------------------
 
-# if (DEFINED ENV{CONDA_PREFIX})
-#     set(Python3_ROOT_DIR "$ENV{CONDA_PREFIX}")
-# endif (DEFINED ENV{CONDA_PREFIX})
-find_package(Python3 COMPONENTS Development REQUIRED)
+find_package(PythonLibs)
 
-message(STATUS "PYTHON: Python3_LIBRARIES set to ${Python3_LIBRARIES}")
-message(STATUS "PYTHON: Python3_INCLUDE_DIRS set to ${Python3_INCLUDE_DIRS}")
-message(STATUS "PYTHON: Python3_VERSION set to ${Python3_VERSION}")
+message(STATUS "PYTHON: PYTHON_LIBRARIES set to ${PYTHON_LIBRARIES}")
+message(STATUS "PYTHON: PYTHON_INCLUDE_DIRS set to ${PYTHON_INCLUDE_DIRS}")
+message(STATUS "PYTHON: PYTHONLIBS_VERSION_STRING set to ${PYTHONLIBS_VERSION_STRING}")
 
-add_library(python3 SHARED IMPORTED ${Python3_LIBRARIES})
-if (Python3_INCLUDE_DIRS AND Python3_LIBRARIES)
-    set_target_properties(python3 PROPERTIES IMPORTED_LOCATION ${Python3_LIBRARIES})
-endif (Python3_INCLUDE_DIRS AND Python3_LIBRARIES)
+add_library(python3 SHARED IMPORTED ${PYTHON_LIBRARIES})
+if (PYTHON_INCLUDE_DIRS AND PYTHON_LIBRARIES)
+    set_target_properties(python3 PROPERTIES IMPORTED_LOCATION ${PYTHON_LIBRARIES})
+endif (PYTHON_INCLUDE_DIRS AND PYTHON_LIBRARIES)
 
 ###################################################################################################
 # - include paths ---------------------------------------------------------------------------------
@@ -125,14 +122,14 @@ endif (Python3_INCLUDE_DIRS AND Python3_LIBRARIES)
 include_directories("${CMAKE_BINARY_DIR}/include"
                     "${CMAKE_SOURCE_DIR}/include"
                     "${CMAKE_SOURCE_DIR}/src"
-                    "${Python3_INCLUDE_DIRS}"
+                    "${PYTHON_INCLUDE_DIRS}"
                     "${NVSTRINGS_INCLUDE}")
 
 ###################################################################################################
 # - library paths ---------------------------------------------------------------------------------
 
 link_directories("${CMAKE_BINARY_DIR}/lib"
-                 "${Python3_LIBRARIES}"
+                 "${PYTHON_LIBRARIES}"
                  "${NVSTRINGS_LIBRARY}"
                  "${NVCATEGORY_LIBRARY}"
                  "${NVTEXT_LIBRARY}")
