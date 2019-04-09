@@ -175,7 +175,7 @@ add_custom_command(OUTPUT install_python_command
                    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR}/../../python pip install .
                    VERBATIM)
 
-add_custom_target(install_python DEPENDS install_python_command)
+add_custom_target(install_python DEPENDS install_python_command python_cpp)
 
 add_custom_command(OUTPUT develop_python_command
                    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
@@ -185,4 +185,4 @@ add_custom_command(OUTPUT develop_python_command
                    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR}/../../python pip install -e .
                    VERBATIM)
 
-add_custom_target(develop_python DEPENDS develop_python_command)
+add_custom_target(develop_python DEPENDS develop_python_command python_cpp)
