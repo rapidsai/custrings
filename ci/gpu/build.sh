@@ -40,7 +40,7 @@ env
 
 logger "Activate conda env..."
 source activate gdf
-conda install -c rapidsai/label/cuda${CUDA_REL} -c rapidsai-nightly/label/cuda${CUDA_REL} librmm==0.7.*
+conda install librmm==0.7.*
 
 logger "Check versions..."
 python --version
@@ -79,7 +79,7 @@ logger "Building custrings..."
 mkdir -p $WORKSPACE/cpp/build
 cd $WORKSPACE/cpp/build
 logger "Run cmake custrings..."
-cmake -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DCMAKE_CXX11_ABI=ON ..
+cmake -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DCMAKE_CXX11_ABI=ON -DPython3_ROOT_DIR=$CONDA_PREFIX ..
 
 logger "Clean up make..."
 make clean
