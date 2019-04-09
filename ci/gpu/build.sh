@@ -38,12 +38,8 @@ export GIT_DESCRIBE_NUMBER=`git rev-list ${GIT_DESCRIBE_TAG}..HEAD --count`
 logger "Get env..."
 env
 
-logger "Init conda..."
-conda init
-source ~/.bashrc
-
 logger "Activate conda env..."
-conda activate gdf
+source activate gdf
 conda install -y librmm==0.7.*
 pip install cmake_setuptools
 
