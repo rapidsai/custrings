@@ -18,17 +18,16 @@ build:
     - CC
     - CXX
     - CUDAHOSTCXX
-    - CMAKE_CXX11_ABI
     - CUDA_VERSION
 
 requirements:
   build:
     - cmake >=3.12
-    - cmake_setuptools >=0.1.3
     - python
   host:
     - python
     - setuptools
+    - cmake_setuptools 0.1.3.*
     - librmm 0.7.*
   run:
     - python

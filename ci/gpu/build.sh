@@ -18,9 +18,6 @@ export CUDA_REL=${CUDA_VERSION%.*}
 # Define path to nvcc
 export CUDACXX=/usr/local/cuda/bin/nvcc
 
-# Enable ABI builds
-export CMAKE_CXX11_ABI=ON
-
 # Set home to the job's workspace
 export HOME=$WORKSPACE
 
@@ -92,7 +89,7 @@ make install
 
 logger "Install custrings python..."
 cd ../../python
-pip install .
+python setup.py install --single-version-externally-managed --record=record.txt
 
 ################################################################################
 # TEST - something

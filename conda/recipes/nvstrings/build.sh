@@ -17,4 +17,4 @@ cmake $CMAKE_COMMON_VARIABLES ..
 make -j${PARALLEL_LEVEL} VERBOSE=1 install
 # build/install python
 cd ../../python
-pip install .
+$PYTHON setup.py install --single-version-externally-managed --record=record.txt
