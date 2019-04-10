@@ -1,8 +1,9 @@
 import os
 
 from setuptools import setup
-from pip_correction import convert_to_manylinux
-from cmake_setuptools import CMakeExtension, CMakeBuildExt
+from cmake_setuptools import (
+    CMakeExtension, CMakeBuildExt, convert_to_manylinux
+)
 
 install_requires = []
 
