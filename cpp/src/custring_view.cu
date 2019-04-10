@@ -15,6 +15,7 @@
 */
 
 #include <memory.h>
+#include <math.h>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 #include <thrust/system/cuda/execution_policy.h>
@@ -1069,8 +1070,8 @@ __device__ custring_view* custring_view::replace(unsigned int pos, unsigned int 
     char* sptr = (char*)(this->data());
     custring_view* str = create_from(mem);
     char* optr = str->data();
-    if((pos >= end) || // range overlaps itself
-        (pos > nchars)) // outside of string's range
+    if((pos > end) ||  // range overlaps itself
+       (pos > nchars)) // outside of string's range
     {
         memcpy(optr, sptr, sz);
         str->init_fields(sz);
@@ -1109,8 +1110,8 @@ __device__ custring_view* custring_view::replace(unsigned int pos, unsigned int 
     char* sptr = this->data();
     custring_view* str = create_from(mem);
     char* optr = str->data();
-    if((pos >= end) || // range overlaps itself
-        (pos > nchars)) // outside of string's range
+    if((pos > end) ||  // range overlaps itself
+       (pos > nchars)) // outside of string's range
     {
         memcpy(optr, sptr, sz);
         str->init_fields(sz);
@@ -1151,8 +1152,8 @@ __device__ unsigned int custring_view::replace_size(unsigned int pos, unsigned i
     unsigned int end = pos + length;
     if(end > chars) // end is non-inclusize
         end = chars;
-    if((pos >= end) || // range overlaps itself
-        (pos > chars))  // outside of string's range
+    if((pos > end) ||  // range overlaps itself
+       (pos > chars))  // outside of string's range
         return alloc_size();
     //
     unsigned int left = offset_for_char_pos(pos);
@@ -1172,8 +1173,8 @@ __device__ unsigned int custring_view::replace_size(unsigned int pos, unsigned i
     unsigned int end = pos + length;
     if(end > chars) // end is non-inclusize
         end = chars;
-    if((pos >= end) || // range overlaps itself
-        (pos > chars))  // outside of string's range
+    if((pos > end) ||  // range overlaps itself
+       (pos > chars))  // outside of string's range
         return alloc_size();
     //
     unsigned int left = offset_for_char_pos(pos);
@@ -1619,25 +1620,7 @@ __device__ unsigned int custring_view::rstrip_size(const char* tgts) const
 // these expect only numbers (ascii charset)
 __device__ int custring_view::stoi() const
 {
-    char* ptr = (char*)data();
-    if(!ptr)
-        return 0; // probably should be an assert
-    int value = 0, sign = 1;
-    unsigned int sz = size();
-    if(*ptr == '-' || *ptr == '+')
-    {
-        sign = (*ptr == '-' ? -1 : 1);
-        ++ptr;
-        --sz;
-    }
-    for(unsigned int idx = 0; idx < sz; ++idx)
-    {
-        char ch = *ptr++;
-        if(ch < '0' || ch > '9')
-            break;
-        value = (value * 10) + (int)(ch - '0');
-    }
-    return value * sign;
+    return (int)stol();
 }
 
 __device__ long custring_view::stol() const
@@ -1659,7 +1642,7 @@ __device__ long custring_view::stol() const
         char ch = *ptr++;
         if(ch < '0' || ch > '9')
             break;
-        value = (value * 10) + (long)(ch - '0');
+        value = (value * 10L) + (long)(ch - '0');
     }
     return value * (long)sign;
 }
@@ -1684,34 +1667,7 @@ __device__ unsigned long custring_view::stoul() const
 
 __device__ float custring_view::stof() const
 {
-    char* ptr = (char*)data();
-    if(!ptr)
-        return 0.0f; // probably should be an assert
-
-    float value = 0, factor = 1;
-    unsigned int sz = size();
-    if(*ptr == '-' || *ptr == '+')
-    {
-        factor = (*ptr == '-' ? -1 : 1);
-        ++ptr;
-        --sz;
-    }
-    bool decimal = false;
-    for(unsigned int idx = 0; idx < sz; ++idx)
-    {
-        char ch = *ptr++;
-        if(ch == '.')
-        {
-            decimal = true;
-            continue;
-        }
-        if(ch < '0' || ch > '9')
-            break;
-        if(decimal)
-            factor /= 10.0f;
-        value = value * 10.0f + (float)(ch - '0'); // this seems like we could run out of space in value
-    }
-    return value * factor;
+    return (float)stod();
 }
 
 __device__ double custring_view::stod() const
@@ -1719,31 +1675,107 @@ __device__ double custring_view::stod() const
     char* ptr = (char*)data();
     if(!ptr)
         return 0.0; // probably should be an assert
-
-    double value = 0, factor = 1;
     unsigned int sz = size();
+    if( sz==0 )
+        return 0.0;
+    char* end = ptr + sz;
+    double sign = 1.0;
     if(*ptr == '-' || *ptr == '+')
     {
-        factor = (*ptr == '-' ? -1 : 1);
+        sign = (*ptr == '-' ? -1 : 1);
         ++ptr;
-        --sz;
     }
+    unsigned int digits = 0;
+    int exp_off = 0;
     bool decimal = false;
-    for(unsigned int idx = 0; idx < sz; ++idx)
+    while( ptr < end )
     {
-        char ch = *ptr++;
+        char ch = *ptr;
         if(ch == '.')
         {
             decimal = true;
+            ++ptr;
             continue;
         }
         if(ch < '0' || ch > '9')
             break;
-        if(decimal)
-            factor /= 10.0;
-        value = value * 10.0 + (double)(ch - '0'); // see float above
+        digits = (digits * 10) + (unsigned int)(ch-'0');
+        exp_off -= (int)decimal;
+        ++ptr;
     }
-    return value * factor;
+    // check for exponent char
+    int exp10 = 0;
+    int exp_sign = 1;
+    if( ptr < end )
+    {
+        char ch = *ptr++;
+        if( ch=='e' || ch=='E' )
+        {
+            if( ptr < end )
+            {
+                ch = *ptr++;
+                if( ch=='-' || ch=='+' )
+                    exp_sign = (ch=='-' ? -1 : 1);
+                while( ptr < end )
+                {
+                    ch = *ptr++;
+                    if(ch < '0' || ch > '9')
+                        break;
+                    exp10 = (exp10 * 10) + (int)(ch-'0');
+                }
+            }
+        }
+    }
+    exp10 *= exp_sign;
+    exp10 += exp_off;
+    double value = (double)digits * pow(10.0,(double)exp10);
+    return (value * sign);
+}
+
+__device__ custring_view* custring_view::ltos( long value, void* mem )
+{
+    if( value==0 )
+        return create_from(mem,"0",1);
+    char* str = (char*)mem;
+    char* ptr = str;
+    bool sign = value < 0;
+    if( sign )
+        value = -value;
+    while( value > 0 )
+    {
+        char ch = '0' + (value % 10);
+        *ptr++ = ch;
+        value = value/10;
+    }
+    if( sign )
+        *ptr++ = '-';
+    // number is backwards, so let's reverse it
+    int len = (int)(ptr-str);
+    for( int j=0; j<(len/2); ++j )
+    {
+        char ch1 = str[j];
+        char ch2 = str[len-j-1];
+        str[j] = ch2;
+        str[len-j-1] = ch1;
+    }
+    return create_from(str,str,len);
+}
+
+__device__ unsigned int custring_view::ltos_size( long value )
+{
+    if( value==0 )
+        return alloc_size(1,1);
+    bool sign = value < 0;
+    if( sign )
+        value = -value;
+    int digits = 0; // count the digits
+    while( value > 0 )
+    {
+        ++digits;
+        value = value/10;
+    }
+    int bytes = digits + (int)sign;
+    return alloc_size(bytes,bytes);
 }
 
 //

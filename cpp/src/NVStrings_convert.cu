@@ -15,6 +15,7 @@
 */
 
 #include <stdlib.h>
+#include <math.h>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #include <thrust/device_vector.h>
@@ -28,10 +29,6 @@
 #include "NVStringsImpl.h"
 #include "custring_view.cuh"
 #include "Timing.h"
-
-#ifdef __INTELLISENSE__
-double log10(double);
-#endif
 
 //
 int NVStrings::hash(unsigned int* results, bool todevice)
@@ -104,6 +101,41 @@ int NVStrings::stoi(int* results, bool todevice)
 }
 
 //
+int NVStrings::stol(long* results, bool todevice)
+{
+    unsigned int count = size();
+    if( count==0 || results==0 )
+        return -1;
+
+    auto execpol = rmm::exec_policy(0);
+    long* d_rtn = results;
+    if( !todevice )
+        RMM_ALLOC(&d_rtn,count*sizeof(long),0);
+
+    double st = GetTime();
+    custring_view** d_strings = pImpl->getStringsPtr();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_strings, d_rtn] __device__(unsigned int idx){
+            custring_view* dstr = d_strings[idx];
+            if( dstr )
+                d_rtn[idx] = dstr->stol();
+            else
+                d_rtn[idx] = 0L;
+        });
+    //
+    printCudaError(cudaDeviceSynchronize(),"nvs-stol");
+    double et = GetTime();
+    pImpl->addOpTimes("stol",0.0,(et-st));
+    int zeros = thrust::count(execpol->on(0),d_rtn,d_rtn+count,0);
+    if( !todevice )
+    {
+        cudaMemcpy(results,d_rtn,sizeof(long)*count,cudaMemcpyDeviceToHost);
+        RMM_FREE(d_rtn,0);
+    }
+    return (int)count-zeros;
+}
+
+//
 int NVStrings::stof(float* results, bool todevice)
 {
     unsigned int count = size();
@@ -133,6 +165,41 @@ int NVStrings::stof(float* results, bool todevice)
     if( !todevice )
     {
         cudaMemcpy(results,d_rtn,sizeof(float)*count,cudaMemcpyDeviceToHost);
+        RMM_FREE(d_rtn,0);
+    }
+    return (int)count-zeros;
+}
+
+//
+int NVStrings::stod(double* results, bool todevice)
+{
+    unsigned int count = size();
+    if( count==0 || results==0 )
+        return -1;
+
+    auto execpol = rmm::exec_policy(0);
+    double* d_rtn = results;
+    if( !todevice )
+        RMM_ALLOC(&d_rtn,count*sizeof(double),0);
+
+    double st = GetTime();
+    custring_view** d_strings = pImpl->getStringsPtr();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_strings, d_rtn] __device__(unsigned int idx){
+            custring_view* dstr = d_strings[idx];
+            if( dstr )
+                d_rtn[idx] = dstr->stod();
+            else
+                d_rtn[idx] = 0.0;
+        });
+    //
+    printCudaError(cudaDeviceSynchronize(),"nvs-stod");
+    double et = GetTime();
+    pImpl->addOpTimes("stod",0.0,(et-st));
+    int zeros = thrust::count(execpol->on(0),d_rtn,d_rtn+count,0);
+    if( !todevice )
+    {
+        cudaMemcpy(results,d_rtn,sizeof(double)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
     return (int)count-zeros;
@@ -229,22 +296,7 @@ NVStrings* NVStrings::itos(const int* values, unsigned int count, const unsigned
                 return;
             }
             int value = d_values[idx];
-            if( value==0 )
-            {   // yes, zero is a digit man
-                d_sizes[idx] = ALIGN_SIZE(custring_view::alloc_size(1,1));
-                return;
-            }
-            bool sign = value < 0;
-            if( sign )
-                value = -value;
-            int digits = 0; // count the digits
-            while( value > 0 )
-            {
-                ++digits;
-                value = value/10;
-            }
-            int bytes = digits + (int)sign;
-            int size = custring_view::alloc_size(bytes,bytes);
+            int size = custring_view::ltos_size(value);
             d_sizes[idx] = ALIGN_SIZE(size);
         });
 
@@ -263,39 +315,445 @@ NVStrings* NVStrings::itos(const int* values, unsigned int count, const unsigned
             }
             char* str = d_buffer + d_offsets[idx];
             int value = d_values[idx];
-            if( value==0 )
-            {
-                d_strings[idx] = custring_view::create_from(str,"0",1);
-                return;
-            }
-            char* ptr = str;
-            bool sign = value < 0;
-            if( sign )
-                value = -value;
-            while( value > 0 )
-            {
-                char ch = '0' + (value % 10);
-                *ptr++ = ch;
-                value = value/10;
-            }
-            if( sign )
-                *ptr++ = '-';
-            // number is backwards, so let's reverse it
-            // should make this a custring method
-            int len = (int)(ptr-str);
-            for( int j=0; j<(len/2); ++j )
-            {
-                char ch1 = str[j];
-                char ch2 = str[len-j-1];
-                str[j] = ch2;
-                str[len-j-1] = ch1;
-            }
-            d_strings[idx] = custring_view::create_from(str,str,len);
+            d_strings[idx] = custring_view::ltos(value,str);
         });
     //
     cudaError_t err = cudaDeviceSynchronize();
     if( err != cudaSuccess )
         printCudaError(err,"nvs-itos");
+    // done
+    if( !bdevmem )
+        RMM_FREE(d_values,0);
+    return rtn;
+}
+
+NVStrings* NVStrings::ltos(const long* values, unsigned int count, const unsigned char* nullbitmask, bool bdevmem)
+{
+    if( values==0 || count==0 )
+        return 0;
+    auto execpol = rmm::exec_policy(0);
+    NVStrings* rtn = new NVStrings(count);
+
+    long* d_values = (long*)values;
+    unsigned char* d_nulls = (unsigned char*)nullbitmask;
+    if( !bdevmem )
+    {
+        RMM_ALLOC(&d_values,count*sizeof(long),0);
+        cudaMemcpy(d_values,values,count*sizeof(long),cudaMemcpyHostToDevice);
+        if( nullbitmask )
+        {
+            RMM_ALLOC(&d_nulls,((count+7)/8)*sizeof(unsigned char),0);
+            cudaMemcpy(d_nulls,nullbitmask,((count+7)/8)*sizeof(unsigned char),cudaMemcpyHostToDevice);
+        }
+    }
+
+    // compute size of memory we'll need
+    rmm::device_vector<size_t> sizes(count,0);
+    size_t* d_sizes = sizes.data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_values, d_nulls, d_sizes] __device__ (unsigned int idx) {
+            if( d_nulls && ((d_nulls[idx/8] & (1 << (idx % 8)))==0) )
+            {
+                d_sizes[idx] = 0;
+                return;
+            }
+            long value = d_values[idx];
+            int size = custring_view::ltos_size(value);
+            d_sizes[idx] = ALIGN_SIZE(size);
+        });
+
+    rmm::device_vector<size_t> offsets(count,0);
+    size_t* d_offsets = offsets.data().get();
+    thrust::exclusive_scan(execpol->on(0),sizes.begin(),sizes.end(),offsets.begin());
+    // build strings from integers
+    char* d_buffer = rtn->pImpl->createMemoryFor(d_sizes);
+    custring_view_array d_strings = rtn->pImpl->getStringsPtr();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_buffer, d_offsets, d_nulls, d_values, d_strings] __device__(unsigned int idx){
+            if( d_nulls && ((d_nulls[idx/8] & (1 << (idx % 8)))==0) ) // from arrow spec
+            {
+                d_strings[idx] = 0;
+                return;
+            }
+            char* str = d_buffer + d_offsets[idx];
+            long value = d_values[idx];
+            d_strings[idx] = custring_view::ltos(value,str);
+        });
+    //
+    cudaError_t err = cudaDeviceSynchronize();
+    if( err != cudaSuccess )
+        printCudaError(err,"nvs-ltos");
+    // done
+    if( !bdevmem )
+        RMM_FREE(d_values,0);
+    return rtn;
+}
+
+struct ftos_converter
+{
+    // significant digits is independent of scientific notation range
+    // digits more than this may require using long values instead of ints
+    const unsigned int significant_digits = 10;
+    // maximum power-of-10 that will fit in 32-bits
+    const unsigned int nine_digits = 1000000000; // 1x10^9
+    // Range of numbers here is for normalizing the value.
+    // If the value is above or below the following limits, the output is converted to
+    // scientific notation in order to show (at most) the number of significant digits.
+    const double upper_limit = 1000000000; // max is 1x10^9
+    const double lower_limit = 0.0001; // printf uses scientific notation below this
+    // Tables for doing normalization: converting to exponent form
+    // IEEE double float has maximum exponent of 305 so these should cover everthing
+    const double upper10[9]  = { 10, 100, 10000, 1e8,  1e16,  1e32,  1e64,  1e128,  1e256 };
+    const double lower10[9]  = { .1, .01, .0001, 1e-8, 1e-16, 1e-32, 1e-64, 1e-128, 1e-256 };
+    const double blower10[9] = { 1.0, .1, .001,  1e-7, 1e-15, 1e-31, 1e-63, 1e-127, 1e-255 };
+
+    // utility for quickly converting known integer range to character array
+    __device__ char* int2str( int value, char* output )
+    {
+        if( value==0 )
+        {
+            *output++ = '0';
+            return output;
+        }
+        char buffer[10]; // should be big-enough for 10 significant digits
+        char* ptr = buffer;
+        while( value > 0 )
+        {
+            *ptr++ = (char)('0' + (value % 10));
+            value /= 10;
+        }
+        while( ptr != buffer )
+            *output++ = *--ptr;  // 54321 -> 12345
+        return output;
+    }
+
+    //
+    // dissect value into parts
+    // return decimal_places
+    __device__ int dissect_value( double value, unsigned int& integer, unsigned int& decimal, int& exp10 )
+    {
+        // dissect float into parts
+        int decimal_places = significant_digits-1;
+        // normalize step puts value between lower-limit and upper-limit
+        // by adjusting the exponent up or down
+        exp10 = 0;
+        if( value > upper_limit )
+        {
+            int fx = 256;
+            for( int idx=8; idx >= 0; --idx )
+            {
+                if( value >= upper10[idx] )
+                {
+                    value *= lower10[idx];
+                    exp10 += fx;
+                }
+                fx = fx >> 1;
+            }
+        }
+        else if( (value > 0.0) && (value < lower_limit) )
+        {
+            int fx = 256;
+            for( int idx=8; idx >= 0; --idx )
+            {
+                if( value < blower10[idx] )
+                {
+                    value *= upper10[idx];
+                    exp10 -= fx;
+                }
+                fx = fx >> 1;
+            }
+        }
+        //
+        unsigned int max_digits = nine_digits;
+        integer = (unsigned int)value;
+        for( unsigned int i=integer; i >= 10; i/=10 )
+        {
+            --decimal_places;
+            max_digits /= 10;
+        }
+        double remainder = (value - (double)integer) * (double)max_digits;
+        //printf("remainder=%g,value=%g,integer=%u,sd=%u\n",remainder,value,integer,max_digits);
+        decimal = (unsigned int)remainder;
+        remainder -= (double)decimal;
+        //printf("remainder=%g,decimal=%u\n",remainder,decimal);
+        decimal += (unsigned int)(2.0*remainder);
+        if( decimal >= max_digits )
+        {
+            decimal = 0;
+            ++integer;
+            if( exp10 && (integer >= 10) )
+            {
+                ++exp10;
+                integer = 1;
+            }
+        }
+        //
+        while( (decimal % 10)==0 && (decimal_places > 0) )
+        {
+            decimal /= 10;
+            --decimal_places;
+        }
+        return decimal_places;
+    }
+
+    //
+    // Converts value to string into output
+    // Output need not be more than significant_digits+7
+    // 7 = 1 sign, 1 decimal point, 1 exponent ('e'), 1 exponent-sign, 3 digits for exponent
+    //
+    __device__ int float_to_string( double value, char* output )
+    {
+        // check for valid value
+        if( isnan(value) )
+        {
+            memcpy(output,"NaN",3);
+            return 3;
+        }
+        bool bneg = false;
+        if( value < 0.0 )
+        {
+            value = -value;
+            bneg = true;
+        }
+        if( isinf(value) )
+        {
+            if( bneg )
+                memcpy(output,"-Inf",4);
+            else
+                memcpy(output,"Inf",3);
+            return bneg ? 4 : 3;
+        }
+
+        // dissect value into components
+        unsigned int integer = 0, decimal = 0;
+        int exp10 = 0;
+        int decimal_places = dissect_value(value,integer,decimal,exp10);
+        //
+        // now build the string from the
+        // components: sign, integer, decimal, exp10, decimal_places
+        //
+        // sign
+        char* ptr = output;
+        if( bneg )
+            *ptr++ = '-';
+        // integer
+        ptr = int2str(integer,ptr);
+        // decimal
+        if( decimal_places )
+        {
+            *ptr++ = '.';
+            char buffer[10];
+            char* pb = buffer;
+            while( decimal_places-- )
+            {
+                *pb++ = (char)('0' + (decimal % 10));
+                decimal /= 10;
+            }
+            while( pb != buffer )  // reverses the digits
+                *ptr++ = *--pb;    // e.g. 54321 -> 12345
+        }
+        // exponent
+        if( exp10 )
+        {
+            *ptr++ = 'e';
+            if( exp10 < 0 )
+            {
+                *ptr++ ='-';
+                exp10 = -exp10;
+            }
+            else
+                *ptr++ ='+';
+            if( exp10 < 10 )
+                *ptr++ = '0'; // extra zero-pad
+            ptr = int2str(exp10,ptr);
+        }
+        // done
+        //*ptr = 0; // null-terminator
+
+        return (int)(ptr-output);
+    }
+
+    // need to compute how much memory is needed to
+    // hold the output string (not including null)
+    __device__ int compute_ftos_size( double value )
+    {
+        if( isnan(value) )
+            return 3; // NaN
+        bool bneg = false;
+        if( value < 0.0 )
+        {
+            value = -value;
+            bneg = true;
+        }
+        if( isinf(value) )
+            return 3 + (int)bneg; // Inf
+
+        // dissect float into parts
+        unsigned int integer = 0, decimal = 0;
+        int exp10 = 0;
+        int decimal_places = dissect_value(value,integer,decimal,exp10);
+        // now count up the components
+        // sign
+        int count = (int)bneg;
+        // integer
+        count += (int)(integer==0);
+        while( integer > 0 )
+        {
+            integer /= 10;
+            ++count;
+        } // log10(integer)
+        // decimal
+        if( decimal_places )
+        {
+            ++count; // decimal point
+            count += decimal_places;
+        }
+        // exponent
+        if( exp10 )
+        {
+            count += 2; // 'e±'
+            if( exp10 < 0 )
+                exp10 = -exp10;
+            count += (int)(exp10<10); // padding
+            while( exp10 > 0 )
+            {
+                exp10 /= 10;
+                ++count;
+            } // log10(exp10)
+        }
+
+        return count;
+    }
+};
+
+// build strings from given floats
+NVStrings* NVStrings::ftos(const float* values, unsigned int count, const unsigned char* nullbitmask, bool bdevmem)
+{
+    if( values==0 || count==0 )
+        return 0;
+    auto execpol = rmm::exec_policy(0);
+    NVStrings* rtn = new NVStrings(count);
+
+    float* d_values = (float*)values;
+    unsigned char* d_nulls = (unsigned char*)nullbitmask;
+    if( !bdevmem )
+    {
+        RMM_ALLOC(&d_values,count*sizeof(float),0);
+        cudaMemcpy(d_values,values,count*sizeof(float),cudaMemcpyHostToDevice);
+        if( nullbitmask )
+        {
+            RMM_ALLOC(&d_nulls,((count+7)/8)*sizeof(unsigned char),0);
+            cudaMemcpy(d_nulls,nullbitmask,((count+7)/8)*sizeof(unsigned char),cudaMemcpyHostToDevice);
+        }
+    }
+
+    // compute size of memory we'll need
+    rmm::device_vector<size_t> sizes(count,0);
+    size_t* d_sizes = sizes.data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_values, d_nulls, d_sizes] __device__ (unsigned int idx) {
+            if( d_nulls && ((d_nulls[idx/8] & (1 << (idx % 8)))==0) )
+            {
+                d_sizes[idx] = 0;
+                return;
+            }
+            float value = d_values[idx];
+            ftos_converter fts;
+            int bytes = fts.compute_ftos_size((double)value);
+            int size = custring_view::alloc_size(bytes,bytes);
+            d_sizes[idx] = ALIGN_SIZE(size);
+        });
+
+    rmm::device_vector<size_t> offsets(count,0);
+    size_t* d_offsets = offsets.data().get();
+    thrust::exclusive_scan(execpol->on(0),sizes.begin(),sizes.end(),offsets.begin());
+    // build strings from integers
+    char* d_buffer = rtn->pImpl->createMemoryFor(d_sizes);
+    custring_view_array d_strings = rtn->pImpl->getStringsPtr();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_buffer, d_offsets, d_nulls, d_values, d_strings] __device__(unsigned int idx){
+            if( d_nulls && ((d_nulls[idx/8] & (1 << (idx % 8)))==0) ) // from arrow spec
+            {
+                d_strings[idx] = 0;
+                return;
+            }
+            char* str = d_buffer + d_offsets[idx];
+            float value = d_values[idx];
+            ftos_converter fts;
+            int len = fts.float_to_string((double)value,str);
+            d_strings[idx] = custring_view::create_from(str,str,len);
+        });
+    //
+    cudaError_t err = cudaDeviceSynchronize();
+    if( err != cudaSuccess )
+        printCudaError(err,"nvs-ftos");
+    // done
+    if( !bdevmem )
+        RMM_FREE(d_values,0);
+    return rtn;
+}
+
+// build strings from given doubles
+NVStrings* NVStrings::dtos(const double* values, unsigned int count, const unsigned char* nullbitmask, bool bdevmem)
+{
+    if( values==0 || count==0 )
+        return 0;
+    auto execpol = rmm::exec_policy(0);
+    NVStrings* rtn = new NVStrings(count);
+
+    double* d_values = (double*)values;
+    unsigned char* d_nulls = (unsigned char*)nullbitmask;
+    if( !bdevmem )
+    {
+        RMM_ALLOC(&d_values,count*sizeof(double),0);
+        cudaMemcpy(d_values,values,count*sizeof(double),cudaMemcpyHostToDevice);
+        if( nullbitmask )
+        {
+            RMM_ALLOC(&d_nulls,((count+7)/8)*sizeof(unsigned char),0);
+            cudaMemcpy(d_nulls,nullbitmask,((count+7)/8)*sizeof(unsigned char),cudaMemcpyHostToDevice);
+        }
+    }
+
+    // compute size of memory we'll need
+    rmm::device_vector<size_t> sizes(count,0);
+    size_t* d_sizes = sizes.data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_values, d_nulls, d_sizes] __device__ (unsigned int idx) {
+            if( d_nulls && ((d_nulls[idx/8] & (1 << (idx % 8)))==0) )
+            {
+                d_sizes[idx] = 0;
+                return;
+            }
+            double value = d_values[idx];
+            ftos_converter fts;
+            int bytes = fts.compute_ftos_size(value);
+            int size = custring_view::alloc_size(bytes,bytes);
+            d_sizes[idx] = ALIGN_SIZE(size);
+        });
+
+    rmm::device_vector<size_t> offsets(count,0);
+    size_t* d_offsets = offsets.data().get();
+    thrust::exclusive_scan(execpol->on(0),sizes.begin(),sizes.end(),offsets.begin());
+    // build strings from integers
+    char* d_buffer = rtn->pImpl->createMemoryFor(d_sizes);
+    custring_view_array d_strings = rtn->pImpl->getStringsPtr();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_buffer, d_offsets, d_nulls, d_values, d_strings] __device__(unsigned int idx){
+            if( d_nulls && ((d_nulls[idx/8] & (1 << (idx % 8)))==0) ) // from arrow spec
+            {
+                d_strings[idx] = 0;
+                return;
+            }
+            char* str = d_buffer + d_offsets[idx];
+            double value = d_values[idx];
+            ftos_converter fts;
+            int len = fts.float_to_string(value,str);
+            d_strings[idx] = custring_view::create_from(str,str,len);
+        });
+    //
+    cudaError_t err = cudaDeviceSynchronize();
+    if( err != cudaSuccess )
+        printCudaError(err,"nvs-dtos");
     // done
     if( !bdevmem )
         RMM_FREE(d_values,0);
@@ -826,7 +1284,7 @@ NVStrings* NVStrings::create_from_bools(const bool* values, unsigned int count, 
     RMM_ALLOC(&d_false,d_len_false+1,0);
     cudaMemcpy(d_false,false_string,d_len_false+1,cudaMemcpyHostToDevice);
     int d_as_false = custring_view::alloc_size(false_string,d_len_false);
-    
+
     bool* d_values = (bool*)values;
     unsigned char* d_nulls = (unsigned char*)nullbitmask;
     if( !bdevmem )

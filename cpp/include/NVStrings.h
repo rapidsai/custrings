@@ -22,6 +22,7 @@
  * @brief Class definition for NVStrings.
  */
 
+struct nvstrings_ipc_transfer;
 struct StringsStatistics;
 class custring_view;
 class NVStringsImpl;
@@ -122,6 +123,13 @@ public:
      * @return Instance with copy of the strings provided.
      */
     static NVStrings* create_from_strings( std::vector<NVStrings*> strs );
+    /**
+     * @brief Create an instance from an IPC-transfer object built from create_ipc_transfer.
+     *
+     * @param[in] ipc Data needed to create a new instance.
+     * @return Instance with data provided.
+     */
+    static NVStrings* create_from_ipc( nvstrings_ipc_transfer& ipc );
     ///@}
 
     /**
@@ -183,6 +191,13 @@ public:
      * @return 0 if successful.
      */
     int create_offsets( char* strs, int* offsets, unsigned char* nullbitmask=0, bool devmem=true );
+    /**
+     * @brief Create IPC-transfer data from this instance.
+     *
+     * @param[in,out] ipc Structure will be set with data needed by create_from_ipc method.
+     * @return 0 if successful.
+     */
+    int create_ipc_transfer( nvstrings_ipc_transfer& ipc );
     /**
      * @brief Set bit-array identifying the null strings.
      *
@@ -858,6 +873,14 @@ public:
      */
     int stoi(int* results, bool devmem=true);
     /**
+     * @brief Returns long integer values represented by each string.
+     * @param[in,out] results Array this method will fill in with the results.
+     *                        This must point to memory able to hold size() values.
+     * @param devmem Indicates whether results points to device memory or CPU memory.
+     * @return Number of non-zero values.
+     */
+    int stol(long* results, bool devmem=true);
+    /**
      * @brief Returns integer values represented by each string assuming hex characters.
      * @param[in,out] results Array this method will fill in with the results.
      *                        This must point to memory able to hold size() values.
@@ -874,6 +897,14 @@ public:
      */
     int stof(float* results, bool devmem=true);
     /**
+     * @brief Returns double values represented by each string.
+     * @param[in,out] results Array this method will fill in with the results.
+     *                        This must point to memory able to hold size() values.
+     * @param devmem Indicates whether results points to device memory or CPU memory.
+     * @return Number of non-zero values.
+     */
+    int stod(double* results, bool devmem=true);
+    /**
      * @brief Returns unsigned 32-bit hash value for each string.
      * @param[in,out] results Array this method will fill in with the results.
      *                        This must point to memory able to hold size() values.
@@ -889,9 +920,48 @@ public:
      *                        If specified, this array should be at least (count+7)/8 bytes.
      *                        The bits are expected to be organized in Arrow format.
      * @param devmem Indicates whether results and nullbitmask points to device memory or CPU memory.
-     * @return New instance with string representation of the integers as appropriate.
+     * @return New instance with string representation of the values as appropriate.
      */
     static NVStrings* itos(const int* values, unsigned int count, const unsigned char* nullbitmask=0, bool devmem=true);
+    /**
+     * @brief Returns string representation for the provided long integers.
+     * @param[in] values Array of long integers to convert to strings.
+     * @param count The number of long integers in the values parameter.
+     * @param[in] nullbitmask Indicates which entries should result in a null string.
+     *                        If specified, this array should be at least (count+7)/8 bytes.
+     *                        The bits are expected to be organized in Arrow format.
+     * @param devmem Indicates whether results and nullbitmask points to device memory or CPU memory.
+     * @return New instance with string representation of the values as appropriate.
+     */
+    static NVStrings* ltos(const long* values, unsigned int count, const unsigned char* nullbitmask=0, bool devmem=true);
+    /**
+     * @brief Returns string representation for the provided float values.
+     *
+     * Upto 10 significant digits are recorded.
+     * Numbers above 10^9 and numbers below 10^5 may be converted to scientific notation.
+     * @param[in] values Array of float values to convert to strings.
+     * @param count The number of float values in the values parameter.
+     * @param[in] nullbitmask Indicates which entries should result in a null string.
+     *                        If specified, this array should be at least (count+7)/8 bytes.
+     *                        The bits are expected to be organized in Arrow format.
+     * @param devmem Indicates whether results and nullbitmask points to device memory or CPU memory.
+     * @return New instance with string representation of the values as appropriate.
+     */
+    static NVStrings* ftos(const float* values, unsigned int count, const unsigned char* nullbitmask=0, bool devmem=true);
+    /**
+     * @brief Returns string representation for the provided double float values.
+     *
+     * Upto 10 significant digits are recorded.
+     * Numbers above 10^9 and numbers below 10^5 may be converted to scientific notation.
+     * @param[in] values Array of double float values to convert to strings.
+     * @param count The number of doiuble float values in the values parameter.
+     * @param[in] nullbitmask Indicates which entries should result in a null string.
+     *                        If specified, this array should be at least (count+7)/8 bytes.
+     *                        The bits are expected to be organized in Arrow format.
+     * @param devmem Indicates whether results and nullbitmask points to device memory or CPU memory.
+     * @return New instance with string representation of the values as appropriate.
+     */
+    static NVStrings* dtos(const double* values, unsigned int count, const unsigned char* nullbitmask=0, bool devmem=true);
     /**
      * @brief Returns boolean representation of the strings in this instance.
      *

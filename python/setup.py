@@ -10,6 +10,7 @@ cuda_version = ''.join(os.environ.get('CUDA_VERSION', 'unknown')
                          .split('.')[:2])
 name = 'nvstrings-cuda{}'.format(cuda_version)
 version = os.environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev0').lstrip('v')
+
 setup(
     name=name,
     description='CUDA strings Python bindings',

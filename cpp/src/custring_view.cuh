@@ -214,6 +214,9 @@ public:
     __device__ unsigned long stoul() const;
     __device__ float stof() const;
     __device__ double stod() const;
+    //
+    __device__ static custring_view* ltos( long value, void* mem );
+    __device__ static unsigned int ltos_size( long value );
 
     //
     __device__ bool starts_with( const char* str, unsigned int bytes ) const;

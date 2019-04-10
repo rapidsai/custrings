@@ -14,3 +14,8 @@ nvcategory
 ----------
 .. autoclass:: nvcategory
     :members:
+
+nvtext
+------
+.. automodule:: nvtext
+    :members:

@@ -4,6 +4,10 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 
 ## New Features
 
+- PR #195 Added IPC python bindings
+- PR #204 Added stol/ltos and stod/dtos number converters
+- PR #194 Added method to create strings from array of floats
+- PR #193 Added IPC transfer methods to C++ interface
 - PR #188 Rename rave to nvtext and publish in nvstrings package
 - PR #180 Added edit-distance to rave module
 - PR #176 Added match_strings to nvstrings
@@ -17,9 +21,14 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 - PR #167 Added doxygen to NVStrings.h and NVCategory.h
 - PR #183 Align version to 0.7
 - PR #192 Rework CMakeLists and separate RMM, update conda recipe and setup.py
+- PR #181 Update python docstrings to numpydoc style
+- PR #196 Include nvtext in python module setup
 
-#Bug Fixes
+## Bug Fixes
 
+- PR #207 Fixed handling empty pattern in findall/count
+- PR #202 Allow insert on start=stop in replace
+- PR #201 Fixed some pad examples in nvstrings.py doc comments
 - PR #186 Fixed memory error in booleans to strings method
 
 
@@ -98,4 +107,3 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 - PR #31 Change NVCategory values type from unsigned to signed int32
 - PR #11 handle unescaped end-brace edge-case
 - PR #157 Fix Python not being found by CMake
-

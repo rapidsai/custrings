@@ -317,18 +317,19 @@ int NVStrings::findall_record( const char* pattern, std::vector<NVStrings*>& res
                 return;
             unsigned int tsize = 0;;
             int fnd = 0, end = (int)dstr->chars_count();
-            int spos = 0, epos = end;
-            int result = prog->find(idx,dstr,spos,epos);
-            while(result > 0)
+            int spos = 0;
+            while(spos<=end)
             {
+                int epos = end;
+                int result = prog->find(dstr,spos,epos);
+                if(result<=0)
+                    break;
                 unsigned int bytes = (dstr->byte_offset_for(epos)-dstr->byte_offset_for(spos));
                 unsigned int nchars = (epos-spos);
                 unsigned int size = custring_view::alloc_size(bytes,nchars);
                 tsize += ALIGN_SIZE(size);
-                spos = epos;
-                epos = end;
                 ++fnd;
-                result = prog->find(idx,dstr,spos,epos); // next one
+                spos = epos>spos ? epos : spos + 1;
             }
             d_sizes[idx] = tsize;
             d_counts[idx] = fnd;
@@ -376,7 +377,7 @@ int NVStrings::findall_record( const char* pattern, std::vector<NVStrings*>& res
                 custring_view* str = dstr->substr((unsigned)spos,(unsigned)(epos-spos),1,buffer);
                 drow[i] = str;
                 buffer += ALIGN_SIZE(str->alloc_size());
-                spos = epos;
+                spos = epos>spos ? epos : spos + 1;
             }
         });
     //
@@ -410,14 +411,15 @@ int NVStrings::findall( const char* pattern, std::vector<NVStrings*>& results )
             if( !dstr )
                 return;
             int fnd = 0, nchars = (int)dstr->chars_count();
-            int begin = 0, end = nchars;
-            int result = prog->find(idx,dstr,begin,end);
-            while(result > 0)
+            int begin = 0;
+            while(begin<=nchars)
             {
+                int end = nchars;
+                int result = prog->find(dstr,begin,end);
+                if(result<=0)
+                    break;
                 ++fnd;
-                begin = end;
-                end = nchars;
-                result = prog->find(idx,dstr,begin,end); // next one
+                begin = end>begin ? end : begin + 1;
             }
             d_counts[idx] = fnd;
         });
@@ -444,8 +446,8 @@ int NVStrings::findall( const char* pattern, std::vector<NVStrings*>& results )
                 prog->find(idx,dstr,spos,epos);
                 for( int c=0; c < col; ++c )
                 {
-                    spos = epos;    // update
-                    epos = nchars;  // parameters
+                    spos = epos>spos ? epos : spos + 1;
+                    epos = nchars;
                     prog->find(idx,dstr,spos,epos);
                 }
                 // this will be the string for this column
@@ -708,14 +710,15 @@ int NVStrings::count_re( const char* pattern, int* results, bool todevice )
             {
                 fnd = 0;
                 int nchars = (int)dstr->chars_count();
-                int begin = 0, end = nchars;
-                int result = prog->find(idx,dstr,begin,end);
-                while(result > 0)
+                int begin = 0;
+                while(begin<=nchars)
                 {
-                    ++fnd; // count how many we find
-                    begin = end;
-                    end = nchars;
-                    result = prog->find(idx,dstr,begin,end);
+                    int end = nchars;
+                    int result = prog->find(dstr,begin,end);
+                    if(result<=0)
+                        break;
+                    ++fnd;
+                    begin = end>begin ? end : begin + 1;
                 }
             }
             d_rtn[idx] = fnd;
