@@ -23,11 +23,6 @@
 namespace custr
 {
     // convert string with numerical characters to number
-    __device__ int stoi( const char* str, size_t bytes )
-    {
-        return (int)stol(str,bytes);
-    }
-
     __device__ long stol( const char* str, size_t bytes )
     {
         const char* ptr = str;
@@ -51,6 +46,11 @@ namespace custr
         return value * sign;
     }
 
+    __device__ int stoi( const char* str, size_t bytes )
+    {
+        return (int)stol(str,bytes);
+    }
+
     __device__ unsigned long stoul( const char* str, size_t bytes )
     {
         const char* ptr = str;
@@ -67,11 +67,6 @@ namespace custr
             value = (value * 10) + (unsigned long)(chr - '0');
         }
         return value;
-    }
-
-    __device__ float stof( const char* str, size_t bytes )
-    {
-        return (float)stod(str,bytes);
     }
 
     __device__ double stod( const char* str, size_t bytes )
@@ -132,6 +127,11 @@ namespace custr
         exp10 += exp_off;
         double value = (double)digits * pow(10.0,(double)exp10);
         return (value * sign);
+    }
+
+    __device__ float stof( const char* str, size_t bytes )
+    {
+        return (float)stod(str,bytes);
     }
 
     __device__ unsigned int hash( const char* str, unsigned int bytes )
