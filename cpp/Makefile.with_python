@@ -1,0 +1,79 @@
+#
+# see the regular Makefile for some additional documentation
+#
+BUILD=build
+PY_HEADER_PATH=$(PYNI_PATH)/include/python${PYTHON_VERSION}m
+PY_LIB_PATH=$(PYNI_PATH)/lib/libpython${PYTHON_VERSION}m.so
+GENCODE=-gencode arch=compute_60,code=sm_60 -gencode arch=compute_70,code=sm_70
+CFLAGS=-shared -std=c++11 -fPIC -Isrc -Iinclude -I$(PY_HEADER_PATH)
+NVCFLAGS=-std=c++11 --expt-extended-lambda -Iinclude -I../thirdparty/rmm/include -Xcompiler -fPIC
+LFLAGS=-L. $(PY_LIB_PATH) -lrt
+NVLFLAGS=-L. -L/usr/local/cuda/lib64 -lcudart -lrt
+RPATH=-Wl,-rpath,.
+#RPATH=-Wl,-rpath,/conda/envs/gdf/lib/python3.6/site-packages/nvstrings-0.0.1a0-py3.6.egg
+#RPATH='-Wl,-rpath,$$ORIGIN/../../..'
+
+all: pyniNVStrings.so pyniNVCategory.so pyniNVText.so
+
+custring_view.o: src/custring_view.cu src/custring_view.cuh
+	nvcc $(NVCFLAGS) $(GENCODE) -dc $< -o $@
+
+custring.o: src/custring.cu src/custring.cuh
+	nvcc $(NVCFLAGS) $(GENCODE) -dc $< -o $@
+
+regexec.o: src/regex/regexec.cu src/regex/regex.cuh
+	nvcc $(NVCFLAGS) $(GENCODE) -dc $< -o $@
+
+regcomp.o: src/regex/regcomp.cpp src/regex/regcomp.h
+	nvcc $(NVCFLAGS) $(GENCODE) -dc $< -o $@
+
+util.o: src/util.cu include/NVStrings.h src/custring_view.cuh
+	nvcc $(NVCFLAGS) $(GENCODE) -dc $< -o $@
+
+NVStrings.o: src/NVStrings.cu include/NVStrings.h src/custring_view.cuh src/regex/regex.cuh
+	nvcc $(NVCFLAGS) $(GENCODE) -dc $< -o $@
+
+NVCategory.o: src/NVCategory.cu include/NVCategory.h include/NVStrings.h src/custring_view.cuh src/custring.cuh
+	nvcc $(NVCFLAGS) $(GENCODE) -dc $< -o $@
+
+NVText.o: src/NVText.cu include/NVText.h include/NVStrings.h src/custring_view.cuh src/custring.cuh
+	nvcc $(NVCFLAGS) $(GENCODE) -dc $< -o $@
+
+link_nvstrings.o: NVStrings.o util.o custring_view.o custring.o regexec.o regcomp.o
+	nvcc -Xcompiler -fPIC $(GENCODE) -dlink $^ -o $@
+
+link_nvcategory.o: NVCategory.o custring_view.o custring.o
+	nvcc -Xcompiler -fPIC $(GENCODE) -dlink $^ -o $@
+
+link_nvtext.o: NVText.o custring_view.o custring.o
+	nvcc -Xcompiler -fPIC $(GENCODE) -dlink $^ -o $@
+
+libNVStrings.so: NVStrings.o custring_view.o custring.o util.o regexec.o regcomp.o link_nvstrings.o
+	@mkdir -p $(BUILD)
+	g++ -shared -fPIC $^ $(NVLFLAGS) -Lbuild -lrmm -o $@ -Wl,-soname,$@ $(RPATH)
+	cp $@ $(BUILD)/.
+
+libNVCategory.so: NVCategory.o custring_view.o custring.o link_nvcategory.o libNVStrings.so
+	g++ -shared -fPIC $^ $(NVLFLAGS) -o $@ -Wl,-soname,$@ $(RPATH)
+	cp $@ $(BUILD)/.
+
+libNVText.so: NVText.o custring_view.o custring.o link_nvtext.o libNVStrings.so
+	g++ -shared -fPIC $^ $(NVLFLAGS) -o $@ -Wl,-soname,$@ $(RPATH)
+	cp $@ $(BUILD)/.
+
+pyniNVStrings.so: python/pystrings.cpp include/NVStrings.h libNVStrings.so
+	g++ $(CFLAGS) $< $(LFLAGS) -lNVStrings -o $@ -Wl,-soname,$@ $(RPATH)
+	cp $@ $(BUILD)/.
+
+pyniNVCategory.so: python/pycategory.cpp libNVCategory.so libNVStrings.so
+	g++ $(CFLAGS) $< $(LFLAGS) -lNVCategory -lNVStrings -o $@ -Wl,-soname,$@ $(RPATH)
+	cp $@ $(BUILD)/.
+
+pyniNVText.so: python/pytext.cpp libNVText.so libNVText.so
+	g++ $(CFLAGS) $< $(LFLAGS) -lNVText -lNVStrings -o $@ -Wl,-soname,$@ $(RPATH)
+	cp $@ $(BUILD)/.
+
+.PHONY: clean
+
+clean:
+	rm -f *.so *.a *.o $(BUILD)/*.so
