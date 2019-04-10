@@ -2147,10 +2147,15 @@ static PyObject* n_contains( PyObject* self, PyObject* args )
     int rc = 0;
     if( devptr )
     {
-        if( bregex )
-            rc = tptr->contains_re(str,devptr);
-        else
-            rc = tptr->contains(str,devptr);
+        //Save thread state and release the GIL as we do not operate on PyObjects
+        Py_BEGIN_ALLOW_THREADS
+            if( bregex )
+                rc = tptr->contains_re(str,devptr);
+            else
+                rc = tptr->contains(str,devptr);
+        //Restore thread state and acquire the GIL again.
+        Py_END_ALLOW_THREADS
+
         if( rc < 0 )
             Py_RETURN_NONE;
         return PyLong_FromVoidPtr((void*)devptr);
@@ -2160,10 +2165,14 @@ static PyObject* n_contains( PyObject* self, PyObject* args )
     if( count==0 )
         return PyList_New(0);
     bool* rtn = new bool[count];
-    if( bregex )
-        rc = tptr->contains_re(str,rtn,false);
-    else
-        rc = tptr->contains(str,rtn,false);
+
+    Py_BEGIN_ALLOW_THREADS
+        if( bregex )
+            rc = tptr->contains_re(str,rtn,false);
+        else
+            rc = tptr->contains(str,rtn,false);
+    Py_END_ALLOW_THREADS
+    
     if( rc < 0 )
     {
         delete rtn;
