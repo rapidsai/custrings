@@ -15,7 +15,7 @@
 #=============================================================================
 cmake_minimum_required (VERSION 3.12)
 
-project(pyniNVStrings VERSION 0.7.0 LANGUAGES C CXX)
+project(pyniNVStrings VERSION 0.7.0 LANGUAGES C CXX CUDA)
 
 ###################################################################################################
 # - build type ------------------------------------------------------------------------------------
@@ -40,6 +40,9 @@ set(CMAKE_C_COMPILER $ENV{CC})
 set(CMAKE_CXX_COMPILER $ENV{CXX})
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+set(CMAKE_CUDA_STANDARD 14)
+set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+
 SET(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 SET(CMAKE_INSTALL_RPATH "\$ORIGIN")
 
@@ -57,8 +60,17 @@ if(CMAKE_COMPILER_IS_GNUCXX)
         message(STATUS "NVStrings: Disabling the GLIBCXX11 ABI")
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
+        set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
     endif(NOT CMAKE_CXX11_ABI)
 endif(CMAKE_COMPILER_IS_GNUCXX)
+
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda -gencode=arch=compute_50,code=sm_50 -gencode=arch=compute_60,code=sm_60 -gencode=arch=compute_70,code=sm_70 -rdc=true")
+
+# Debug options
+if(CMAKE_BUILD_TYPE MATCHES Debug)
+    message(STATUS "Building with debugging flags")
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -G -Xcompiler -rdynamic")
+endif(CMAKE_BUILD_TYPE MATCHES Debug)
 
 option(BUILD_TESTS "Configure CMake to build tests" OFF)
 
@@ -128,7 +140,8 @@ include_directories("${CMAKE_BINARY_DIR}/include"
                     "${CMAKE_SOURCE_DIR}/include"
                     "${CMAKE_SOURCE_DIR}/src"
                     "${PYTHON_INCLUDE_DIRS}"
-                    "${NVSTRINGS_INCLUDE}")
+                    "${NVSTRINGS_INCLUDE}"
+                    "${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
 
 ###################################################################################################
 # - library paths ---------------------------------------------------------------------------------
@@ -137,7 +150,8 @@ link_directories("${CMAKE_BINARY_DIR}/lib"
                  "${PYTHON_LIBRARIES}"
                  "${NVSTRINGS_LIBRARY}"
                  "${NVCATEGORY_LIBRARY}"
-                 "${NVTEXT_LIBRARY}")
+                 "${NVTEXT_LIBRARY}"
+                 "${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES}")
 
 ###################################################################################################
 # - library targets -------------------------------------------------------------------------------
