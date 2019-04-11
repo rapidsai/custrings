@@ -20,9 +20,9 @@
 #include <stdio.h>
 #include <exception>
 #include <stdexcept>
-#include "NVStrings.h"
-#include "util.h"
-#include "ipc_transfer.h"
+#include <nvstrings/NVStrings.h>
+#include <nvstrings/util.h>
+#include <nvstrings/ipc_transfer.h>
 
 //
 // These are C-functions that simply map the python objects to appropriate methods

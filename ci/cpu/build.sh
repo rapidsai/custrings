@@ -17,9 +17,6 @@ export PARALLEL_LEVEL=4
 # Define path to nvcc
 export CUDACXX=/usr/local/cuda/bin/nvcc
 
-# Enable ABI builds
-export CMAKE_CXX11_ABI=ON
-
 # Set home to the job's workspace
 export HOME=$WORKSPACE
 
@@ -45,6 +42,7 @@ logger "Check versions..."
 python --version
 $CC --version
 $CXX --version
+conda config --get channels
 conda list
 $CUDACXX --version
 

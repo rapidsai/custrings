@@ -18,9 +18,6 @@ export CUDA_REL=${CUDA_VERSION%.*}
 # Define path to nvcc
 export CUDACXX=/usr/local/cuda/bin/nvcc
 
-# Enable ABI builds
-export CMAKE_CXX11_ABI=ON
-
 # Set home to the job's workspace
 export HOME=$WORKSPACE
 
@@ -40,14 +37,15 @@ env
 
 logger "Activate conda env..."
 source activate gdf
-pip install cmake_setuptools
+conda install -y 'librmm==0.7.*' 'cmake_setuptools>=0.1.3'
 
 logger "Check versions..."
 python --version
 $CC --version
 $CXX --version
-conda list
 $CUDACXX --version
+conda config --get channels
+conda list
 
 # FIX Added to deal with Anancoda SSL verification issues during conda builds
 conda config --set ssl_verify False
@@ -86,11 +84,12 @@ make clean
 logger "Make custrings..."
 make -j${PARALLEL_LEVEL}
 
-#logger "Install custrings..."
-#make -j${PARALLEL_LEVEL} install
-cp rmm/librmm.so .
-cp ../../python/*.py .
-cp ../../python/tests/*.py .
+logger "Install custrings cpp..."
+make install
+
+logger "Install custrings python..."
+cd ../../python
+python setup.py install --single-version-externally-managed --record=record.txt
 
 ################################################################################
 # TEST - something
@@ -100,5 +99,5 @@ logger "Check GPU usage..."
 nvidia-smi
 
 logger "Simple test..."
+cd tests
 python test_build.py
-

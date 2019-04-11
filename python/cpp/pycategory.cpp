@@ -20,9 +20,9 @@
 #include <stdio.h>
 #include <exception>
 #include <stdexcept>
-#include "NVCategory.h"
-#include "NVStrings.h"
-#include "util.h"
+#include <nvstrings/NVCategory.h>
+#include <nvstrings/NVStrings.h>
+#include <nvstrings/util.h>
 
 //
 //
