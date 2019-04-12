@@ -1204,7 +1204,7 @@ class nvstrings:
         ['hello ', 'goodbye', 'well  ']
 
         """
-        rtn = pyniNVStrings.n_ljust(self.m_cptr, width)
+        rtn = pyniNVStrings.n_ljust(self.m_cptr, width, fillchar)
         if rtn is not None:
             rtn = nvstrings(rtn)
         return rtn
@@ -1260,7 +1260,7 @@ class nvstrings:
         [' hello', 'goodbye', '  well']
 
         """
-        rtn = pyniNVStrings.n_rjust(self.m_cptr, width)
+        rtn = pyniNVStrings.n_rjust(self.m_cptr, width, fillchar)
         if rtn is not None:
             rtn = nvstrings(rtn)
         return rtn

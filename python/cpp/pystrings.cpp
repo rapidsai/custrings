@@ -1464,12 +1464,13 @@ static PyObject* n_pad( PyObject* self, PyObject* args )
 // left-justify (and right pad) each string
 static PyObject* n_ljust( PyObject* self, PyObject* args )
 {
-    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    PyObject* vo = 0;
     unsigned int width = 0;
-    PyObject* argOpt = PyTuple_GetItem(args,1);
-    if( argOpt != Py_None )
-        width = (unsigned int)PyLong_AsLong(argOpt);
-    NVStrings* rtn = tptr->ljust(width);
+    const char* fillchar = 0;
+    if( !parse_args("ljust",args,"OIz",&vo,&width,&fillchar) )
+        Py_RETURN_NONE;
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
+    NVStrings* rtn = tptr->ljust(width,fillchar);
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -1478,12 +1479,13 @@ static PyObject* n_ljust( PyObject* self, PyObject* args )
 // center each string and pad right/left
 static PyObject* n_center( PyObject* self, PyObject* args )
 {
-    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    PyObject* vo = 0;
     unsigned int width = 0;
-    PyObject* argOpt = PyTuple_GetItem(args,1);
-    if( argOpt != Py_None )
-        width = (unsigned int)PyLong_AsLong(argOpt);
-    NVStrings* rtn = tptr->center(width);
+    const char* fillchar = 0;
+    if( !parse_args("ljust",args,"OIz",&vo,&width,&fillchar) )
+        Py_RETURN_NONE;
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
+    NVStrings* rtn = tptr->center(width,fillchar);
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -1492,12 +1494,13 @@ static PyObject* n_center( PyObject* self, PyObject* args )
 // right justify each string (and left pad)
 static PyObject* n_rjust( PyObject* self, PyObject* args )
 {
-    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    PyObject* vo = 0;
     unsigned int width = 0;
-    PyObject* argOpt = PyTuple_GetItem(args,1);
-    if( argOpt != Py_None )
-        width = (unsigned int)PyLong_AsLong(argOpt);
-    NVStrings* rtn = tptr->rjust(width);
+    const char* fillchar = 0;
+    if( !parse_args("ljust",args,"OIz",&vo,&width,&fillchar) )
+        Py_RETURN_NONE;
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
+    NVStrings* rtn = tptr->rjust(width,fillchar);
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -1506,11 +1509,11 @@ static PyObject* n_rjust( PyObject* self, PyObject* args )
 // zero pads strings correctly that contain numbers
 static PyObject* n_zfill( PyObject* self, PyObject* args )
 {
-    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    PyObject* vo = 0;
     unsigned int width = 0;
-    PyObject* argOpt = PyTuple_GetItem(args,1);
-    if( argOpt != Py_None )
-        width = (unsigned int)PyLong_AsLong(argOpt);
+    if( !parse_args("zfill",args,"OI",&vo,&width) )
+        Py_RETURN_NONE;
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
     NVStrings* rtn = tptr->zfill(width);
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
