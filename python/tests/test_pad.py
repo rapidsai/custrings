@@ -15,8 +15,11 @@ print(".pad(7,right):",strs.pad(7,'right'))
 print(".pad(9,both,.):",strs.pad(9,'both','.'))
 
 print(".ljust(7):",strs.ljust(7))
+print(".ljust(7,_):",strs.ljust(7,'_'))
 print(".rjust(10):",strs.rjust(10))
+print(".rjust(10,+):",strs.rjust(10,'+'))
 print(".center(10):",strs.center(10))
+print(".center(10,*):",strs.center(10,'*'))
 print(".zfill(6):",strs.zfill(6))
 
 print(".repeat(3):",strs.repeat(3))
