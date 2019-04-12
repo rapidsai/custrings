@@ -63,11 +63,11 @@ cuStrings can be installed with conda ([miniconda](https://conda.io/miniconda.ht
 ```bash
 # for CUDA 9.2
 conda install -c nvidia -c rapidsai -c numba -c conda-forge -c defaults \
-    nvstrings=0.3 python=3.6
+    nvstrings=0.4 python=3.6
 
 # or, for CUDA 10.0
 conda install -c nvidia/label/cuda10.0 -c rapidsai/label/cuda10.0 -c numba \
-    -c conda-forge -c defaults nvstrings=0.3 python=3.6
+    -c conda-forge -c defaults nvstrings=0.4 python=3.6
 ```
 
 We also provide [nightly conda packages](https://anaconda.org/rapidsai-nightly) built from the tip of our latest development branch.
@@ -78,10 +78,10 @@ nvstrings can also be installed from [PyPi](https://pypi.org/project/nvstrings).
 
 ```bash
 # for CUDA 9.2
-python3.6 -m pip install nvstrings-cuda92==0.3
+python3.6 -m pip install nvstrings-cuda92==0.4
 
 # or, for CUDA 10.0
-python3.6 -m pip install nvstrings-cuda100==0.3
+python3.6 -m pip install nvstrings-cuda100==0.4
 ```
 
 Note: cuStrings is supported only on Linux, and with Python versions 3.6 or 3.7.
