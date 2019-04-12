@@ -16,6 +16,7 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 
 ## Improvements
 
+- PR #216 Fixed build instructions and removed obsolete doc/build files
 - PR #178 Added compute_statistics to C++ interface
 - PR #173 Added flake8 checks to for /python files
 - PR #167 Added doxygen to NVStrings.h and NVCategory.h

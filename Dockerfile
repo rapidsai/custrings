@@ -21,12 +21,13 @@ ENV LC_ALL en_US.UTF-8
 
 # Remove the cudf installed nvstrings
 RUN source activate ${CONDA_ENV} && \
-    conda remove nvstrings
+    conda remove nvstrings && \
+    pip install cmake_setuptools
 
 # Build
 RUN source activate ${CONDA_ENV} && \
     mkdir build && cd build && \
-    cmake .. && make -j
+    cmake .. && make -j install
 
 # Install
 WORKDIR /nvstrings/python
