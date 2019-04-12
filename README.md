@@ -1,6 +1,6 @@
 # <div align="left"><img src="img/rapids_logo.png" width="90px"/>&nbsp;cuStrings - GPU String Manipulation</div>
 
-[![Build Status](http://18.191.94.64/buildStatus/icon?job=custrings-master)](http://18.191.94.64/job/custrings-master/)&nbsp;&nbsp;[![Documentation Status](https://readthedocs.org/projects/nvstrings/badge/?version=latest)](https://rapidsai.github.io/projects/custrings/en/latest)
+[![Build Status](http://18.191.94.64/buildStatus/icon?job=custrings-master)](http://18.191.94.64/job/custrings-master/)&nbsp;&nbsp;[![Documentation Status](https://readthedocs.org/projects/nvstrings/badge/?version=latest)](https://docs.rapids.ai/api/nvstrings/nightly/)
 
 **NOTE:** For the latest stable [README.md](https://github.com/rapidsai/custrings/blob/master/README.md) ensure you are on the `master` branch.
 
@@ -50,7 +50,7 @@ Output:
 
 cuStrings is a standalone library with no other dependencies. Other RAPIDS projects (like cuDF) depend on cuStrings and its nvStrings Python bindings.
 
-For more examples, see [Python API documentation](http://rapidsai.github.io/projects/nvstrings/en/latest), and [cuStrings CUDA/C++ API](cpp/cuStrings-API.pdf).
+For more examples, see [Python API documentation](https://docs.rapids.ai/api/nvstrings/stable/), and [cuStrings CUDA/C++ API](cpp/cuStrings-API.pdf).
 ## Quick Start
 
 Please see the [Demo Docker Repository](https://hub.docker.com/r/rapidsai/rapidsai/), choosing a tag based on the NVIDIA CUDA version you’re running. This provides a ready to run Docker container with example notebooks and data, showcasing how you can utilize cuStrings.

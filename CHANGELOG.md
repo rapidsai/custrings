@@ -26,6 +26,7 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 
 ## Bug Fixes
 
+- PR #213 Fixing README link to Python API docs
 - PR #211 Re-ordering 2 methods stops invalid-dev-fn when called from cudf
 - PR #207 Fixed handling empty pattern in findall/count
 - PR #202 Allow insert on start=stop in replace
