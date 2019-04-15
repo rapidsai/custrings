@@ -1,5 +1,5 @@
 #!/bin/bash
-set -xe
+set -e
 
 if [ "$BUILD_CUSTRINGS" == "1" ]; then
     echo "Building custrings"

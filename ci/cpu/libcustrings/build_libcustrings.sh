@@ -1,5 +1,5 @@
 #!/bin/bash
-set -xe
+set -e
 
 if [ "$BUILD_LIBCUSTRINGS" == '1' ]; then
     echo "Buildings libcustrings"

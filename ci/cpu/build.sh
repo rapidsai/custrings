@@ -3,7 +3,7 @@
 ###########################################
 # cuStrings CPU conda build script for CI #
 ###########################################
-set -ex
+set -e
 
 # Logger function for build status output
 function logger() {
@@ -36,7 +36,6 @@ env
 
 logger "Activate conda env..."
 source activate gdf
-pip install cmake_setuptools
 
 logger "Check versions..."
 python --version
