@@ -5,7 +5,7 @@ CMAKE_COMMON_VARIABLES=" -DCMAKE_INSTALL_PREFIX=$PREFIX -DCMAKE_BUILD_TYPE=Relea
 # show environment
 printenv
 # Cleanup local git
-# git clean -xdf
+git clean -xdf
 # Change directory for build process
 cd python
 # Build Python extensions and install library
