@@ -47,8 +47,12 @@ struct timing_record
 //
 void printCudaError( cudaError_t err, const char* prefix )
 {
-    if( err != cudaSuccess )
-        fprintf(stderr,"%s: %s(%d):%s\n",prefix,cudaGetErrorName(err),(int)err,cudaGetErrorString(err));
+    if( err == cudaSuccess )
+        return;
+    fprintf(stderr,"%s: %s(%d):%s\n",prefix,cudaGetErrorName(err),(int)err,cudaGetErrorString(err));
+    //cudaError_t err2 = cudaGetLastError(); // clears the error too
+    //if( err != err2 )
+    //    fprintf(stderr,"  %s:(%d):%s\n",cudaGetErrorName(err2),(int)err2,cudaGetErrorString(err2));
 }
 
 //
@@ -232,29 +236,6 @@ int NVStrings_init_from_strings(NVStringsImpl* pImpl, const char** strs, unsigne
     }
 
     pImpl->setMemoryBuffer(d_flatstrs,nbytes);
-
-#if STR_STATS
-    if( err==cudaSuccess )
-    {
-        size_t memSize = nbytes + (count * sizeof(custring_view*));
-        // lengths are +1 the size of the string so readjust
-        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-            [d_lengths] __device__ (unsigned int idx) {
-                size_t val = d_lengths[idx];
-                val = (val ? val-1 : 0);
-                d_lengths[idx] = val;
-            });
-        //size_t max = thrust::transform_reduce(execpol->on(0),d_dstLengths,d_dstLengths+count,thrust::identity<size_t>(),0,thrust::maximum<size_t>());
-        size_t max = *thrust::max_element(execpol->on(0), lengths.begin(), lengths.end());
-        size_t sum = thrust::reduce(execpol->on(0), lengths.begin(), lengths.end());
-        size_t avg = 0;
-        if( count > 0 )
-            avg =sum / count;
-        printf("nvs-sts: created %'u strings in device memory(%p) = %'lu bytes\n",count,d_flatstrs,memSize);
-        printf("nvs-sts: largest string is %lu bytes, average string length is %lu bytes\n",max,avg);
-    }
-#endif
-
     return (int)err;
 }
 
@@ -268,7 +249,31 @@ int NVStrings_init_from_indexes( NVStringsImpl* pImpl, std::pair<const char*,siz
     if( !bdevmem )
     {
         RMM_ALLOC(&d_indexes,sizeof(std::pair<const char*,size_t>)*count,0);
-        cudaMemcpy(d_indexes,indexes,sizeof(std::pair<const char*,size_t>)*count,cudaMemcpyHostToDevice);
+        err = cudaMemcpy(d_indexes,indexes,sizeof(std::pair<const char*,size_t>)*count,cudaMemcpyHostToDevice);
+    }
+    else
+    {
+        // Lets check what we got from the caller by reading all the memory once.
+        // This is wasteful but I cannot keep people from passing bad data:
+        //   https://github.com/rapidsai/custrings/issues/191
+        // This check cannot be done inline below because libraries like thrust may terminate the process
+        // when illegal pointers are passed in. Here we do a pre-check, handle the error and return it.
+        // Do not put any other thrust calls before this line in this method.
+        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+            [d_indexes] __device__ (unsigned int idx) {
+                const char* str = d_indexes[idx].first;
+                size_t bytes = d_indexes[idx].second;
+                if( str )
+                    custring_view::chars_in_string(str,(unsigned int)bytes);
+        });
+        err = cudaDeviceSynchronize();
+    }
+    if( err != cudaSuccess )
+    {
+        printCudaError(err,"nvs-idx: checking parms");
+        if( !bdevmem )
+            RMM_FREE(d_indexes,0);
+        return (int)err;
     }
 
     // sort the list - helps reduce divergence
@@ -310,7 +315,7 @@ int NVStrings_init_from_indexes( NVStringsImpl* pImpl, std::pair<const char*,siz
     {
         printCudaError(err,"nvs-idx: computing sizes");
         if( !bdevmem )
-            RMM_FREE(d_indexes,0);
+            err = (cudaError_t)RMM_FREE(d_indexes,0); // err = cudaFree(d_indexes);
         return (int)err;
     }
 
@@ -359,24 +364,6 @@ int NVStrings_init_from_indexes( NVStringsImpl* pImpl, std::pair<const char*,siz
     }
 
     pImpl->setMemoryBuffer(d_flatdstrs,nbytes);
-
-#ifdef STR_STATS
-    if( err == cudaSuccess )
-    {
-        size_t memSize = nbytes + (count * sizeof(custring_view*)); // flat memory plus device_vector<custring_view*>
-        //size_t max = thrust::transform_reduce(execpol->on(0),d_sizes,d_sizes+count,thrust::identity<size_t>(),0,thrust::maximum<size_t>());
-        size_t max = *thrust::max_element(execpol->on(0), sizes.begin(), sizes.end());
-        size_t sum = thrust::reduce(execpol->on(0), sizes.begin(), sizes.end());
-        size_t avg = 0;
-        if( count > 0 )
-            avg =sum / count;
-        //
-        printf("nvs-idx: created %'u strings in device memory(%p) = %'lu bytes\n",count,d_flatdstrs,memSize);
-        printf("nvs-idx: largest string is %lu bytes, average string length is %lu bytes\n",max,avg);
-    }
-#endif
-    //printf("nvs-idx: processed %'u strings\n",count);
-
     if( !bdevmem )
         RMM_FREE(d_indexes,0);
     return (int)err;
@@ -458,29 +445,6 @@ int NVStrings_init_from_offsets( NVStringsImpl* pImpl, const char* strs, int cou
     }
 
     pImpl->setMemoryBuffer(d_flatstrs,nbytes);
-
-#if STR_STATS
-    if( err==cudaSuccess )
-    {
-        size_t memSize = nbytes + (count * sizeof(custring_view*));
-        // lengths are +1 the size of the string so readjust
-        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-            [d_lengths] __device__ (unsigned int idx) {
-                size_t val = d_lengths[idx];
-                val = (val ? val-1 : 0);
-                d_lengths[idx] = val;
-            });
-        //size_t max = thrust::transform_reduce(execpol->on(0),d_dstLengths,d_dstLengths+count,thrust::identity<size_t>(),0,thrust::maximum<size_t>());
-        size_t max = *thrust::max_element(execpol->on(0), lengths.begin(), lengths.end());
-        size_t sum = thrust::reduce(execpol->on(0), lengths.begin(), lengths.end());
-        size_t avg = 0;
-        if( count > 0 )
-            avg =sum / count;
-        printf("nvs-ofs: created %'u strings in device memory(%p) = %'lu bytes\n",count,d_flatstrs,memSize);
-        printf("nvs-ofs: largest string is %lu bytes, average string length is %lu bytes\n",max,avg);
-    }
-#endif
-
     return (int)err;;
 }
 
