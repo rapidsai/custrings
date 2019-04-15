@@ -27,6 +27,7 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 
 ## Bug Fixes
 
+- PR #226 Added data pre-check to create_from_index
 - PR #218 Parameter check corrected for pad methods
 - PR #217 Corrected custring.cu method signatures
 - PR #213 Fixing README link to Python API docs
