@@ -15,6 +15,7 @@
 */
 
 #include <stdlib.h>
+#include <exception>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #include <thrust/device_vector.h>
@@ -95,8 +96,21 @@ NVStrings* NVStrings::create_from_array( const char** strs, unsigned int count)
 NVStrings* NVStrings::create_from_index(std::pair<const char*,size_t>* strs, unsigned int count, bool devmem, sorttype stype)
 {
     NVStrings* rtn = new NVStrings(count);
-    if( count )
-        NVStrings_init_from_indexes(rtn->pImpl,strs,count,devmem,stype);
+    if( !count )
+        return rtn;
+
+    int rc = NVStrings_init_from_indexes(rtn->pImpl,strs,count,devmem,stype);
+    if( rc )
+    {
+        // cannot make any other CUDA calls if IllegalAddress error occurs
+        if( rc==(int)cudaErrorIllegalAddress )
+            throw std::invalid_argument("nvstrings::create_from_index bad_device_ptr");
+        else
+        {
+            delete rtn;
+            throw std::runtime_error("nvstrings::create_from_index runtime_error");
+        }
+    }
     return rtn;
 }
 
