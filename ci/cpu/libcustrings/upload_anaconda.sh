@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-if [ "$BUILD_LIBCUSTRINGS" == '1' ]; then
+if [ "$UPLOAD_LIBCUSTRINGS" == '1' ]; then
   export UPLOADFILE=`conda build --python=$PYTHON conda/recipes/libcustrings --output`
 
   SOURCE_BRANCH=master

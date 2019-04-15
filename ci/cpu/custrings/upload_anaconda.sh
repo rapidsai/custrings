@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-if [ "$BUILD_CUSTRINGS" == '1' ]; then
+if [ "$UPLOAD_CUSTRINGS" == '1' ]; then
     export UPLOADFILE=`conda build --python=${PYTHON} conda/recipes/custrings --output`
     
     SOURCE_BRANCH=master
