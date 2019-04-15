@@ -68,12 +68,18 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
 # BUILD - Conda package builds (conda deps: libcuml <- cuml)
 ################################################################################
 
+logger "Build conda pkg for libcustrings..."
+source ci/cpu/libcustrings/build_libcustrings.sh
+
 logger "Build conda pkg for custrings..."
 source ci/cpu/custrings/build_custrings.sh
 
 ################################################################################
 # UPLOAD - Conda packages
 ################################################################################
+
+logger "Upload conda pkgs for libcustrings..."
+source ci/cpu/libcustrings/upload_anaconda.sh
 
 logger "Upload conda pkgs for custrings..."
 source ci/cpu/custrings/upload_anaconda.sh
