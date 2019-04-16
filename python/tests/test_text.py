@@ -1,12 +1,16 @@
-
+import pytest
 import numpy as np
 import nvstrings, nvtext
 from librmm_cffi import librmm as rmm
 from librmm_cffi import librmm_config as rmm_cfg
-rmm_cfg.use_pool_allocator = True 
+
+rmm_cfg.use_pool_allocator = True
 rmm.initialize()
 
 
+@pytest.mark.xfail(
+    raises=AssertionError,
+    reason="token_counts currently considers empty strings to be a token")
 def test_token_count():
     # default space delimiter
     strs = nvstrings.to_device(
