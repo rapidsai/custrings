@@ -58,7 +58,7 @@ def test_ngrams():
     # bigrams
     strings = ['this is my favorite', 'book on my bookshelf']
     dstrings = nvstrings.to_device(strings)
-    expected =[
+    expected = [
         'this_is',
         'is_my',
         'my_favorite',

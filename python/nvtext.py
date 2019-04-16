@@ -195,5 +195,6 @@ def ngrams(strs, N=2, sep='_'):
         ngram_object = ngram_object.cat(sequence, sep)
 
     ngram_object = ngram_object.remove_strings(
-        list(range(ngram_object.size() - N + 1, ngram_object.size())))
+        list(range(ngram_object.size() - N + 1, ngram_object.size()))
+    )
     return ngram_object
