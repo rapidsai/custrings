@@ -85,7 +85,7 @@ logger "Make custrings..."
 make -j${PARALLEL_LEVEL}
 
 logger "Install custrings cpp..."
-make install
+make -j${PARALLEL_LEVEL} install
 
 logger "Install custrings python..."
 cd ../../python
