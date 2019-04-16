@@ -35,6 +35,7 @@
 #include "custring_view.cuh"
 #include "StringsStatistics.h"
 #include "unicode/is_flags.h"
+#include "util.h"
 
 #ifdef __INTELLISENSE__
 unsigned int atomicAdd(unsigned int* address, unsigned int val);
@@ -149,6 +150,17 @@ NVStrings* NVStrings::create_from_ipc( nvstrings_ipc_transfer& ipc )
     // fix up the pointers for this context
     NVStrings_fixup_pointers(rtn->pImpl,ipc.base_address);
     return rtn;
+}
+
+NVStrings* NVStrings::create_from_csv( const char* csvfile, unsigned int column, unsigned int lines, sorttype stype, bool nullIsEmpty)
+{
+    unsigned int flags = nullIsEmpty ? CSV_NULL_IS_EMPTY : 0;
+    if( stype & NVStrings::length )
+        flags |= CSV_SORT_LENGTH;
+    if( stype & NVStrings::name )
+        flags |= CSV_SORT_NAME;
+    std::string fpath = csvfile;
+    return createFromCSV(fpath,column,lines,flags);
 }
 
 void NVStrings::destroy(NVStrings* inst)

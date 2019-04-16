@@ -13,9 +13,11 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 - PR #176 Added match_strings to nvstrings
 - PR #172 Added to/from boolean conversion methods
 - PR #171 Added conversion to/from subset of ISO8601 format
+- PR #230 Add ngrams function to nvtext module
 
 ## Improvements
 
+- PR #237 Removed internal util.h from include dir
 - PR #216 Fixed build instructions and removed obsolete doc/build files
 - PR #178 Added compute_statistics to C++ interface
 - PR #173 Added flake8 checks to for /python files
@@ -29,6 +31,7 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 
 ## Bug Fixes
 
+- PR #234 Added more type-checking to gather method
 - PR #226 Added data pre-check to create_from_index
 - PR #218 Parameter check corrected for pad methods
 - PR #217 Corrected custring.cu method signatures
@@ -38,6 +41,8 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 - PR #202 Allow insert on start=stop in replace
 - PR #201 Fixed some pad examples in nvstrings.py doc comments
 - PR #186 Fixed memory error in booleans to strings method
+- PR #235 Fix anaconda upload script for new conda recipe
+- PR #239 Fix definitions of upload files for conda packages
 
 
 # cuStrings/nvStrings 0.3.0 (15 Mar 2019)

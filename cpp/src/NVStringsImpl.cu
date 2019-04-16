@@ -165,7 +165,6 @@ int NVStrings_init_from_strings(NVStringsImpl* pImpl, const char** strs, unsigne
 {
     cudaError_t err = cudaSuccess;
     auto execpol = rmm::exec_policy(0);
-    setlocale(LC_NUMERIC, "");
     // first compute the size of each string
     size_t nbytes = 0;
     thrust::host_vector<size_t> hoffsets(count+1,0);
@@ -242,7 +241,6 @@ int NVStrings_init_from_strings(NVStringsImpl* pImpl, const char** strs, unsigne
 // build strings from array of device pointers and sizes
 int NVStrings_init_from_indexes( NVStringsImpl* pImpl, std::pair<const char*,size_t>* indexes, unsigned int count, bool bdevmem, NVStrings::sorttype stype )
 {
-    setlocale(LC_NUMERIC, "");
     cudaError_t err = cudaSuccess;
     auto execpol = rmm::exec_policy(0);
     thrust::pair<const char*,size_t>* d_indexes = (thrust::pair<const char*,size_t>*)indexes;
@@ -259,14 +257,22 @@ int NVStrings_init_from_indexes( NVStringsImpl* pImpl, std::pair<const char*,siz
         // This check cannot be done inline below because libraries like thrust may terminate the process
         // when illegal pointers are passed in. Here we do a pre-check, handle the error and return it.
         // Do not put any other thrust calls before this line in this method.
-        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-            [d_indexes] __device__ (unsigned int idx) {
-                const char* str = d_indexes[idx].first;
-                size_t bytes = d_indexes[idx].second;
-                if( str )
-                    custring_view::chars_in_string(str,(unsigned int)bytes);
-        });
-        err = cudaDeviceSynchronize();
+        try
+        {
+            thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+                [d_indexes] __device__ (unsigned int idx) {
+                    const char* str = d_indexes[idx].first;
+                    size_t bytes = d_indexes[idx].second;
+                    if( str )
+                        custring_view::chars_in_string(str,(unsigned int)bytes);
+            });
+            err = cudaDeviceSynchronize();
+        }
+        catch( thrust::system_error& exc )
+        {
+            err = (cudaError_t)exc.code().value();
+            //printf("exception: %d: %s\n", (int)err, e.what());
+        }
     }
     if( err != cudaSuccess )
     {

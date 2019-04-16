@@ -21,7 +21,6 @@
 #include <exception>
 #include <stdexcept>
 #include <nvstrings/NVStrings.h>
-#include <nvstrings/util.h>
 #include <nvstrings/ipc_transfer.h>
 
 //
@@ -44,25 +43,29 @@ class DataBuffer
     PyObject* pyobj;
     void* pdata;
     std::string name;
-    enum datatype { none, error, list, device_ndarray, buffer, pointer };
-    datatype dtype;
+    enum listtype { none, error, blist, list, device_ndarray, ndarray, buffer, pointer };
+    listtype ltype;
+    std::string errortext;
     unsigned int type_width;
+    std::string dtype_name;
 
     T* values;
     unsigned int count;
 
 public:
     //
-    DataBuffer( PyObject* obj ) : pyobj(obj), pdata(0), values(0), count(0), dtype(none), type_width(4)
+    DataBuffer( PyObject* obj ) : pyobj(obj), pdata(0), values(0), count(0), ltype(none)
     {
+        type_width = sizeof(T);
         if( pyobj == Py_None )
             return;
-        dtype = error;
+
         name = pyobj->ob_type->tp_name;
         if( name.compare("list")==0 )
         {
-            dtype = list;
             count = (unsigned int)PyList_Size(pyobj);
+            std::string stname = (count>0 ? PyList_GetItem(pyobj,0)->ob_type->tp_name : "");
+            bool btype = (count>0) && (stname.compare("bool")==0);
             T* data = new T[count];
             for( unsigned int idx=0; idx < count; ++idx )
             {
@@ -73,15 +76,19 @@ public:
                     data[idx] = PyObject_IsTrue(pyidx);
                 else
                     data[idx] = (T)PyLong_AsLong(pyidx);
+                stname = pyidx->ob_type->tp_name;
+                btype &= stname.compare("bool")==0;
             }
+            ltype = btype ? blist : list;
             values = data;
             pdata = data;
         }
         else if( name.compare("DeviceNDArray")==0 )
         {
-            dtype = device_ndarray;
+            ltype = device_ndarray;
             PyObject* pyasize = PyObject_GetAttr(pyobj,PyUnicode_FromString("alloc_size"));
             PyObject* pysize = PyObject_GetAttr(pyobj,PyUnicode_FromString("size"));
+            PyObject* pydtype = PyObject_GetAttr(pyobj,PyUnicode_FromString("dtype"));
             PyObject* pydcp = PyObject_GetAttr(pyobj,PyUnicode_FromString("device_ctypes_pointer"));
             pyobj = PyObject_GetAttr(pydcp,PyUnicode_FromString("value"));
             //printf("dnda: size=%d, alloc_size=%d\n",(int)PyLong_AsLong(pysize),(int)PyLong_AsLong(pyasize));
@@ -90,11 +97,35 @@ public:
                 type_width = PyLong_AsLong(pyasize)/count;
             //printf("dnda: count=%d, twidth=%d\n",(int)count,(int)type_width);
             if( pyobj != Py_None )
+            {
                 values = (T*)PyLong_AsVoidPtr(pyobj);
+                // get the dtype name in case that helps with type-checking
+                dtype_name = PyUnicode_AsUTF8(PyObject_Str(pydtype));
+            }
+        }
+        else if( name.compare("numpy.ndarray")==0 )
+        {
+            ltype = ndarray;
+            PyObject* pyasize = PyObject_GetAttr(pyobj,PyUnicode_FromString("nbytes"));
+            PyObject* pysize = PyObject_GetAttr(pyobj,PyUnicode_FromString("size"));
+            PyObject* pydtype = PyObject_GetAttr(pyobj,PyUnicode_FromString("dtype"));
+            PyObject* pydcp = PyObject_GetAttr(pyobj,PyUnicode_FromString("ctypes"));
+            pyobj = PyObject_GetAttr(pydcp,PyUnicode_FromString("data"));
+            //printf("nda: size=%d, alloc_size=%d\n",(int)PyLong_AsLong(pysize),(int)PyLong_AsLong(pyasize));
+            count = (unsigned int)PyLong_AsLong(pysize);
+            if( count > 0 )
+                type_width = PyLong_AsLong(pyasize)/count;
+            //printf("nda: count=%d, twidth=%d\n",(int)count,(int)type_width);
+            if( pyobj != Py_None )
+            {
+                values = (T*)PyLong_AsVoidPtr(pyobj);
+                // get the dtype name in case that helps with type-checking
+                dtype_name = PyUnicode_AsUTF8(PyObject_Str(pydtype));
+            }
         }
         else if( PyObject_CheckBuffer(pyobj) )
         {
-            dtype = buffer;
+            ltype = buffer;
             Py_buffer* pybuf = new Py_buffer;
             PyObject_GetBuffer(pyobj,pybuf,PyBUF_SIMPLE);
             values = (T*)pybuf->buf;
@@ -103,17 +134,23 @@ public:
         }
         else if( name.compare("int")==0 )
         {
-            dtype = pointer;
+            ltype = pointer;
             values = (T*)PyLong_AsVoidPtr(pyobj);
+        }
+        else
+        {
+            ltype = error;
+            errortext = "unknown_type: ";
+            errortext += name;
         }
     }
 
     //
     ~DataBuffer()
     {
-        if( dtype==list )
+        if( ltype==list || ltype==blist )
             delete (T*)pdata;
-        else if( dtype==buffer )
+        else if( ltype==buffer )
         {
             PyBuffer_Release((Py_buffer*)pdata);
             delete (Py_buffer*)pdata;
@@ -121,13 +158,16 @@ public:
     }
 
     //
-    bool is_error()          { return dtype==error; }
-    const char* get_name()   { return name.c_str(); }
-    bool is_device_type()    { return (dtype==device_ndarray) || (dtype==pointer); }
+    bool is_error()               { return ltype==error; }
+    const char* get_error_text()  { return errortext.c_str(); }
+    bool is_blist()               { return ltype==blist; }
+    const char* get_name()        { return name.c_str(); }
+    bool is_device_type()         { return (ltype==device_ndarray) || (ltype==pointer); }
 
-    T* get_values()          { return values; }
-    unsigned int get_count() { return count; }
+    T* get_values()               { return values; }
+    unsigned int get_count()      { return count; }
     unsigned int get_type_width() { return type_width; }
+    const char* get_dtype_name()  { return dtype_name.c_str(); }
 };
 
 // PyArg_VaParse format types are documented here:
@@ -300,7 +340,9 @@ static PyObject* n_createFromCSV( PyObject* self, PyObject* args )
     unsigned int column = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,1));
     unsigned int lines = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,2));
     unsigned int flags = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,3));
-    NVStrings* rtn = createFromCSV(csvfile,column,lines,flags);
+    NVStrings::sorttype stype = (NVStrings::sorttype)(flags & 3);
+    bool nullIsEmpty = (flags & 8) > 0;
+    NVStrings* rtn = NVStrings::create_from_csv(csvfile.c_str(),column,lines,stype,nullIsEmpty);
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -385,7 +427,12 @@ static PyObject* n_createFromInt32s( PyObject* self, PyObject* args )
     DataBuffer<int> dbvalues(pyvals);
     if( dbvalues.is_error() )
     {
-        PyErr_Format(PyExc_TypeError,"nvstrings.itos(): unknown type %s",dbvalues.get_name());
+        PyErr_Format(PyExc_TypeError,"nvstrings.itos(): %s",dbvalues.get_error_text());
+        Py_RETURN_NONE;
+    }
+    if( dbvalues.get_type_width()!=sizeof(int) )
+    {
+        PyErr_Format(PyExc_TypeError,"nvstrings.itos(): values must be of type int32");
         Py_RETURN_NONE;
     }
 
@@ -402,7 +449,7 @@ static PyObject* n_createFromInt32s( PyObject* self, PyObject* args )
         DataBuffer<unsigned char> dbnulls(pynulls);
         if( dbnulls.is_error() )
         {
-            PyErr_Format(PyExc_TypeError,"nvstrings.itos(): unknown type %s",dbnulls.get_name());
+            PyErr_Format(PyExc_TypeError,"nvstrings.itos(): %s",dbnulls.get_error_text());
             Py_RETURN_NONE;
         }
         unsigned char* nulls = dbnulls.get_values();
@@ -425,7 +472,12 @@ static PyObject* n_createFromInt64s( PyObject* self, PyObject* args )
     DataBuffer<long> dbvalues(pyvals);
     if( dbvalues.is_error() )
     {
-        PyErr_Format(PyExc_TypeError,"nvstrings.ltos(): unknown type %s",dbvalues.get_name());
+        PyErr_Format(PyExc_TypeError,"nvstrings.ltos(): %s",dbvalues.get_error_text());
+        Py_RETURN_NONE;
+    }
+    if( dbvalues.get_type_width()!=sizeof(long) )
+    {
+        PyErr_Format(PyExc_TypeError,"nvstrings.ltos(): values must be of type int64");
         Py_RETURN_NONE;
     }
 
@@ -442,7 +494,7 @@ static PyObject* n_createFromInt64s( PyObject* self, PyObject* args )
         DataBuffer<unsigned char> dbnulls(pynulls);
         if( dbnulls.is_error() )
         {
-            PyErr_Format(PyExc_TypeError,"nvstrings.ltos(): unknown type %s",dbnulls.get_name());
+            PyErr_Format(PyExc_TypeError,"nvstrings.ltos(): %s",dbnulls.get_error_text());
             Py_RETURN_NONE;
         }
         unsigned char* nulls = dbnulls.get_values();
@@ -465,7 +517,12 @@ static PyObject* n_createFromFloat32s( PyObject* self, PyObject* args )
     DataBuffer<float> dbvalues(pyvals);
     if( dbvalues.is_error() )
     {
-        PyErr_Format(PyExc_TypeError,"nvstrings.ftos(): unknown type %s",dbvalues.get_name());
+        PyErr_Format(PyExc_TypeError,"nvstrings.ftos(): %s",dbvalues.get_error_text());
+        Py_RETURN_NONE;
+    }
+    if( dbvalues.get_type_width()!=sizeof(float) )
+    {
+        PyErr_Format(PyExc_TypeError,"nvstrings.ftos(): values must be of type float32");
         Py_RETURN_NONE;
     }
 
@@ -482,7 +539,7 @@ static PyObject* n_createFromFloat32s( PyObject* self, PyObject* args )
         DataBuffer<unsigned char> dbnulls(pynulls);
         if( dbnulls.is_error() )
         {
-            PyErr_Format(PyExc_TypeError,"nvstrings.ftos(): unknown type %s",dbnulls.get_name());
+            PyErr_Format(PyExc_TypeError,"nvstrings.ftos(): %s",dbnulls.get_error_text());
             Py_RETURN_NONE;
         }
         unsigned char* nulls = dbnulls.get_values();
@@ -505,7 +562,12 @@ static PyObject* n_createFromFloat64s( PyObject* self, PyObject* args )
     DataBuffer<double> dbvalues(pyvals);
     if( dbvalues.is_error() )
     {
-        PyErr_Format(PyExc_TypeError,"nvstrings.dtos(): unknown type %s",dbvalues.get_name());
+        PyErr_Format(PyExc_TypeError,"nvstrings.dtos(): %s",dbvalues.get_error_text());
+        Py_RETURN_NONE;
+    }
+    if( dbvalues.get_type_width()!=sizeof(double) )
+    {
+        PyErr_Format(PyExc_TypeError,"nvstrings.dtos(): values must be of type float64");
         Py_RETURN_NONE;
     }
 
@@ -522,7 +584,7 @@ static PyObject* n_createFromFloat64s( PyObject* self, PyObject* args )
         DataBuffer<unsigned char> dbnulls(pynulls);
         if( dbnulls.is_error() )
         {
-            PyErr_Format(PyExc_TypeError,"nvstrings.ftos(): unknown type %s",dbnulls.get_name());
+            PyErr_Format(PyExc_TypeError,"nvstrings.ftos(): %s",dbnulls.get_error_text());
             Py_RETURN_NONE;
         }
         unsigned char* nulls = dbnulls.get_values();
@@ -544,9 +606,15 @@ static PyObject* n_createFromIPv4Integers( PyObject* self, PyObject* args )
     DataBuffer<unsigned int> dbvalues(pyvals);
     if( dbvalues.is_error() )
     {
-        PyErr_Format(PyExc_TypeError,"nvstrings.int2ip(): unknown type %s",dbvalues.get_name());
+        PyErr_Format(PyExc_TypeError,"nvstrings.int2ip(): %s",dbvalues.get_error_text());
         Py_RETURN_NONE;
     }
+    if( dbvalues.get_type_width()!=sizeof(int) )
+    {
+        PyErr_Format(PyExc_TypeError,"nvstrings.int2ip(): values must be of type int32");
+        Py_RETURN_NONE;
+    }
+
     unsigned int* values = dbvalues.get_values();
     unsigned int count = dbvalues.get_count();
     if( count==0 )
@@ -561,7 +629,7 @@ static PyObject* n_createFromIPv4Integers( PyObject* self, PyObject* args )
         DataBuffer<unsigned char> dbnulls(pynulls);
         if( dbnulls.is_error() )
         {
-            PyErr_Format(PyExc_TypeError,"nvstrings.int2ip(): unknown type %s",dbnulls.get_name());
+            PyErr_Format(PyExc_TypeError,"nvstrings.int2ip(): %s",dbnulls.get_error_text());
             Py_RETURN_NONE;
         }
         unsigned char* nulls = dbnulls.get_values();
@@ -598,9 +666,15 @@ static PyObject* n_createFromTimestamp( PyObject* self, PyObject* args )
     DataBuffer<unsigned long> dbvalues(pyvals);
     if( dbvalues.is_error() )
     {
-        PyErr_Format(PyExc_TypeError,"nvstrings.int2timestamp(): unknown type %s",dbvalues.get_name());
+        PyErr_Format(PyExc_TypeError,"nvstrings.int2timestamp(): %s",dbvalues.get_error_text());
         Py_RETURN_NONE;
     }
+    if( dbvalues.get_type_width()!=sizeof(long) )
+    {
+        PyErr_Format(PyExc_TypeError,"nvstrings.int2timestamp(): values must be of type int64");
+        Py_RETURN_NONE;
+    }
+
     unsigned long* values = dbvalues.get_values();
     unsigned int count = dbvalues.get_count();
     if( count==0 )
@@ -615,7 +689,7 @@ static PyObject* n_createFromTimestamp( PyObject* self, PyObject* args )
         DataBuffer<unsigned char> dbnulls(pynulls);
         if( dbnulls.is_error() )
         {
-            PyErr_Format(PyExc_TypeError,"nvstrings.int2timestamp(): unknown type %s",dbnulls.get_name());
+            PyErr_Format(PyExc_TypeError,"nvstrings.int2timestamp(): %s",dbnulls.get_error_text());
             Py_RETURN_NONE;
         }
         unsigned char* nulls = dbnulls.get_values();
@@ -640,7 +714,7 @@ static PyObject* n_createFromBools( PyObject* self, PyObject* args )
     DataBuffer<bool> dbvalues(pyvals);
     if( dbvalues.is_error() )
     {
-        PyErr_Format(PyExc_TypeError,"nvstrings.from_bools(): unknown type %s",dbvalues.get_name());
+        PyErr_Format(PyExc_TypeError,"nvstrings.from_bools(): %s",dbvalues.get_error_text());
         Py_RETURN_NONE;
     }
     if( pytstr==Py_None )
@@ -669,7 +743,7 @@ static PyObject* n_createFromBools( PyObject* self, PyObject* args )
         DataBuffer<unsigned char> dbnulls(pynulls);
         if( dbnulls.is_error() )
         {
-            PyErr_Format(PyExc_TypeError,"nvstrings.from_bools(): unknown type %s",dbnulls.get_name());
+            PyErr_Format(PyExc_TypeError,"nvstrings.from_bools(): %s",dbnulls.get_error_text());
             Py_RETURN_NONE;
         }
         unsigned char* nulls = dbnulls.get_values();
@@ -2499,56 +2573,34 @@ static PyObject* n_gather( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     PyObject* pyidxs = PyTuple_GetItem(args,1);
-    std::string cname = pyidxs->ob_type->tp_name;
+    //std::string cname = pyidxs->ob_type->tp_name;
+    
+    DataBuffer<int> dbvalues(pyidxs);
+    if( dbvalues.is_error() )
+    {
+        PyErr_Format(PyExc_TypeError,"nvstrings.n_gather(): %s",dbvalues.get_error_text());
+        Py_RETURN_NONE;
+    }
+    if( dbvalues.is_blist() )
+    {
+        PyErr_Format(PyExc_TypeError,"nvstrings.n_gather(): list of bools is not supported");
+        Py_RETURN_NONE;
+    }
+    if( dbvalues.get_type_width()!=sizeof(int) )
+    {
+        PyErr_Format(PyExc_TypeError,"nvstrings.n_gather(): values must be of type int32");
+        Py_RETURN_NONE;
+    }
+    bool bdevmem = dbvalues.is_device_type();
+    int* indexes = dbvalues.get_values();
+    unsigned int count = dbvalues.get_count();
+    if( count==0 )
+        count = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,2));    
+
     NVStrings* rtn = 0;
     try
     {
-        if( cname.compare("list")==0 )
-        {
-            unsigned int count = (unsigned int)PyList_Size(pyidxs);
-            int* indexes = new int[count];
-            for( unsigned int idx=0; idx < count; ++idx )
-            {
-                PyObject* pyidx = PyList_GetItem(pyidxs,idx);
-                indexes[idx] = (int)PyLong_AsLong(pyidx);
-            }
-            //
-            rtn = tptr->gather(indexes,count,false);
-            delete indexes;
-        }
-        else if( cname.compare("DeviceNDArray")==0 )
-        {
-            PyObject* pysize = PyObject_GetAttr(pyidxs,PyUnicode_FromString("alloc_size"));
-            PyObject* pydcp = PyObject_GetAttr(pyidxs,PyUnicode_FromString("device_ctypes_pointer"));
-            PyObject* pyptr = PyObject_GetAttr(pydcp,PyUnicode_FromString("value"));
-            unsigned int count = (unsigned int)(PyLong_AsLong(pysize)/sizeof(int));
-            int* indexes = 0;
-            if( pyptr != Py_None )
-                indexes = (int*)PyLong_AsVoidPtr(pyptr);
-            //printf("device-array: %p,%u\n",indexes,count);
-            rtn = tptr->gather(indexes,count);
-        }
-        else if( PyObject_CheckBuffer(pyidxs) )
-        {
-            Py_buffer pybuf;
-            PyObject_GetBuffer(pyidxs,&pybuf,PyBUF_SIMPLE);
-            int* indexes = (int*)pybuf.buf;
-            unsigned int count = (unsigned int)(pybuf.len/sizeof(int));
-            //printf("buffer: %p,%u\n",indexes,count);
-            rtn = tptr->gather(indexes,count,false);
-            PyBuffer_Release(&pybuf);
-        }
-        else if( cname.compare("int")==0 ) // device pointer directly
-        {                                  // for consistency with other methods
-            int* indexes = (int*)PyLong_AsVoidPtr(pyidxs);
-            unsigned int count = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,2));
-            rtn = tptr->gather(indexes,count);
-        }
-        else
-        {
-            //printf("%s\n",cname.c_str());
-            PyErr_Format(PyExc_TypeError,"nvstrings: unknown type %s",cname.c_str());
-        }
+        rtn = tptr->gather(indexes,count,bdevmem);
     }
     catch(const std::out_of_range& eor)
     {
