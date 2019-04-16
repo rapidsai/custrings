@@ -6,9 +6,6 @@ import nvstrings, nvtext
 from librmm_cffi import librmm as rmm
 from librmm_cffi import librmm_config as rmm_cfg
 
-rmm_cfg.use_pool_allocator = True
-rmm.initialize()
-
 
 @pytest.mark.xfail(
     raises=AssertionError,
