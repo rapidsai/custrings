@@ -1,6 +1,8 @@
+# Copyright (c) 2019, NVIDIA CORPORATION.
 
 import pyniNVText
 import nvstrings as nvs
+import logging
 
 
 def unique_tokens(strs, delimiter=' '):
@@ -146,3 +148,58 @@ def edit_distance(strs, tgt, algo=0, devptr=0):
     """
     rtn = pyniNVText.n_edit_distance(strs, tgt, algo, devptr)
     return rtn
+
+
+def ngrams(strs, N=2, sep='_'):
+    """Generate the n-grams of an nvstrings array.
+
+    Parameters
+    ----------
+    strs : nvstrings
+        The strings for this operation.
+    N : int
+        The degree of the n-gram (number of consecutive tokens). Default of 2
+        for bigrams.
+    sep : The separator to use between within an n-gram. Default of '_'.
+
+    Returns
+    -------
+    ngrams_object : nvstrings
+
+    Examples
+    --------
+    >>> import nvstrings, nvtext
+    >>> dstrings = nvstrings.to_device(['this is my', 'favorite book'])
+    >>> print(nvtext.ngrams(dstrings, N=2, sep='_'))
+    ['this_is', 'is_my', 'my_favorite', 'favorite_book']
+    """
+    logging.warning("ngrams functionlity does not currently scale "
+                    "well to large datasets.")
+
+    # Tokenize
+    tokens = strs.split_record()
+    tokens_combined = nvs.from_strings(tokens)
+
+    pad = nvs.to_device([''])
+    ngram_object = tokens_combined
+    total_num_of_tokens = tokens_combined.size()
+    shifted_token_collection = []
+
+    # Create shifted and padded nvstrings objects
+    for i in range(N - 1):
+        shifted_tokens = tokens_combined.remove_strings(
+            list(range(0, i + 1))
+        )
+        shifted_tokens = shifted_tokens.add_strings(
+            [pad] * (total_num_of_tokens - shifted_tokens.size())
+        )
+        shifted_token_collection.append(shifted_tokens)
+
+    # Create the n-grams from the shifted nvstrings
+    for sequence in shifted_token_collection:
+        ngram_object = ngram_object.cat(sequence, sep)
+
+    ngram_object = ngram_object.remove_strings(
+        list(range(ngram_object.size() - N + 1, ngram_object.size()))
+    )
+    return ngram_object
