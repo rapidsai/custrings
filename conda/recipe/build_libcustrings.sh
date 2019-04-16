@@ -13,8 +13,5 @@ mkdir build
 cd build
 # configure
 cmake $CMAKE_COMMON_VARIABLES ..
-# build/install cpp
+# build cpp
 make -j${PARALLEL_LEVEL} VERBOSE=1 install
-# build/install python
-cd ../../python
-$PYTHON setup.py install --single-version-externally-managed --record=record.txt

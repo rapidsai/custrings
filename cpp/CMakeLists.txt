@@ -146,9 +146,9 @@ add_library(NVText SHARED
 ###################################################################################################
 # - link libraries --------------------------------------------------------------------------------
 
-target_link_libraries(NVStrings rmm)
-target_link_libraries(NVCategory NVStrings rmm)
-target_link_libraries(NVText NVStrings rmm)
+target_link_libraries(NVStrings rmm cudart cuda)
+target_link_libraries(NVCategory NVStrings rmm cudart cuda)
+target_link_libraries(NVText NVStrings rmm cudart cuda)
 
 ###################################################################################################
 # - install targets -------------------------------------------------------------------------------

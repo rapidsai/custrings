@@ -1,0 +1,59 @@
+# Copyright (c) 2018, NVIDIA CORPORATION.
+
+{% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') %}
+{% set git_revision_count=environ.get('GIT_DESCRIBE_NUMBER', 0) %}
+{% set cuda_version='.'.join(environ.get('CUDA_VERSION', 'unknown').split('.')[:2]) %}
+{% set py_version=environ.get('CONDA_PY', 35) %}
+package:
+  name: meta_nvstrings
+
+source:
+  path: ../../.
+
+outputs:
+  - name: libnvstrings
+    version: {{ version }}
+    build:
+      number: {{ git_revision_count }}
+      string: cuda{{ cuda_version }}_{{ git_revision_count }}
+      script_env:
+        - CC
+        - CXX
+        - CUDAHOSTCXX
+        - CUDA_VERSION
+      run_exports:
+        - {{ pin_subpackage("libnvstrings", max_pin="x.x") }}
+    script: build_libcustrings.sh
+    requirements:
+      build:
+        - cmake >=3.12
+      host:
+        - librmm 0.7.*
+  - name: nvstrings
+    version: {{ version }}
+    build:
+      number: {{ git_revision_count }}
+      string: py{{ py_version }}_{{ git_revision_count }}
+      script_env:
+        - CC
+        - CXX
+        - CUDA_VERSION
+    script: build_custrings.sh
+    requirements:
+      build:
+        - cmake >=3.12
+        - python
+      host:
+        - python
+        - setuptools
+        - cmake_setuptools 0.1.3.*
+        - libnvstrings {{ version }}
+      run:
+        - python
+
+about:
+  home: https://rapids.ai
+  license: Apache-2.0
+  license_family: Apache
+  license_file: LICENSE
+  summary: nvstrings Library
