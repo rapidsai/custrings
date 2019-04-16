@@ -8,23 +8,77 @@ from librmm_cffi import librmm_config as rmm_cfg
 rmm_cfg.use_pool_allocator = True 
 rmm.initialize()
 
-strs = nvstrings.to_device(["the quick brown fox jumped over the lazy brown dog","the sable siamésé cat jumped under the brown sofa",None,""])
-#
 
-print(strs)
+def test_token_count():
+    # default space delimiter
+    strs = nvstrings.to_device(
+        ["the quick brown fox jumped over the lazy brown dog",
+         "the sable siamésé cat jumped under the brown sofa",
+         None,
+         ""]
+    )
+    outcome = nvtext.token_count(strs)
+    expected = [10, 9, 0, 0]
+    assert outcome == expected
 
-print("token_count:",nvtext.token_count(strs))
-d_arr = rmm.to_device(np.arange(strs.size(),dtype=np.int32))
-nvtext.token_count(strs,' ',devptr=d_arr.device_ctypes_pointer.value)
-print(" ",d_arr.copy_to_host())
+    # custom delimiter
+    outcome = nvtext.token_count(strs, delimiter='o')
+    expected = [6, 3, 0, 0]
+    assert outcome == expected
 
-tokens = nvtext.unique_tokens(strs)
-print("unique_tokens:",tokens)
+    # test device pointer
+    outcome_darray = rmm.device_array(strs.size(), dtype=np.int32)
+    nvtext.token_count(strs, devptr=d_arr.device_ctypes_pointer.value)
+    expected = [10, 9, 0, 0]
+    assert outcome_darray.copy_to_host() == expected
 
-print("contains_strings:",nvtext.contains_strings(strs,tokens))
-d_arr = rmm.to_device(np.arange(strs.size()*tokens.size(),dtype=np.byte))
-nvtext.contains_strings(strs,tokens,devptr=d_arr.device_ctypes_pointer.value)
-print(" ",d_arr.copy_to_host())
+
+def test_unique_tokens():
+    # default space delimiter
+    strs = nvstrings.to_device(
+        ["this is my favorite book",
+         "Your Favorite book is different",
+         None,
+         ""]
+    )
+    unique_tokens_outcome = nvtext.unique_tokens(strs)
+    expected = set(['Favorite', 'Your', 'book', 'different', 'favorite', 'is', 'my', 'this'])
+    assert set(unique_tokens_outcome.to_host()) == expected
+
+    # custom delimiter
+    unique_tokens_outcome = nvtext.unique_tokens(strs, delimiter='my')
+    expected = set([' favorite book', 'Your Favorite book is different', 'this is '])
+    assert set(unique_tokens_outcome.to_host()) == expected
+
+
+def test_contains_strings():
+    strs = nvstrings.to_device(
+        ["apples are green",
+         "apples are a fruit",
+         None,
+         ""]
+    )
+
+    query_strings = nvstrings.to_device(['apple', 'fruit'])
+
+    # host results
+    contains_outcome = nvtext.contains_strings(strs, query_strings)
+    expected = [
+        [True, False],
+        [True, True],
+        [False, False],
+        [False, False]
+    ]
+    assert contains_outcome == expected
+
+    # device results
+    outcome_darray = rmm.device_array((strs.size(), query_strings.size()),
+                                      dtype=np.bool)
+    nvtext.contains_strings(strs, query_strings,
+                            devptr=outcome_darray.device_ctypes_pointer.value)
+    assert np.array_equal(outcome_darray.copy_to_host(), expected)
+
+
 
 print("strings_counts:",nvtext.strings_counts(strs,tokens))
 d_arr = rmm.to_device(np.arange(strs.size()*tokens.size(),dtype=np.int32))
