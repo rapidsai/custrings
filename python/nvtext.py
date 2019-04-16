@@ -1,7 +1,9 @@
+# Copyright (c) 2019, NVIDIA CORPORATION.
 
 import pyniNVText
 import nvstrings as nvs
-import warnings
+import logging
+
 
 def unique_tokens(strs, delimiter=' '):
     """
@@ -171,7 +173,7 @@ def ngrams(strs, N=2, sep='_'):
     >>> print(nvtext.ngrams(dstrings, N=2, sep='_'))
     ['this_is', 'is_my', 'my_favorite', 'favorite_book']
     """
-    warnings.warn("ngrams functionlity does not currently scale "
+    logging.warning("ngrams functionlity does not currently scale "
                   "well to large datasets.")
 
     # Tokenize
