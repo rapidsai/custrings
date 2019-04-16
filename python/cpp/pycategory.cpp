@@ -22,7 +22,6 @@
 #include <stdexcept>
 #include <nvstrings/NVCategory.h>
 #include <nvstrings/NVStrings.h>
-#include <nvstrings/util.h>
 
 //
 //

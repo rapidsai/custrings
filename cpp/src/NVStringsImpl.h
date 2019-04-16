@@ -67,9 +67,6 @@ void printCudaError( cudaError_t err, const char* prefix="\t" );
 char32_t* to_char32( const char* ca );
 unsigned char* get_unicode_flags();
 unsigned short* get_charcases();
-// defined in util.cu
-__host__ __device__ unsigned int u2u8( unsigned int unchr );
-__host__ __device__ unsigned int u82u( unsigned int utf8 );
 
 //
 int NVStrings_init_from_strings(NVStringsImpl* pImpl, const char** strs, unsigned int count );

@@ -27,6 +27,7 @@
 #include "custring_view.cuh"
 #include "unicode/is_flags.h"
 #include "Timing.h"
+#include "util.h"
 
 //
 NVStrings* NVStrings::lower()
