@@ -1,7 +1,7 @@
 
 import pyniNVText
 import nvstrings as nvs
-
+import warnings
 
 def unique_tokens(strs, delimiter=' '):
     """
@@ -171,6 +171,9 @@ def ngrams(strs, N=2, sep='_'):
     >>> print(nvtext.ngrams(dstrings, N=2, sep='_'))
     ['this_is', 'is_my', 'my_favorite', 'favorite_book']
     """
+    warnings.warn("ngrams functionlity does not currently scale "
+                  "well to large datasets.")
+
     # Tokenize
     tokens = strs.split_record()
     tokens_combined = nvs.from_strings(tokens)
