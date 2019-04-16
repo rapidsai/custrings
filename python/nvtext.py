@@ -174,7 +174,7 @@ def ngrams(strs, N=2, sep='_'):
     ['this_is', 'is_my', 'my_favorite', 'favorite_book']
     """
     logging.warning("ngrams functionlity does not currently scale "
-                  "well to large datasets.")
+                    "well to large datasets.")
 
     # Tokenize
     tokens = strs.split_record()
