@@ -3,7 +3,7 @@
 
 set -e
 
-UPLOADFILES=`conda build --python=$PYTHON conda/recipes/libcustrings --output`
+UPLOADFILES=`conda build --python=$PYTHON conda/recipe --output`
 export LIBCUSTRINGS_FILE=echo $UPLOADFILES | awk '{print $1}'
 export CUSTRINGS_FILE=echo $UPLOADFILES | awk '{print $2}'
 
