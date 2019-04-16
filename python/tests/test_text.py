@@ -1,8 +1,6 @@
 
 import numpy as np
 import nvstrings, nvtext
-
-#
 from librmm_cffi import librmm as rmm
 from librmm_cffi import librmm_config as rmm_cfg
 rmm_cfg.use_pool_allocator = True 
@@ -28,7 +26,7 @@ def test_token_count():
 
     # test device pointer
     outcome_darray = rmm.device_array(strs.size(), dtype=np.int32)
-    nvtext.token_count(strs, devptr=d_arr.device_ctypes_pointer.value)
+    nvtext.token_count(strs, devptr=outcome_darray.device_ctypes_pointer.value)
     expected = [10, 9, 0, 0]
     assert outcome_darray.copy_to_host() == expected
 
@@ -79,28 +77,44 @@ def test_contains_strings():
     assert np.array_equal(outcome_darray.copy_to_host(), expected)
 
 
+def test_strings_counts():
+    strs = nvstrings.to_device(
+        ["apples are green",
+         "apples are a fruit",
+         None,
+         ""]
+    )
 
-print("strings_counts:",nvtext.strings_counts(strs,tokens))
-d_arr = rmm.to_device(np.arange(strs.size()*tokens.size(),dtype=np.int32))
-nvtext.strings_counts(strs,tokens,devptr=d_arr.device_ctypes_pointer.value)
-print(" ",d_arr.copy_to_host())
+    query_strings = nvstrings.to_device(['pl', 're'])
 
-#
-print("contains_strings(cat,dog,bird,the):",nvtext.contains_strings(strs,['cat','dog','bird','the']))
-print("strings_counts(cat,dog,bird,the):",nvtext.strings_counts(strs,['cat','dog','bird','the']))
+    # host results
+    contains_outcome = nvtext.strings_counts(strs, query_strings)
+    expected = [
+        [1, 2],
+        [1, 1],
+        [0, 0],
+        [0, 0]
+    ]
+    assert contains_outcome == expected
 
-#
-strs = nvstrings.to_device(["kitten","kitton","kittén"])
-print(strs)
-print("edit_distance(kitten):",nvtext.edit_distance(strs,'kitten'))
-print("edit_distance(kittén):",nvtext.edit_distance(strs,'kittén'))
-strs1 = nvstrings.to_device(["kittén","sitting","Saturday","Sunday","book","back"])
-print("s1:",strs1)
-strs2 = nvstrings.to_device(["sitting","kitten","Sunday","Saturday","back","book"])
-print("s2:",strs2)
-print("edit_distance(s1,s2):",nvtext.edit_distance(strs1,strs2))
-strs1 = None
-strs2 = None
+    # device results
+    outcome_darray = rmm.device_array((strs.size(), query_strings.size()),
+                                      dtype=np.int32)
+    nvtext.strings_counts(strs, query_strings,
+                            devptr=outcome_darray.device_ctypes_pointer.value)
+    assert np.array_equal(outcome_darray.copy_to_host(), expected)
 
-strs = None
-tokens = None
+
+def test_edit_distance():
+    # singe comparator
+    strs = nvstrings.to_device(["my favorite sentence", "kittin", "nvidia"])
+    distance_outcomes = nvtext.edit_distance(strs, 'kitten', algo=0)
+    expected = [15, 1, 6]
+    assert distance_outcomes == expected
+
+    # multiple comparators
+    comparators = nvstrings.to_device(
+        ['my least favorite sentence', 'fish', 'software'])
+    distance_outcomes = nvtext.edit_distance(strs, comparators, algo=0)
+    expected = [6, 5, 7]
+    assert distance_outcomes == expected
