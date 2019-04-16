@@ -74,8 +74,5 @@ conda build --python=${PYTHON} conda/recipe
 # UPLOAD - Conda packages
 ################################################################################
 
-logger "Upload conda pkgs for libcustrings..."
-source ci/cpu/libcustrings/upload_anaconda.sh
-
-logger "Upload conda pkgs for custrings..."
-source ci/cpu/custrings/upload_anaconda.sh
+logger "Upload conda pkgs for libcustrings and custrings..."
+source ci/cpu/upload_anaconda.sh
