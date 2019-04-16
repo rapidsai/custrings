@@ -31,6 +31,7 @@
 #include "regex/backref.h"
 #include "unicode/is_flags.h"
 #include "Timing.h"
+#include "util.h"
 
 //
 NVStrings* NVStrings::slice_replace( const char* repl, int start, int stop )

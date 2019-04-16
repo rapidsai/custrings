@@ -28,7 +28,7 @@
 #include "custring_view.cuh"
 #include "unicode/is_flags.h"
 #include "Timing.h"
-
+#include "util.h"
 
 // this will return the number of characters for each string
 unsigned int NVStrings::len(int* lengths, bool todevice)

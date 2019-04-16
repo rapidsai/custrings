@@ -133,6 +133,20 @@ public:
     ///@}
 
     /**
+     * @brief Create an instance from a specific column in a CSV file.
+     *
+     * This has very limited support for CSV formats is intended for experimentation only.
+     * Recommend using the cuDF read_csv method which has many more features.
+     *
+     * @param[in] csvfile Full-path to CSV file to parse.
+     * @param[in] column  0-based column index to retrieve
+     * @param[in] lines   Limit the number of lines read from the file. Default is all lines.
+     * @param[in] stype   Whether to sort the strings or not.
+     * @param[in] nullIsEmpty   How to handle null entries. Set to true to treat nulls as empty strings.
+     */
+    static NVStrings* create_from_csv( const char* csvfile, unsigned int column, unsigned int lines=0, sorttype stype=none, bool nullIsEmpty=false);
+
+    /**
      * @brief Use this method to free any instance created by methods in this class.
      *
      * All device and CPU memory used by this instance is freed.

@@ -21,7 +21,6 @@
 #include <exception>
 #include <stdexcept>
 #include <nvstrings/NVStrings.h>
-#include <nvstrings/util.h>
 #include <nvstrings/ipc_transfer.h>
 
 //
@@ -341,7 +340,9 @@ static PyObject* n_createFromCSV( PyObject* self, PyObject* args )
     unsigned int column = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,1));
     unsigned int lines = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,2));
     unsigned int flags = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,3));
-    NVStrings* rtn = createFromCSV(csvfile,column,lines,flags);
+    NVStrings::sorttype stype = (NVStrings::sorttype)(flags & 3);
+    bool nullIsEmpty = (flags & 8) > 0;
+    NVStrings* rtn = NVStrings::create_from_csv(csvfile.c_str(),column,lines,stype,nullIsEmpty);
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
