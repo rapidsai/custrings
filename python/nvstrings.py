@@ -2283,7 +2283,8 @@ class nvstrings:
         Parameters
         ----------
         indexes : List of ints or GPU memory pointer
-            0-based indexes of strings to return from an nvstrings object
+            0-based indexes of strings to return from an nvstrings object.
+            Values must be of type in32.
         count : int
             Number of ints if indexes parm is a device pointer.
             Otherwise it is ignored.
