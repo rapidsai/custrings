@@ -13,6 +13,7 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 - PR #176 Added match_strings to nvstrings
 - PR #172 Added to/from boolean conversion methods
 - PR #171 Added conversion to/from subset of ISO8601 format
+- PR #230 Add ngrams function to nvtext module
 
 ## Improvements
 
@@ -28,6 +29,8 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 
 ## Bug Fixes
 
+- PR #234 Added more type-checking to gather method
+- PR #226 Added data pre-check to create_from_index
 - PR #218 Parameter check corrected for pad methods
 - PR #217 Corrected custring.cu method signatures
 - PR #213 Fixing README link to Python API docs
