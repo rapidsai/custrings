@@ -3,9 +3,8 @@
 
 set -e
 
-UPLOADFILES=`conda build --python=$PYTHON conda/recipe --output`
-export LIBCUSTRINGS_FILE=`echo $UPLOADFILES | awk '{print $1}'`
-export CUSTRINGS_FILE=`echo $UPLOADFILES | awk '{print $2}'`
+export LIBCUSTRINGS_FILE=`conda build --python=$PYTHON conda/recipes/libcustrings --output`
+export CUSTRINGS_FILE=`conda build --python=$PYTHON conda/recipes/custrings --output`
 
 SOURCE_BRANCH=master
 CUDA_REL=${CUDA:0:3}
