@@ -3,7 +3,7 @@
 
 set -e
 
-export LIBCUSTRINGS_FILE=`conda build --python=$PYTHON conda/recipes/libcustrings --output`
+export LIBCUSTRINGS_FILE=`conda build conda/recipes/libcustrings --output`
 export CUSTRINGS_FILE=`conda build --python=$PYTHON conda/recipes/custrings --output`
 
 SOURCE_BRANCH=master
