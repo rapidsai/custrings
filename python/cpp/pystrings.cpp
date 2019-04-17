@@ -2148,6 +2148,10 @@ static PyObject* n_contains( PyObject* self, PyObject* args )
     if( devptr )
     {
         //Save thread state and release the GIL as we do not operate on PyObjects
+        PyObject* tempPrint = PyUnicode_FromString("release GIL");
+        PyObject_Print(tempPrint, stdout, Py_PRINT_RAW);
+        Py_XDECREF(tempPrint);
+
         Py_BEGIN_ALLOW_THREADS
             if( bregex )
                 rc = tptr->contains_re(str,devptr);
@@ -2155,6 +2159,9 @@ static PyObject* n_contains( PyObject* self, PyObject* args )
                 rc = tptr->contains(str,devptr);
         //Restore thread state and acquire the GIL again.
         Py_END_ALLOW_THREADS
+        tempPrint = PyUnicode_FromString("acquired GIL");
+        PyObject_Print(tempPrint, stdout, Py_PRINT_RAW);
+        Py_XDECREF(tempPrint);
 
         if( rc < 0 )
             Py_RETURN_NONE;
@@ -2166,13 +2173,19 @@ static PyObject* n_contains( PyObject* self, PyObject* args )
         return PyList_New(0);
     bool* rtn = new bool[count];
 
+    PyObject* tempPrint = PyUnicode_FromString("release GIL");
+    PyObject_Print(tempPrint, stdout, Py_PRINT_RAW);
+    Py_XDECREF(tempPrint);
     Py_BEGIN_ALLOW_THREADS
         if( bregex )
             rc = tptr->contains_re(str,rtn,false);
         else
             rc = tptr->contains(str,rtn,false);
     Py_END_ALLOW_THREADS
-    
+    tempPrint = PyUnicode_FromString("acquired GIL");
+    PyObject_Print(tempPrint, stdout, Py_PRINT_RAW);
+    Py_XDECREF(tempPrint);
+
     if( rc < 0 )
     {
         delete rtn;
@@ -2583,7 +2596,7 @@ static PyObject* n_gather( PyObject* self, PyObject* args )
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     PyObject* pyidxs = PyTuple_GetItem(args,1);
     //std::string cname = pyidxs->ob_type->tp_name;
-    
+
     DataBuffer<int> dbvalues(pyidxs);
     if( dbvalues.is_error() )
     {
@@ -2604,12 +2617,14 @@ static PyObject* n_gather( PyObject* self, PyObject* args )
     int* indexes = dbvalues.get_values();
     unsigned int count = dbvalues.get_count();
     if( count==0 )
-        count = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,2));    
+        count = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,2));
 
     NVStrings* rtn = 0;
     try
     {
-        rtn = tptr->gather(indexes,count,bdevmem);
+        Py_BEGIN_ALLOW_THREADS
+            rtn = tptr->gather(indexes,count,bdevmem);
+        Py_END_ALLOW_THREADS
     }
     catch(const std::out_of_range& eor)
     {
