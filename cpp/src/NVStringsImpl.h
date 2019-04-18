@@ -30,8 +30,8 @@ public:
     // this holds the strings in device memory
     // so operations can be performed on them through python calls
     rmm::device_vector<custring_view*>* pList;
-    char* memoryBuffer;
-    size_t bufferSize; // size of memoryBuffer only
+    char* memoryBuffer = nullptr;
+    size_t bufferSize = 0; // size of memoryBuffer only
     std::map<std::string,timing_record> mapTimes;
     cudaStream_t stream_id;
     bool bIpcHandle; // whether memoryBuffer is ipc-handle or not
@@ -47,7 +47,12 @@ public:
     inline cudaStream_t getStream()    { return stream_id;  }
     inline void setMemoryBuffer( void* ptr, size_t memSize )
     {
-        memoryBuffer = (char*)ptr;
+        if(memoryBuffer != nullptr) {
+            delete[] memoryBuffer;
+            memoryBuffer = nullptr;
+            bufferSize = 0;
+        }
+        memoryBuffer = static_cast<char*>(ptr);
         bufferSize = memSize;
     }
     void setMemoryHandle(void* ptr, size_t memSize)
