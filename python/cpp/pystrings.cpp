@@ -2628,66 +2628,9 @@ static PyObject* n_gather( PyObject* self, PyObject* args )
     NVStrings* rtn = 0;
     try
     {
-<<<<<<< 2a42719bcb1a2d54e4f5999932f451b49af43f5a
         Py_BEGIN_ALLOW_THREADS
             rtn = tptr->gather(indexes,count,bdevmem);
         Py_END_ALLOW_THREADS
-=======
-        if( cname.compare("list")==0 )
-        {
-            unsigned int count = (unsigned int)PyList_Size(pyidxs);
-            int* indexes = new int[count];
-            for( unsigned int idx=0; idx < count; ++idx )
-            {
-                PyObject* pyidx = PyList_GetItem(pyidxs,idx);
-                indexes[idx] = (int)PyLong_AsLong(pyidx);
-            }
-            //
-            Py_BEGIN_ALLOW_THREADS
-                rtn = tptr->gather(indexes,count,false);
-                delete indexes;
-            Py_END_ALLOW_THREADS
-        }
-        else if( cname.compare("DeviceNDArray")==0 )
-        {
-            PyObject* pysize = PyObject_GetAttr(pyidxs,PyUnicode_FromString("alloc_size"));
-            PyObject* pydcp = PyObject_GetAttr(pyidxs,PyUnicode_FromString("device_ctypes_pointer"));
-            PyObject* pyptr = PyObject_GetAttr(pydcp,PyUnicode_FromString("value"));
-            unsigned int count = (unsigned int)(PyLong_AsLong(pysize)/sizeof(int));
-            int* indexes = 0;
-            if( pyptr != Py_None )
-                indexes = (int*)PyLong_AsVoidPtr(pyptr);
-            //printf("device-array: %p,%u\n",indexes,count);
-            Py_BEGIN_ALLOW_THREADS
-                rtn = tptr->gather(indexes,count);
-            Py_END_ALLOW_THREADS
-        }
-        else if( PyObject_CheckBuffer(pyidxs) )
-        {
-            Py_buffer pybuf;
-            PyObject_GetBuffer(pyidxs,&pybuf,PyBUF_SIMPLE);
-            int* indexes = (int*)pybuf.buf;
-            unsigned int count = (unsigned int)(pybuf.len/sizeof(int));
-            //printf("buffer: %p,%u\n",indexes,count);
-            Py_BEGIN_ALLOW_THREADS
-                rtn = tptr->gather(indexes,count,false);
-            Py_END_ALLOW_THREADS
-            PyBuffer_Release(&pybuf);
-        }
-        else if( cname.compare("int")==0 ) // device pointer directly
-        {                                  // for consistency with other methods
-            int* indexes = (int*)PyLong_AsVoidPtr(pyidxs);
-            unsigned int count = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,2));
-            Py_BEGIN_ALLOW_THREADS
-                rtn = tptr->gather(indexes,count);
-            Py_END_ALLOW_THREADS
-        }
-        else
-        {
-            //printf("%s\n",cname.c_str());
-            PyErr_Format(PyExc_TypeError,"nvstrings: unknown type %s",cname.c_str());
-        }
->>>>>>> Remove debug print statements
     }
     catch(const std::out_of_range& eor)
     {
