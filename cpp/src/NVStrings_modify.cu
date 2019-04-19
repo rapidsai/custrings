@@ -370,6 +370,7 @@ NVStrings* NVStrings::replace_with_backrefs( const char* pattern, const char* re
     rmm::device_vector<thrust::pair<int,int> > dbrefs(brefs);
     auto d_brefs = dbrefs.data().get();
     unsigned int refcount = (unsigned int)dbrefs.size();
+    // if refcount != prog->group_counts() -- probably should throw exception
 
     // compute size of the output
     custring_view_array d_strings = pImpl->getStringsPtr();
@@ -381,10 +382,12 @@ NVStrings* NVStrings::replace_with_backrefs( const char* pattern, const char* re
             custring_view* dstr = d_strings[idx];
             if( !dstr )
                 return;
-            unsigned int bytes = rsz, nchars = rszch; // start with template
-            int begin = 0, end = (int)dstr->chars_count(); // constants
-            if( prog->find(idx,dstr,begin,end) > 0 )
+            unsigned int bytes = dstr->size(), nchars = dstr->chars_count();
+            int begin = 0, end = (int)nchars;
+            while( prog->find(idx,dstr,begin,end) > 0 )
             {
+                nchars += rszch - (end-begin);
+                bytes += rsz - (dstr->byte_offset_for(end)-dstr->byte_offset_for(begin));
                 for( unsigned int j=0; j < refcount; ++j ) // eval each ref
                 {
                     int refidx = d_brefs[j].first; // backref indicator
@@ -395,6 +398,8 @@ NVStrings* NVStrings::replace_with_backrefs( const char* pattern, const char* re
                     spos = dstr->byte_offset_for(spos); // convert to bytes
                     bytes += dstr->byte_offset_for(epos) - spos; // add up bytes
                 }
+                begin = end;
+                end = (int)dstr->chars_count();
             }
             unsigned int size = custring_view::alloc_size(bytes,nchars);
             d_sizes[idx] = ALIGN_SIZE(size); // new size for this string
@@ -420,39 +425,46 @@ NVStrings* NVStrings::replace_with_backrefs( const char* pattern, const char* re
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [prog, d_strings, d_repl, rsz, d_offsets, d_brefs, refcount, d_buffer, d_results] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
-            if( !dstr )
-                return; // nulls create nulls                                     a\1bc\2d
-            char* buffer = d_buffer + d_offsets[idx]; // output buffer            _________
-            char* optr = buffer; // running output pointer                        ^
-            char* sptr = d_repl; // input buffer                                  abcd
-            int lpos = 0, begin = 0, end = (int)dstr->chars_count();
+            if( !dstr )                                                   // abcd-efgh   X\1+\2Z
+                return; // nulls create nulls                             // ([a-z])-([a-z]) ==>  abcXd+eZfgh
+            char* buffer = d_buffer + d_offsets[idx]; // output buffer
+            char* optr = buffer; // running output pointer
+            char* sptr = dstr->data();                                           // abcd-efgh
+            int nchars = (int)dstr->chars_count();                               // ^
+            int lpos = 0, begin = 0, end = (int)nchars;
             // insert extracted strings left-to-right
-            if( prog->find(idx,dstr,begin,end) > 0 )
+            while( prog->find(idx,dstr,begin,end) > 0 )
             {
-                for( unsigned int j=0; j < refcount; ++j ) // eval each ref
-                {
-                    int refidx = d_brefs[j].first; // backref indicator               abcd        abcd
-                    int ipos = d_brefs[j].second;  // input position                   ^             ^
-                    int len = ipos - lpos; // bytes to copy from input
-                    memcpy(optr,sptr,len); // copy left half                          a________   axxbc____
-                    optr += len;  // move output ptr                                   ^               ^
-                    sptr += len;  // move input ptr                                   abcd        abcd
-                    lpos += len;  // update last-position                              ^             ^
+                // we have found the section that needs to be replaced
+                int left = dstr->byte_offset_for(begin)-lpos;
+                memcpy( optr, sptr, left );                                      // abc________
+                optr += left;                                                    //    ^
+                int ilpos = 0; // last end pos of replace template
+                char* rptr = d_repl; // running ptr for replace template         // X+Z
+                for( unsigned int j=0; j < refcount; ++j ) // eval each ref      // 1st loop      2nd loop
+                {                                                                // ------------  --------------
+                    int refidx = d_brefs[j].first; // backref number             // X+Z           X+Z
+                    int ipos = d_brefs[j].second;  // insert position            //  ^              ^
+                    int len = ipos - ilpos; // bytes to copy from input
+                    copy_and_incr_both(optr,rptr,len);                           // abcX_______   abcXd+_______
+                    ilpos += len;  // update last-position
                     int spos=begin, epos=end;  // these are modified by extract
-                    if( (prog->extract(idx,dstr,spos,epos,refidx-1)<=0) ||
-                        (epos <= spos) )                                  //          xx          yyy
+                    if( (prog->extract(idx,dstr,spos,epos,refidx-1)<=0) ||       // d             e
+                        (epos <= spos) )
                         continue; // no value for this ref
                     spos = dstr->byte_offset_for(spos); // convert to bytes
                     int bytes = dstr->byte_offset_for(epos) - spos;
-                    memcpy(optr,dstr->data()+spos,bytes); //                          axx______   axxbcyyy_
-                    optr += bytes; // move output ptr                                    ^                ^
+                    copy_and_incr(optr,dstr->data()+spos,bytes);                 // abcXd______   abcXd+e______
                 }
+                if( rptr < d_repl+rsz ) // copy remainder of template            // abcXd+eZ___
+                    copy_and_incr(optr,rptr,(unsigned int)(d_repl-rptr) + rsz);
+                lpos = dstr->byte_offset_for(end);
+                sptr = dstr->data() + lpos;                                      // abcd-efgh
+                begin = end;                                                     //       ^
+                end = (int)dstr->chars_count();
             }
-            if( lpos < rsz )
-            {   // copy any remaining characters from input string
-                memcpy(optr,sptr,rsz-lpos);                                 //    axxbcyyyd
-                optr += rsz-lpos;                                           //             ^
-            }
+            if( sptr < dstr->data()+dstr->size() )                               // abcXd+eZfgh
+                copy_and_incr(optr,sptr,(unsigned int)(dstr->data()-sptr) + dstr->size());
             unsigned int nsz = (unsigned int)(optr - buffer); // compute output size
             d_results[idx] = custring_view::create_from(buffer,buffer,nsz); // new string
         });
