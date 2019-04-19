@@ -329,7 +329,10 @@ static PyObject* n_createFromNVStrings( PyObject* self, PyObject* args )
         Py_RETURN_NONE;
     }
 
-    NVStrings* thisptr = NVStrings::create_from_strings(strslist);
+    NVStrings* thisptr = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+        thisptr = NVStrings::create_from_strings(strslist);
+    Py_END_ALLOW_THREADS
     return PyLong_FromVoidPtr((void*)thisptr);
 }
 
@@ -401,7 +404,11 @@ static PyObject* n_createFromOffsets( PyObject* self, PyObject* args )
     //printf(" ptrs=%p,%p,%p\n",sbuffer,obuffer,nbuffer);
     //printf(" scount=%d,ncount=%d\n",scount,ncount);
     // create strings object from these buffers
-    NVStrings* rtn = NVStrings::create_from_offsets(sbuffer,scount,obuffer,nbuffer,ncount);
+    NVStrings* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+        rtn = NVStrings::create_from_offsets(sbuffer,scount,obuffer,
+                                                        nbuffer,ncount);
+    Py_END_ALLOW_THREADS
 
     if( PyObject_CheckBuffer(pysbuf) )
         PyBuffer_Release(&sbuf);
@@ -802,8 +809,16 @@ static PyObject* n_create_offsets( PyObject* self, PyObject* args )
     PyObject* pybmem = PyTuple_GetItem(args,4);
     bool bdevmem = (bool)PyObject_IsTrue(pybmem);
 
+    PyObject* tempPrint = PyUnicode_FromString("offset GIL release");
+    PyObject_Print(tempPrint, stdout, Py_PRINT_RAW);
+    Py_XDECREF(tempPrint);
     // create strings object from these buffers
-    tptr->create_offsets(sbuffer,obuffer,nbuffer,bdevmem);
+    Py_BEGIN_ALLOW_THREADS
+        tptr->create_offsets(sbuffer,obuffer,nbuffer,bdevmem);
+    Py_END_ALLOW_THREADS
+    tempPrint = PyUnicode_FromString("offset acquired GIL");
+    PyObject_Print(tempPrint, stdout, Py_PRINT_RAW);
+    Py_XDECREF(tempPrint);
 
     if( PyObject_CheckBuffer(pysbuf) )
         PyBuffer_Release(&sbuf);
@@ -818,7 +833,10 @@ static PyObject* n_create_offsets( PyObject* self, PyObject* args )
 static PyObject* n_size( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    unsigned int count = tptr->size();
+    unsigned int count = 0;
+    Py_BEGIN_ALLOW_THREADS
+        count = tptr->size();
+    Py_END_ALLOW_THREADS
     return PyLong_FromLong(count);
 }
 
@@ -860,8 +878,10 @@ static PyObject* n_byte_count( PyObject* self, PyObject* args )
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     int* memptr = (int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,1));
     bool bdevmem = (bool)PyObject_IsTrue(PyTuple_GetItem(args,2));
-
-    size_t rtn = tptr->byte_count(memptr,bdevmem);
+    size_t rtn = 0;
+    Py_BEGIN_ALLOW_THREADS
+        rtn = tptr->byte_count(memptr,bdevmem);
+    Py_END_ALLOW_THREADS
     return PyLong_FromLong((long)rtn);
 }
 
@@ -870,7 +890,10 @@ static PyObject* n_null_count( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     bool ben = (bool)PyObject_IsTrue(PyTuple_GetItem(args,1));
-    unsigned int nulls = tptr->get_nulls(0,ben,false);
+    unsigned int nulls = 0;
+    Py_BEGIN_ALLOW_THREADS
+        nulls = tptr->get_nulls(0,ben,false);
+    Py_END_ALLOW_THREADS
     return PyLong_FromLong((long)nulls);
 }
 
