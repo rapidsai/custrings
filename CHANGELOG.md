@@ -30,6 +30,7 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 
 ## Bug Fixes
 
+- PR #245 Fixed backref to continue replacing
 - PR #234 Added more type-checking to gather method
 - PR #226 Added data pre-check to create_from_index
 - PR #218 Parameter check corrected for pad methods

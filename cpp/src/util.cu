@@ -81,6 +81,20 @@ __host__ __device__ unsigned int u82u( unsigned int utf8 )
     return unchr;
 }
 
+__device__ char* copy_and_incr( char*& dest, char* src, unsigned int bytes )
+{
+    memcpy(dest,src,bytes);
+    dest += bytes;
+    return dest;
+}
+
+__device__ char* copy_and_incr_both( char*& dest, char*& src, unsigned int bytes )
+{
+    memcpy(dest,src,bytes);
+    dest += bytes;
+    src += bytes;
+    return dest;
+}
 
 // this is just a convenience and should be removed in the future
 NVStrings* createFromCSV(std::string csvfile, unsigned int column, unsigned int lines, unsigned int flags)
