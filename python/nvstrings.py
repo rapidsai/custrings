@@ -1648,7 +1648,7 @@ class nvstrings:
             String to find
         start : int
             Beginning of section to search from.
-            Default is 0 (beginning of each string.)
+            Default is 0 (beginning of each string).
         end : int
             End of section to search. Default is end of each string.
         devptr : GPU memory pointer
