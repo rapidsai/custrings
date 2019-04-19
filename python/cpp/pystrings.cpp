@@ -811,16 +811,10 @@ static PyObject* n_create_offsets( PyObject* self, PyObject* args )
     PyObject* pybmem = PyTuple_GetItem(args,4);
     bool bdevmem = (bool)PyObject_IsTrue(pybmem);
 
-    PyObject* tempPrint = PyUnicode_FromString("offset GIL release");
-    PyObject_Print(tempPrint, stdout, Py_PRINT_RAW);
-    Py_XDECREF(tempPrint);
     // create strings object from these buffers
     Py_BEGIN_ALLOW_THREADS
         tptr->create_offsets(sbuffer,obuffer,nbuffer,bdevmem);
     Py_END_ALLOW_THREADS
-    tempPrint = PyUnicode_FromString("offset acquired GIL");
-    PyObject_Print(tempPrint, stdout, Py_PRINT_RAW);
-    Py_XDECREF(tempPrint);
 
     if( PyObject_CheckBuffer(pysbuf) )
         PyBuffer_Release(&sbuf);
@@ -2173,10 +2167,6 @@ static PyObject* n_contains( PyObject* self, PyObject* args )
     if( devptr )
     {
         //Save thread state and release the GIL as we do not operate on PyObjects
-        PyObject* tempPrint = PyUnicode_FromString("release GIL");
-        PyObject_Print(tempPrint, stdout, Py_PRINT_RAW);
-        Py_XDECREF(tempPrint);
-
         Py_BEGIN_ALLOW_THREADS
             if( bregex )
                 rc = tptr->contains_re(str,devptr);
@@ -2184,9 +2174,6 @@ static PyObject* n_contains( PyObject* self, PyObject* args )
                 rc = tptr->contains(str,devptr);
         //Restore thread state and acquire the GIL again.
         Py_END_ALLOW_THREADS
-        tempPrint = PyUnicode_FromString("acquired GIL");
-        PyObject_Print(tempPrint, stdout, Py_PRINT_RAW);
-        Py_XDECREF(tempPrint);
 
         if( rc < 0 )
             Py_RETURN_NONE;
@@ -2198,18 +2185,12 @@ static PyObject* n_contains( PyObject* self, PyObject* args )
         return PyList_New(0);
     bool* rtn = new bool[count];
 
-    PyObject* tempPrint = PyUnicode_FromString("release GIL");
-    PyObject_Print(tempPrint, stdout, Py_PRINT_RAW);
-    Py_XDECREF(tempPrint);
     Py_BEGIN_ALLOW_THREADS
         if( bregex )
             rc = tptr->contains_re(str,rtn,false);
         else
             rc = tptr->contains(str,rtn,false);
     Py_END_ALLOW_THREADS
-    tempPrint = PyUnicode_FromString("acquired GIL");
-    PyObject_Print(tempPrint, stdout, Py_PRINT_RAW);
-    Py_XDECREF(tempPrint);
 
     if( rc < 0 )
     {
@@ -2647,9 +2628,66 @@ static PyObject* n_gather( PyObject* self, PyObject* args )
     NVStrings* rtn = 0;
     try
     {
+<<<<<<< 2a42719bcb1a2d54e4f5999932f451b49af43f5a
         Py_BEGIN_ALLOW_THREADS
             rtn = tptr->gather(indexes,count,bdevmem);
         Py_END_ALLOW_THREADS
+=======
+        if( cname.compare("list")==0 )
+        {
+            unsigned int count = (unsigned int)PyList_Size(pyidxs);
+            int* indexes = new int[count];
+            for( unsigned int idx=0; idx < count; ++idx )
+            {
+                PyObject* pyidx = PyList_GetItem(pyidxs,idx);
+                indexes[idx] = (int)PyLong_AsLong(pyidx);
+            }
+            //
+            Py_BEGIN_ALLOW_THREADS
+                rtn = tptr->gather(indexes,count,false);
+                delete indexes;
+            Py_END_ALLOW_THREADS
+        }
+        else if( cname.compare("DeviceNDArray")==0 )
+        {
+            PyObject* pysize = PyObject_GetAttr(pyidxs,PyUnicode_FromString("alloc_size"));
+            PyObject* pydcp = PyObject_GetAttr(pyidxs,PyUnicode_FromString("device_ctypes_pointer"));
+            PyObject* pyptr = PyObject_GetAttr(pydcp,PyUnicode_FromString("value"));
+            unsigned int count = (unsigned int)(PyLong_AsLong(pysize)/sizeof(int));
+            int* indexes = 0;
+            if( pyptr != Py_None )
+                indexes = (int*)PyLong_AsVoidPtr(pyptr);
+            //printf("device-array: %p,%u\n",indexes,count);
+            Py_BEGIN_ALLOW_THREADS
+                rtn = tptr->gather(indexes,count);
+            Py_END_ALLOW_THREADS
+        }
+        else if( PyObject_CheckBuffer(pyidxs) )
+        {
+            Py_buffer pybuf;
+            PyObject_GetBuffer(pyidxs,&pybuf,PyBUF_SIMPLE);
+            int* indexes = (int*)pybuf.buf;
+            unsigned int count = (unsigned int)(pybuf.len/sizeof(int));
+            //printf("buffer: %p,%u\n",indexes,count);
+            Py_BEGIN_ALLOW_THREADS
+                rtn = tptr->gather(indexes,count,false);
+            Py_END_ALLOW_THREADS
+            PyBuffer_Release(&pybuf);
+        }
+        else if( cname.compare("int")==0 ) // device pointer directly
+        {                                  // for consistency with other methods
+            int* indexes = (int*)PyLong_AsVoidPtr(pyidxs);
+            unsigned int count = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,2));
+            Py_BEGIN_ALLOW_THREADS
+                rtn = tptr->gather(indexes,count);
+            Py_END_ALLOW_THREADS
+        }
+        else
+        {
+            //printf("%s\n",cname.c_str());
+            PyErr_Format(PyExc_TypeError,"nvstrings: unknown type %s",cname.c_str());
+        }
+>>>>>>> Remove debug print statements
     }
     catch(const std::out_of_range& eor)
     {
