@@ -237,7 +237,9 @@ static PyObject* n_createFromHostStrings( PyObject* self, PyObject* args )
 static PyObject* n_destroyStrings( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    NVStrings::destroy(tptr);
+    Py_BEGIN_ALLOW_THREADS
+        NVStrings::destroy(tptr);
+    Py_END_ALLOW_THREADS
     return PyLong_FromLong(0);
 }
 
