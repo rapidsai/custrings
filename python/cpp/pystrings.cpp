@@ -238,7 +238,7 @@ static PyObject* n_destroyStrings( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     Py_BEGIN_ALLOW_THREADS
-        NVStrings::destroy(tptr);
+    NVStrings::destroy(tptr);
     Py_END_ALLOW_THREADS
     return PyLong_FromLong(0);
 }
@@ -333,7 +333,7 @@ static PyObject* n_createFromNVStrings( PyObject* self, PyObject* args )
 
     NVStrings* thisptr = nullptr;
     Py_BEGIN_ALLOW_THREADS
-        thisptr = NVStrings::create_from_strings(strslist);
+    thisptr = NVStrings::create_from_strings(strslist);
     Py_END_ALLOW_THREADS
     return PyLong_FromVoidPtr((void*)thisptr);
 }
@@ -408,8 +408,8 @@ static PyObject* n_createFromOffsets( PyObject* self, PyObject* args )
     // create strings object from these buffers
     NVStrings* rtn = nullptr;
     Py_BEGIN_ALLOW_THREADS
-        rtn = NVStrings::create_from_offsets(sbuffer,scount,obuffer,
-                                                        nbuffer,ncount);
+    rtn = NVStrings::create_from_offsets(sbuffer,scount,obuffer,
+                                         nbuffer,ncount);
     Py_END_ALLOW_THREADS
 
     if( PyObject_CheckBuffer(pysbuf) )
@@ -813,7 +813,7 @@ static PyObject* n_create_offsets( PyObject* self, PyObject* args )
 
     // create strings object from these buffers
     Py_BEGIN_ALLOW_THREADS
-        tptr->create_offsets(sbuffer,obuffer,nbuffer,bdevmem);
+    tptr->create_offsets(sbuffer,obuffer,nbuffer,bdevmem);
     Py_END_ALLOW_THREADS
 
     if( PyObject_CheckBuffer(pysbuf) )
@@ -831,7 +831,7 @@ static PyObject* n_size( PyObject* self, PyObject* args )
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     unsigned int count = 0;
     Py_BEGIN_ALLOW_THREADS
-        count = tptr->size();
+    count = tptr->size();
     Py_END_ALLOW_THREADS
     return PyLong_FromLong(count);
 }
@@ -876,7 +876,7 @@ static PyObject* n_byte_count( PyObject* self, PyObject* args )
     bool bdevmem = (bool)PyObject_IsTrue(PyTuple_GetItem(args,2));
     size_t rtn = 0;
     Py_BEGIN_ALLOW_THREADS
-        rtn = tptr->byte_count(memptr,bdevmem);
+    rtn = tptr->byte_count(memptr,bdevmem);
     Py_END_ALLOW_THREADS
     return PyLong_FromLong((long)rtn);
 }
@@ -888,7 +888,7 @@ static PyObject* n_null_count( PyObject* self, PyObject* args )
     bool ben = (bool)PyObject_IsTrue(PyTuple_GetItem(args,1));
     unsigned int nulls = 0;
     Py_BEGIN_ALLOW_THREADS
-        nulls = tptr->get_nulls(0,ben,false);
+    nulls = tptr->get_nulls(0,ben,false);
     Py_END_ALLOW_THREADS
     return PyLong_FromLong((long)nulls);
 }
@@ -2168,10 +2168,10 @@ static PyObject* n_contains( PyObject* self, PyObject* args )
     {
         //Save thread state and release the GIL as we do not operate on PyObjects
         Py_BEGIN_ALLOW_THREADS
-            if( bregex )
-                rc = tptr->contains_re(str,devptr);
-            else
-                rc = tptr->contains(str,devptr);
+        if( bregex )
+            rc = tptr->contains_re(str,devptr);
+        else
+            rc = tptr->contains(str,devptr);
         //Restore thread state and acquire the GIL again.
         Py_END_ALLOW_THREADS
 
@@ -2186,10 +2186,10 @@ static PyObject* n_contains( PyObject* self, PyObject* args )
     bool* rtn = new bool[count];
 
     Py_BEGIN_ALLOW_THREADS
-        if( bregex )
-            rc = tptr->contains_re(str,rtn,false);
-        else
-            rc = tptr->contains(str,rtn,false);
+    if( bregex )
+        rc = tptr->contains_re(str,rtn,false);
+    else
+        rc = tptr->contains(str,rtn,false);
     Py_END_ALLOW_THREADS
 
     if( rc < 0 )
@@ -2629,7 +2629,7 @@ static PyObject* n_gather( PyObject* self, PyObject* args )
     try
     {
         Py_BEGIN_ALLOW_THREADS
-            rtn = tptr->gather(indexes,count,bdevmem);
+        rtn = tptr->gather(indexes,count,bdevmem);
         Py_END_ALLOW_THREADS
     }
     catch(const std::out_of_range& eor)
