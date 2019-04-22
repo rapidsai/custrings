@@ -270,7 +270,6 @@ static PyObject* n_createHostStrings( PyObject* self, PyObject* args )
     std::vector<char*> list(count);
     char** plist = list.data();
     std::vector<int> lens(count);
-    Py_BEGIN_ALLOW_THREADS
     size_t totalmem = tptr->byte_count(lens.data(),false);
     std::vector<char> buffer(totalmem+count,0); // null terminates each string
     char* pbuffer = buffer.data();
@@ -280,6 +279,7 @@ static PyObject* n_createHostStrings( PyObject* self, PyObject* args )
         plist[idx] = pbuffer + offset;
         offset += lens[idx]+1; // account for null-terminator; also nulls are -1
     }
+    Py_BEGIN_ALLOW_THREADS
     tptr->to_host(plist,0,count);
     Py_END_ALLOW_THREADS
     PyObject* ret = PyList_New(count);
@@ -2663,9 +2663,13 @@ static PyObject* n_match_strings( PyObject* self, PyObject* args )
     {
         Py_BEGIN_ALLOW_THREADS
         rc = tptr->match_strings(*strs,devptr);
-        if( cname.compare("list")==0 )
-            NVStrings::destroy(strs); // destroy it if we made it (above)
         Py_END_ALLOW_THREADS
+        if( cname.compare("list")==0 )
+        {
+            Py_BEGIN_ALLOW_THREADS
+            NVStrings::destroy(strs); // destroy it if we made it (above)
+            Py_END_ALLOW_THREADS
+        }
         if( rc < 0 )
             Py_RETURN_NONE;
         return PyLong_FromVoidPtr((void*)devptr);
@@ -2680,9 +2684,13 @@ static PyObject* n_match_strings( PyObject* self, PyObject* args )
     bool* rtn = new bool[count];
     Py_BEGIN_ALLOW_THREADS
     rc = tptr->match_strings(*strs,rtn,false);
-    if( cname.compare("list")==0 )
-        NVStrings::destroy(strs); // destroy it if we made it (above)
     Py_END_ALLOW_THREADS
+    if( cname.compare("list")==0 )
+    {
+        Py_BEGIN_ALLOW_THREADS
+        NVStrings::destroy(strs); // destroy it if we made it (above)
+        Py_END_ALLOW_THREADS
+    }
     if( rc < 0 )
     {
         delete rtn;
