@@ -14,8 +14,8 @@
 * limitations under the License.
 */
 
-#include <stdlib.h>
-#include <math.h>
+#include <exception>
+#include <math.h>  // for isnan, isinf; cmath does not work here
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #include <thrust/device_vector.h>
@@ -28,7 +28,6 @@
 #include "NVStrings.h"
 #include "NVStringsImpl.h"
 #include "custring_view.cuh"
-#include "Timing.h"
 
 //
 int NVStrings::hash(unsigned int* results, bool todevice)
@@ -42,7 +41,6 @@ int NVStrings::hash(unsigned int* results, bool todevice)
     if( !todevice )
         RMM_ALLOC(&d_rtn,count*sizeof(unsigned int),0);
 
-    double st = GetTime();
     custring_view** d_strings = pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_rtn] __device__(unsigned int idx){
@@ -53,9 +51,6 @@ int NVStrings::hash(unsigned int* results, bool todevice)
                 d_rtn[idx] = 0;
         });
     //
-    printCudaError(cudaDeviceSynchronize(),"nvs-hash");
-    double et = GetTime();
-    pImpl->addOpTimes("hash",0.0,(et-st));
     int zeros = thrust::count(execpol->on(0),d_rtn,d_rtn+count,0);
     if( !todevice )
     {
@@ -77,7 +72,6 @@ int NVStrings::stoi(int* results, bool todevice)
     if( !todevice )
         RMM_ALLOC(&d_rtn,count*sizeof(int),0);
 
-    double st = GetTime();
     custring_view** d_strings = pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_rtn] __device__(unsigned int idx){
@@ -88,9 +82,6 @@ int NVStrings::stoi(int* results, bool todevice)
                 d_rtn[idx] = 0;
         });
     //
-    printCudaError(cudaDeviceSynchronize(),"nvs-stoi");
-    double et = GetTime();
-    pImpl->addOpTimes("stoi",0.0,(et-st));
     int zeros = thrust::count(execpol->on(0),d_rtn,d_rtn+count,0);
     if( !todevice )
     {
@@ -112,7 +103,6 @@ int NVStrings::stol(long* results, bool todevice)
     if( !todevice )
         RMM_ALLOC(&d_rtn,count*sizeof(long),0);
 
-    double st = GetTime();
     custring_view** d_strings = pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_rtn] __device__(unsigned int idx){
@@ -123,9 +113,6 @@ int NVStrings::stol(long* results, bool todevice)
                 d_rtn[idx] = 0L;
         });
     //
-    printCudaError(cudaDeviceSynchronize(),"nvs-stol");
-    double et = GetTime();
-    pImpl->addOpTimes("stol",0.0,(et-st));
     int zeros = thrust::count(execpol->on(0),d_rtn,d_rtn+count,0);
     if( !todevice )
     {
@@ -147,7 +134,6 @@ int NVStrings::stof(float* results, bool todevice)
     if( !todevice )
         RMM_ALLOC(&d_rtn,count*sizeof(float),0);
 
-    double st = GetTime();
     custring_view** d_strings = pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_rtn] __device__(unsigned int idx){
@@ -158,9 +144,6 @@ int NVStrings::stof(float* results, bool todevice)
                 d_rtn[idx] = (float)0;
         });
     //
-    printCudaError(cudaDeviceSynchronize(),"nvs-stof");
-    double et = GetTime();
-    pImpl->addOpTimes("stof",0.0,(et-st));
     int zeros = thrust::count(execpol->on(0),d_rtn,d_rtn+count,0);
     if( !todevice )
     {
@@ -182,7 +165,6 @@ int NVStrings::stod(double* results, bool todevice)
     if( !todevice )
         RMM_ALLOC(&d_rtn,count*sizeof(double),0);
 
-    double st = GetTime();
     custring_view** d_strings = pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_rtn] __device__(unsigned int idx){
@@ -193,9 +175,6 @@ int NVStrings::stod(double* results, bool todevice)
                 d_rtn[idx] = 0.0;
         });
     //
-    printCudaError(cudaDeviceSynchronize(),"nvs-stod");
-    double et = GetTime();
-    pImpl->addOpTimes("stod",0.0,(et-st));
     int zeros = thrust::count(execpol->on(0),d_rtn,d_rtn+count,0);
     if( !todevice )
     {
@@ -217,7 +196,6 @@ int NVStrings::htoi(unsigned int* results, bool todevice)
     if( !todevice )
         RMM_ALLOC(&d_rtn,count*sizeof(unsigned int),0);
 
-    double st = GetTime();
     custring_view** d_strings = pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_rtn] __device__(unsigned int idx){
@@ -252,9 +230,6 @@ int NVStrings::htoi(unsigned int* results, bool todevice)
             d_rtn[idx] = (unsigned int)result;
         });
     //
-    printCudaError(cudaDeviceSynchronize(),"nvs-htoi");
-    double et = GetTime();
-    pImpl->addOpTimes("htoi",0.0,(et-st));
     int zeros = thrust::count(execpol->on(0),d_rtn,d_rtn+count,0);
     if( !todevice )
     {
@@ -268,7 +243,7 @@ int NVStrings::htoi(unsigned int* results, bool todevice)
 NVStrings* NVStrings::itos(const int* values, unsigned int count, const unsigned char* nullbitmask, bool bdevmem)
 {
     if( values==0 || count==0 )
-        return 0;
+        throw std::invalid_argument("nvstrings::itos values or count invalid");
     auto execpol = rmm::exec_policy(0);
     NVStrings* rtn = new NVStrings(count);
 
@@ -310,7 +285,7 @@ NVStrings* NVStrings::itos(const int* values, unsigned int count, const unsigned
         [d_buffer, d_offsets, d_nulls, d_values, d_strings] __device__(unsigned int idx){
             if( d_nulls && ((d_nulls[idx/8] & (1 << (idx % 8)))==0) ) // from arrow spec
             {
-                d_strings[idx] = 0;
+                d_strings[idx] = nullptr;
                 return;
             }
             char* str = d_buffer + d_offsets[idx];
@@ -318,10 +293,6 @@ NVStrings* NVStrings::itos(const int* values, unsigned int count, const unsigned
             d_strings[idx] = custring_view::ltos(value,str);
         });
     //
-    cudaError_t err = cudaDeviceSynchronize();
-    if( err != cudaSuccess )
-        printCudaError(err,"nvs-itos");
-    // done
     if( !bdevmem )
         RMM_FREE(d_values,0);
     return rtn;
@@ -330,7 +301,7 @@ NVStrings* NVStrings::itos(const int* values, unsigned int count, const unsigned
 NVStrings* NVStrings::ltos(const long* values, unsigned int count, const unsigned char* nullbitmask, bool bdevmem)
 {
     if( values==0 || count==0 )
-        return 0;
+        throw std::invalid_argument("nvstrings::ltos values or count invalid");
     auto execpol = rmm::exec_policy(0);
     NVStrings* rtn = new NVStrings(count);
 
@@ -372,7 +343,7 @@ NVStrings* NVStrings::ltos(const long* values, unsigned int count, const unsigne
         [d_buffer, d_offsets, d_nulls, d_values, d_strings] __device__(unsigned int idx){
             if( d_nulls && ((d_nulls[idx/8] & (1 << (idx % 8)))==0) ) // from arrow spec
             {
-                d_strings[idx] = 0;
+                d_strings[idx] = nullptr;
                 return;
             }
             char* str = d_buffer + d_offsets[idx];
@@ -380,10 +351,6 @@ NVStrings* NVStrings::ltos(const long* values, unsigned int count, const unsigne
             d_strings[idx] = custring_view::ltos(value,str);
         });
     //
-    cudaError_t err = cudaDeviceSynchronize();
-    if( err != cudaSuccess )
-        printCudaError(err,"nvs-ltos");
-    // done
     if( !bdevmem )
         RMM_FREE(d_values,0);
     return rtn;
@@ -630,7 +597,7 @@ struct ftos_converter
 NVStrings* NVStrings::ftos(const float* values, unsigned int count, const unsigned char* nullbitmask, bool bdevmem)
 {
     if( values==0 || count==0 )
-        return 0;
+        throw std::invalid_argument("nvstrings::ftos values or count invalid");
     auto execpol = rmm::exec_policy(0);
     NVStrings* rtn = new NVStrings(count);
 
@@ -674,7 +641,7 @@ NVStrings* NVStrings::ftos(const float* values, unsigned int count, const unsign
         [d_buffer, d_offsets, d_nulls, d_values, d_strings] __device__(unsigned int idx){
             if( d_nulls && ((d_nulls[idx/8] & (1 << (idx % 8)))==0) ) // from arrow spec
             {
-                d_strings[idx] = 0;
+                d_strings[idx] = nullptr;
                 return;
             }
             char* str = d_buffer + d_offsets[idx];
@@ -684,10 +651,6 @@ NVStrings* NVStrings::ftos(const float* values, unsigned int count, const unsign
             d_strings[idx] = custring_view::create_from(str,str,len);
         });
     //
-    cudaError_t err = cudaDeviceSynchronize();
-    if( err != cudaSuccess )
-        printCudaError(err,"nvs-ftos");
-    // done
     if( !bdevmem )
         RMM_FREE(d_values,0);
     return rtn;
@@ -697,7 +660,7 @@ NVStrings* NVStrings::ftos(const float* values, unsigned int count, const unsign
 NVStrings* NVStrings::dtos(const double* values, unsigned int count, const unsigned char* nullbitmask, bool bdevmem)
 {
     if( values==0 || count==0 )
-        return 0;
+        throw std::invalid_argument("nvstrings::dtos values or count invalid");
     auto execpol = rmm::exec_policy(0);
     NVStrings* rtn = new NVStrings(count);
 
@@ -741,7 +704,7 @@ NVStrings* NVStrings::dtos(const double* values, unsigned int count, const unsig
         [d_buffer, d_offsets, d_nulls, d_values, d_strings] __device__(unsigned int idx){
             if( d_nulls && ((d_nulls[idx/8] & (1 << (idx % 8)))==0) ) // from arrow spec
             {
-                d_strings[idx] = 0;
+                d_strings[idx] = nullptr;
                 return;
             }
             char* str = d_buffer + d_offsets[idx];
@@ -751,10 +714,6 @@ NVStrings* NVStrings::dtos(const double* values, unsigned int count, const unsig
             d_strings[idx] = custring_view::create_from(str,str,len);
         });
     //
-    cudaError_t err = cudaDeviceSynchronize();
-    if( err != cudaSuccess )
-        printCudaError(err,"nvs-dtos");
-    // done
     if( !bdevmem )
         RMM_FREE(d_values,0);
     return rtn;
@@ -808,7 +767,6 @@ int NVStrings::ip2int( unsigned int* results, bool bdevmem )
             d_rtn[idx] = result;
         });
     //
-    printCudaError(cudaDeviceSynchronize(),"nvs-ip2int");
     int zeros = thrust::count(execpol->on(0),d_rtn,d_rtn+count,0);
     if( !bdevmem )
     {
@@ -821,7 +779,7 @@ int NVStrings::ip2int( unsigned int* results, bool bdevmem )
 NVStrings* NVStrings::int2ip( const unsigned int* values, unsigned int count, const unsigned char* nullbitmask, bool bdevmem )
 {
     if( values==0 || count==0 )
-        return 0;
+        throw std::invalid_argument("nvstrings::int2ip values or count invalid");
     auto execpol = rmm::exec_policy(0);
     NVStrings* rtn = new NVStrings(count);
 
@@ -870,7 +828,7 @@ NVStrings* NVStrings::int2ip( const unsigned int* values, unsigned int count, co
         [d_buffer, d_offsets, d_nulls, d_values, d_strings] __device__(unsigned int idx){
             if( d_nulls && ((d_nulls[idx/8] & (1 << (idx % 8)))==0) )
             {
-                d_strings[idx] = 0;
+                d_strings[idx] = nullptr;
                 return;
             }
             unsigned int ipnum = d_values[idx];
@@ -899,10 +857,6 @@ NVStrings* NVStrings::int2ip( const unsigned int* values, unsigned int count, co
             d_strings[idx] = custring_view::create_from(str,str,len);
         });
     //
-    cudaError_t err = cudaDeviceSynchronize();
-    if( err != cudaSuccess )
-        printCudaError(err,"nvs-itos");
-    // done
     if( !bdevmem )
         RMM_FREE(d_values,0);
     return rtn;
@@ -1019,7 +973,6 @@ int NVStrings::timestamp2long( unsigned long* results, timestamp_units units, bo
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         parse_iso8601(d_strings,units,d_rtn));
     //
-    printCudaError(cudaDeviceSynchronize(),"nvs-timestamp2long");
     int zeros = thrust::count(execpol->on(0),d_rtn,d_rtn+count,0);
     if( !bdevmem )
     {
@@ -1128,7 +1081,7 @@ struct iso8601_formatter
     {
         if( d_nulls && ((d_nulls[idx/8] & (1 << (idx % 8)))==0) )
         {
-            d_strings[idx] = 0;
+            d_strings[idx] = nullptr;
             return;
         }
         long timestamp = d_timestamps[idx];
@@ -1164,7 +1117,7 @@ struct iso8601_formatter
 NVStrings* NVStrings::long2timestamp( const unsigned long* values, unsigned int count, timestamp_units units, const unsigned char* nullbitmask, bool bdevmem )
 {
     if( values==0 || count==0 )
-        return 0;
+        throw std::invalid_argument("nvstrings::long2timestamp values or count invalid");
     auto execpol = rmm::exec_policy(0);
     NVStrings* rtn = new NVStrings(count);
 
@@ -1207,10 +1160,6 @@ NVStrings* NVStrings::long2timestamp( const unsigned long* values, unsigned int 
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         iso8601_formatter(units,d_buffer, d_offsets, d_nulls, d_values, d_strings));
     //
-    cudaError_t err = cudaDeviceSynchronize();
-    if( err != cudaSuccess )
-        printCudaError(err,"nvs-long2timestamp");
-    // done
     if( !bdevmem )
         RMM_FREE(d_values,0);
     return rtn;
@@ -1224,7 +1173,7 @@ int NVStrings::to_bools( bool* results, const char* true_string, bool bdevmem )
 
     auto execpol = rmm::exec_policy(0);
     // copy parameter to device memory
-    char* d_true = 0;
+    char* d_true = nullptr;
     int d_len = 0;
     if( true_string )
     {
@@ -1238,7 +1187,6 @@ int NVStrings::to_bools( bool* results, const char* true_string, bool bdevmem )
         RMM_ALLOC(&d_rtn,count*sizeof(bool),0);
 
     // set the values
-    double st = GetTime();
     custring_view** d_strings = pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_true, d_len, d_rtn] __device__(unsigned int idx){
@@ -1249,9 +1197,6 @@ int NVStrings::to_bools( bool* results, const char* true_string, bool bdevmem )
                 d_rtn[idx] = (d_true==0); // let null be a thing
         });
     //
-    printCudaError(cudaDeviceSynchronize(),"nvs-str2bool");
-    double et = GetTime();
-    pImpl->addOpTimes("to_bools",0.0,(et-st));
     // calculate the number of falses (to include nulls too)
     int falses = thrust::count(execpol->on(0),d_rtn,d_rtn+count,false);
     if( !bdevmem )
@@ -1267,20 +1212,20 @@ int NVStrings::to_bools( bool* results, const char* true_string, bool bdevmem )
 NVStrings* NVStrings::create_from_bools(const bool* values, unsigned int count, const char* true_string, const char* false_string, const unsigned char* nullbitmask, bool bdevmem)
 {
     if( values==0 || count==0 )
-        return 0;
+        throw std::invalid_argument("nvstrings::create_from_bools values or count invalid");
     if( true_string==0 || false_string==0 )
-        return 0; // throw exception here
+        throw std::invalid_argument("nvstrings::create_from_bools false and true strings must not be null");
 
     auto execpol = rmm::exec_policy(0);
     NVStrings* rtn = new NVStrings(count);
 
     int d_len_true = strlen(true_string);
-    char* d_true = 0;
+    char* d_true = nullptr;
     RMM_ALLOC(&d_true,d_len_true+1,0);
     cudaMemcpy(d_true,true_string,d_len_true+1,cudaMemcpyHostToDevice);
     int d_as_true = custring_view::alloc_size(true_string,d_len_true);
     int d_len_false = strlen(false_string);
-    char* d_false = 0;
+    char* d_false = nullptr;
     RMM_ALLOC(&d_false,d_len_false+1,0);
     cudaMemcpy(d_false,false_string,d_len_false+1,cudaMemcpyHostToDevice);
     int d_as_false = custring_view::alloc_size(false_string,d_len_false);
@@ -1323,7 +1268,7 @@ NVStrings* NVStrings::create_from_bools(const bool* values, unsigned int count, 
         [d_buffer, d_offsets, d_nulls, d_values, d_true, d_len_true, d_false, d_len_false, d_strings] __device__(unsigned int idx){
             if( d_nulls && ((d_nulls[idx/8] & (1 << (idx % 8)))==0) ) // from arrow spec
             {
-                d_strings[idx] = 0; // null string
+                d_strings[idx] = nullptr; // null string
                 return;
             }
             char* buf = d_buffer + d_offsets[idx];
@@ -1334,10 +1279,6 @@ NVStrings* NVStrings::create_from_bools(const bool* values, unsigned int count, 
                 d_strings[idx] = custring_view::create_from(buf,d_false,d_len_false);
         });
     //
-    cudaError_t err = cudaDeviceSynchronize();
-    if( err != cudaSuccess )
-        printCudaError(err,"nvs-bool2str");
-    // done
     if( !bdevmem )
         RMM_FREE(d_values,0);
     RMM_FREE(d_true,0);

@@ -14,7 +14,6 @@
 * limitations under the License.
 */
 
-#include <stdlib.h>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #include <thrust/device_vector.h>
@@ -26,7 +25,6 @@
 #include "NVStringsImpl.h"
 #include "custring_view.cuh"
 #include "unicode/is_flags.h"
-#include "Timing.h"
 #include "util.h"
 
 //
@@ -42,13 +40,6 @@ NVStrings* NVStrings::lower()
     // compute size of output buffer
     rmm::device_vector<size_t> lengths(count,0);
     size_t* d_lengths = lengths.data().get();
-    double st1 = GetTime();
-    //thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-    //    [d_strings, d_lengths] __device__(unsigned int idx){
-    //        custring_view* dstr = d_strings[idx];
-    //        if( dstr )
-    //            d_lengths[idx] = ALIGN_SIZE(dstr->alloc_size());
-    //    });
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_flags, d_cases, d_lengths] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -73,23 +64,18 @@ NVStrings* NVStrings::lower()
     char* d_buffer = rtn->pImpl->createMemoryFor(d_lengths);
     if( d_buffer==0 )
         return rtn;
-    double et1 = GetTime();
     // create offsets
     rmm::device_vector<size_t> offsets(count,0);
     thrust::exclusive_scan(execpol->on(0),lengths.begin(),lengths.end(),offsets.begin());
     // do the thing
     custring_view_array d_results = rtn->pImpl->getStringsPtr();
     size_t* d_offsets = offsets.data().get();
-    double st2 = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_flags, d_cases, d_buffer, d_offsets, d_results] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
             if( dstr )
             {
                 char* buffer = d_buffer + d_offsets[idx];
-                //custring_view* dout = custring_view::create_from(buffer,*dstr);
-                //dout->lower(); // inplace function
-                //d_results[idx] = dout;
                 char* ptr = buffer;
                 unsigned int bytes = 0;
                 for( auto itr = dstr->begin(); (itr != dstr->end()); itr++ )
@@ -107,11 +93,6 @@ NVStrings* NVStrings::lower()
             }
         });
     //
-    cudaError_t err = cudaDeviceSynchronize();
-    double et2 = GetTime();
-    if( err != cudaSuccess )
-        printCudaError(err,"nvs-lower()");
-    pImpl->addOpTimes("lower",(et1-st1),(et2-st2));
     return rtn;
 }
 
@@ -128,13 +109,6 @@ NVStrings* NVStrings::upper()
     // compute size of output buffer
     rmm::device_vector<size_t> lengths(count,0);
     size_t* d_lengths = lengths.data().get();
-    double st1 = GetTime();
-    //thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-    //    [d_strings, d_lengths] __device__(unsigned int idx){
-    //        custring_view* dstr = d_strings[idx];
-    //        if( dstr )
-    //            d_lengths[idx] = ALIGN_SIZE(dstr->alloc_size());
-    //    });
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_flags, d_cases, d_lengths] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -160,24 +134,18 @@ NVStrings* NVStrings::upper()
     char* d_buffer = rtn->pImpl->createMemoryFor(d_lengths);
     if( d_buffer==0 )
         return rtn;
-    double et1 = GetTime();
     // create offsets
     rmm::device_vector<size_t> offsets(count,0);
     thrust::exclusive_scan(execpol->on(0),lengths.begin(),lengths.end(),offsets.begin());
     size_t* d_offsets = offsets.data().get();
     // do the thing
     custring_view_array d_results = rtn->pImpl->getStringsPtr();
-    double st2 = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_flags, d_cases, d_buffer, d_offsets, d_results] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
             if( !dstr )
                 return;
             char* buffer = d_buffer + d_offsets[idx];
-            //char* buffer = d_output + (size_t)((char*)dstr - d_input);
-            //custring_view* dout = custring_view::create_from(buffer,*dstr);
-            //dout->upper(); // inplace
-            //d_results[idx] = dout;
             char* ptr = buffer;
             unsigned int bytes = 0;
             for( auto itr = dstr->begin(); (itr != dstr->end()); itr++ )
@@ -194,11 +162,6 @@ NVStrings* NVStrings::upper()
             d_results[idx] = custring_view::create_from(buffer,buffer,bytes);
         });
     //
-    cudaError_t err = cudaDeviceSynchronize();
-    double et2 = GetTime();
-    if( err != cudaSuccess )
-        printCudaError(err,"nvs-upper()");
-    pImpl->addOpTimes("upper",(et1-st1),(et2-st2));
     return rtn;
 }
 
@@ -215,14 +178,6 @@ NVStrings* NVStrings::swapcase()
     // compute size of output buffer
     rmm::device_vector<size_t> lengths(count,0);
     size_t* d_lengths = lengths.data().get();
-    double st1 = GetTime();
-    //thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-    //    [d_strings, d_lengths] __device__(unsigned int idx){
-    //        custring_view* dstr = d_strings[idx];
-    //        if( dstr )
-    //            d_lengths[idx] = ALIGN_SIZE(dstr->alloc_size());
-    //    });
-    //
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_flags, d_cases, d_lengths] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -247,23 +202,18 @@ NVStrings* NVStrings::swapcase()
     char* d_buffer = rtn->pImpl->createMemoryFor(d_lengths);
     if( d_buffer==0 )
         return rtn;
-    double et1 = GetTime();
     // create offsets
     rmm::device_vector<size_t> offsets(count,0);
     thrust::exclusive_scan(execpol->on(0),lengths.begin(),lengths.end(),offsets.begin());
     // do the thing
     custring_view_array d_results = rtn->pImpl->getStringsPtr();
     size_t* d_offsets = offsets.data().get();
-    double st2 = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_flags, d_cases, d_buffer, d_offsets, d_results] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
             if( dstr )
             {
                 char* buffer = d_buffer + d_offsets[idx];
-                //custring_view* dout = custring_view::create_from(buffer,*dstr);
-                //dout->swapcase();
-                //d_results[idx] = dout;
                 char* ptr = buffer;
                 unsigned int bytes = 0;
                 for( auto itr = dstr->begin(); (itr != dstr->end()); itr++ )
@@ -281,11 +231,6 @@ NVStrings* NVStrings::swapcase()
             }
         });
     //
-    cudaError_t err = cudaDeviceSynchronize();
-    double et2 = GetTime();
-    if( err != cudaSuccess )
-        printCudaError(err,"nvs-swapcase()");
-    pImpl->addOpTimes("swapcase",(et1-st1),(et2-st2));
     return rtn;
 }
 
@@ -302,7 +247,6 @@ NVStrings* NVStrings::capitalize()
     // compute size of output buffer
     rmm::device_vector<size_t> lengths(count,0);
     size_t* d_lengths = lengths.data().get();
-    double st1 = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_flags, d_cases, d_lengths] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -331,23 +275,18 @@ NVStrings* NVStrings::capitalize()
     char* d_buffer = rtn->pImpl->createMemoryFor(d_lengths);
     if( d_buffer==0 )
         return rtn;
-    double et1 = GetTime();
     // create offsets
     rmm::device_vector<size_t> offsets(count,0);
     thrust::exclusive_scan(execpol->on(0),lengths.begin(),lengths.end(),offsets.begin());
     // do the thing
     custring_view_array d_results = rtn->pImpl->getStringsPtr();
     size_t* d_offsets = offsets.data().get();
-    double st2 = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_flags, d_cases, d_buffer, d_offsets, d_results] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
             if( dstr )
             {
                 char* buffer = d_buffer + d_offsets[idx];
-                //custring_view* dout = custring_view::create_from(buffer,*dstr);
-                //dout->capitalize();
-                //d_results[idx] = dout;
                 char* ptr = buffer;
                 unsigned int bytes = 0;
                 for( auto itr = dstr->begin(); (itr != dstr->end()); itr++ )
@@ -368,11 +307,6 @@ NVStrings* NVStrings::capitalize()
             }
         });
     //
-    cudaError_t err = cudaDeviceSynchronize();
-    double et2 = GetTime();
-    if( err != cudaSuccess )
-        printCudaError(err,"mvs-capitalize()");
-    pImpl->addOpTimes("capitalize",(et1-st1),(et2-st2));
     return rtn;
 }
 
@@ -389,7 +323,6 @@ NVStrings* NVStrings::title()
     // compute size of output buffer
     rmm::device_vector<size_t> lengths(count,0);
     size_t* d_lengths = lengths.data().get();
-    double st1 = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_flags, d_cases, d_lengths] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -421,23 +354,18 @@ NVStrings* NVStrings::title()
     char* d_buffer = rtn->pImpl->createMemoryFor(d_lengths);
     if( d_buffer==0 )
         return rtn;
-    double et1 = GetTime();
     // create offsets
     rmm::device_vector<size_t> offsets(count,0);
     thrust::exclusive_scan(execpol->on(0),lengths.begin(),lengths.end(),offsets.begin());
     // do the title thing
     custring_view_array d_results = rtn->pImpl->getStringsPtr();
     size_t* d_offsets = offsets.data().get();
-    double st2 = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_flags, d_cases, d_buffer, d_offsets, d_results] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
             if( dstr )
             {
                 char* buffer = d_buffer + d_offsets[idx];
-                //custring_view* dout = custring_view::create_from(buffer,*dstr);
-                //dout->titlecase();
-                //d_results[idx] = dout;
                 char* ptr = buffer;
                 int bytes = 0;
                 bool bcapnext = true;
@@ -465,10 +393,5 @@ NVStrings* NVStrings::title()
             }
         });
     //
-    cudaError_t err = cudaDeviceSynchronize();
-    double et2 = GetTime();
-    if( err != cudaSuccess )
-        printCudaError(err,"nvs-title()");
-    pImpl->addOpTimes("",(et1-st1),(et2-st2));
     return rtn;
 }

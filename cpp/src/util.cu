@@ -20,7 +20,6 @@
 #include <thrust/host_vector.h>
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
-#include "Timing.h"
 #include "NVStrings.h"
 #include "util.h"
 
@@ -103,7 +102,7 @@ NVStrings* createFromCSV(std::string csvfile, unsigned int column, unsigned int 
     if( !fp )
     {
         printf("Could not open csv file: [%s]\n",csvfile.c_str());
-        return 0;
+        return nullptr;
     }
     fseek(fp, 0, SEEK_END);
     size_t fileSize = (size_t)ftell(fp);
@@ -112,7 +111,7 @@ NVStrings* createFromCSV(std::string csvfile, unsigned int column, unsigned int 
     if( fileSize < 2 )
     {
         fclose(fp);
-        return 0;
+        return nullptr;
     }
     // load file into memory
     size_t contentsSize = fileSize+2;
@@ -209,7 +208,7 @@ NVStrings* createFromCSV(std::string csvfile, unsigned int column, unsigned int 
                 bquote = false;
             }
 
-            // add string info to array            
+            // add string info to array
             if( length==0 && ((flags & CSV_NULL_IS_EMPTY)==0) )
                 d_index[idx].first = 0;
             else
@@ -219,14 +218,8 @@ NVStrings* createFromCSV(std::string csvfile, unsigned int column, unsigned int 
 
     cudaDeviceSynchronize();
     // the NVStrings object can now be created from the array of pairs
-    double st = GetTime();
     NVStrings::sorttype stype = (NVStrings::sorttype)(flags & (CSV_SORT_LENGTH | CSV_SORT_NAME));
     NVStrings* rtn = NVStrings::create_from_index(d_index,(unsigned int)linesCount,true,stype);
-    double et = GetTime();
-#if STR_STATS
-    et = (et - st)*1000.0;
-    printf("created from index in %g ms\n",et);
-#endif
     cudaFree(d_index);    // done with string index array
     cudaFree(d_contents); // done with csv device memory
     return rtn;
