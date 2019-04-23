@@ -14,7 +14,7 @@
 * limitations under the License.
 */
 
-#include <stdlib.h>
+#include <cstdlib>
 #include <cuda_runtime.h>
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
@@ -23,77 +23,6 @@
 #include "NVStrings.h"
 #include "util.h"
 
-// single unicode character to utf8 character
-// used only by translate method
-__host__ __device__ unsigned int u2u8( unsigned int unchr )
-{
-    unsigned int utf8 = 0;
-    if( unchr < 0x00000080 )
-        utf8 = unchr;
-    else if( unchr < 0x00000800 )
-    {
-        utf8 =  (unchr << 2) & 0x1F00;
-        utf8 |= (unchr & 0x3F);
-        utf8 |= 0x0000C080;
-    }
-    else if( unchr < 0x00010000 )
-    {
-        utf8 =  (unchr << 4) & 0x0F0000;  // upper 4 bits
-        utf8 |= (unchr << 2) & 0x003F00;  // next 6 bits
-        utf8 |= (unchr & 0x3F);           // last 6 bits
-        utf8 |= 0x00E08080;
-    }
-    else if( unchr < 0x00110000 ) // 3-byte unicode?
-    {
-        utf8 =  (unchr << 6) & 0x07000000;  // upper 3 bits
-        utf8 |= (unchr << 4) & 0x003F0000;  // next 6 bits
-        utf8 |= (unchr << 2) & 0x00003F00;  // next 6 bits
-        utf8 |= (unchr & 0x3F);             // last 6 bits
-        utf8 |= (unsigned)0xF0808080;
-    }
-    return utf8;
-}
-
-__host__ __device__ unsigned int u82u( unsigned int utf8 )
-{
-    unsigned int unchr = 0;
-    if( utf8 < 0x00000080 )
-        unchr = utf8;
-    else if( utf8 < 0x0000E000 )
-    {
-        unchr =  (utf8 & 0x1F00) >> 2;
-        unchr |= (utf8 & 0x003F);
-    }
-    else if( utf8 < 0x00F00000 )
-    {
-        unchr =  (utf8 & 0x0F0000) >> 4;
-        unchr |= (utf8 & 0x003F00) >> 2;
-        unchr |= (utf8 & 0x00003F);
-    }
-    else if( utf8 <= (unsigned)0xF8000000 )
-    {
-        unchr =  (utf8 & 0x03000000) >> 6;
-        unchr |= (utf8 & 0x003F0000) >> 4;
-        unchr |= (utf8 & 0x00003F00) >> 2;
-        unchr |= (utf8 & 0x0000003F);
-    }
-    return unchr;
-}
-
-__device__ char* copy_and_incr( char*& dest, char* src, unsigned int bytes )
-{
-    memcpy(dest,src,bytes);
-    dest += bytes;
-    return dest;
-}
-
-__device__ char* copy_and_incr_both( char*& dest, char*& src, unsigned int bytes )
-{
-    memcpy(dest,src,bytes);
-    dest += bytes;
-    src += bytes;
-    return dest;
-}
 
 // this is just a convenience and should be removed in the future
 NVStrings* createFromCSV(std::string csvfile, unsigned int column, unsigned int lines, unsigned int flags)

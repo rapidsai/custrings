@@ -15,21 +15,25 @@
 */
 #pragma once
 
+#include <cuda_runtime.h>
+
 namespace custr
 {
     // convert string with numerical characters to number
-    __device__ int stoi( const char* str, unsigned int bytes );
-    __device__ long stol( const char* str, unsigned int bytes );
-    __device__ unsigned long stoul( const char* str, unsigned int bytes );
-    __device__ float stof( const char* str, unsigned int bytes );
-    __device__ double stod( const char* str, unsigned int bytes );
-    __device__ unsigned int hash( const char* str, unsigned int bytes );
+    __device__ inline int stoi( const char* str, unsigned int bytes );
+    __device__ inline long stol( const char* str, unsigned int bytes );
+    __device__ inline unsigned long stoul( const char* str, unsigned int bytes );
+    __device__ inline float stof( const char* str, unsigned int bytes );
+    __device__ inline double stod( const char* str, unsigned int bytes );
+    __device__ inline unsigned int hash( const char* str, unsigned int bytes );
 
     //
-    __device__ int compare(const char* src, unsigned int sbytes, const char* tgt, unsigned int tbytes );
-    __device__ int find( const char* src, unsigned int sbytes, const char* tgt, unsigned int tbytes );
-    __device__ int rfind( const char* src, unsigned int sbytes, const char* tgt, unsigned int tbytes );
+    __device__ inline int compare(const char* src, unsigned int sbytes, const char* tgt, unsigned int tbytes );
+    __device__ inline int find( const char* src, unsigned int sbytes, const char* tgt, unsigned int tbytes );
+    __device__ inline int rfind( const char* src, unsigned int sbytes, const char* tgt, unsigned int tbytes );
     //
-    __device__ void copy( char* dst, unsigned int bytes, const char* src );
+    __device__ inline void copy( char* dst, unsigned int bytes, const char* src );
 
 }
+
+#include "custring.inl"

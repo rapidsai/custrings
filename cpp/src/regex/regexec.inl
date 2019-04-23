@@ -15,11 +15,10 @@
 */
 
 #include <memory.h>
-#include <cuda_runtime.h>
 #include <rmm/rmm.h>
-#include "regex.cuh"
 #include "regcomp.h"
 #include "../custring_view.cuh"
+#include "../util.h"
 
 // from is_flags.h -- need to put these somewhere else
 #define IS_SPACE(x) ((x & 16)>0)
@@ -30,8 +29,6 @@
 #define IS_ALPHANUM(x) ((x & 15)>0)
 #define IS_UPPER(x) ((x & 32)>0)
 #define IS_LOWER(x) ((x & 64)>0)
-// defined in util.cu
-__host__ __device__ unsigned int u82u( unsigned int utf8 );
 
 //
 #define LISTBYTES 12
@@ -46,7 +43,7 @@ struct Relist
     u_char* mask;//[LISTBYTES];
     u_char data[(9*LISTSIZE)+LISTBYTES]; // always last
 
-    __host__ __device__ static int size_for(int insts)
+    __host__ __device__ inline static int size_for(int insts)
     {
         int size = 0;
         size += sizeof(short);                  // size
@@ -60,7 +57,7 @@ struct Relist
         return size;
     }
 
-    __host__ __device__ Relist()
+    __host__ __device__ inline Relist()
     {
         //listsize = LISTSIZE;
         //reset();
@@ -123,7 +120,6 @@ struct Relist
         u_char uc = mask[pos >> 3];
         return (bool)((uc >> (pos & 7)) & 1);
     }
-
 };
 
 struct	Reljunk
@@ -145,10 +141,10 @@ __device__ inline void swaplist(Relist*& l1, Relist*& l2)
     l2 = t;
 }
 
-__device__ dreclass::dreclass(unsigned char* flags)
+__device__ inline dreclass::dreclass(unsigned char* flags)
                     : builtins(0), count(0), chrs(0), uflags(flags) {}
 
-__device__ bool dreclass::is_match(char32_t ch)
+__device__ inline bool dreclass::is_match(char32_t ch)
 {
     int i=0, len = count;
     for( ; i < len; i += 2 )
@@ -178,100 +174,8 @@ __device__ bool dreclass::is_match(char32_t ch)
     return false;
 }
 
-dreprog::dreprog() {}
-dreprog::~dreprog() {}
 
-dreprog* dreprog::create_from(const char32_t* pattern, unsigned char* uflags, unsigned int strscount )
-{
-    // compile pattern
-    Reprog* prog = Reprog::create_from(pattern);
-    // compute size to hold prog
-    int insts_count = (int)prog->inst_count();
-    int classes_count = (int)prog->classes_count();
-    int insts_size = insts_count * sizeof(Reinst);
-    int classes_size = classes_count * sizeof(int); // offsets
-    for( int idx=0; idx < classes_count; ++idx )
-        classes_size += (int)((prog->class_at(idx).chrs.size())*sizeof(char32_t)) + (int)sizeof(int);
-    // allocate memory to store prog
-    size_t memsize = sizeof(dreprog) + insts_size + classes_size;
-    u_char* buffer = (u_char*)malloc(memsize);
-    dreprog* rtn = (dreprog*)buffer;
-    buffer += sizeof(dreprog);
-    Reinst* insts = (Reinst*)buffer;
-    memcpy( insts, prog->insts_data(), insts_size);
-    buffer += insts_size;
-    // classes are variable size so create offsets array
-    int* offsets = (int*)buffer;
-    buffer += classes_count * sizeof(int);
-    char32_t* classes = (char32_t*)buffer;
-    int offset = 0;
-    for( int idx=0; idx < classes_count; ++idx )
-    {
-        Reclass& cls = prog->class_at(idx);
-        memcpy( classes++, &(cls.builtins), sizeof(int) );
-        int len = (int)cls.chrs.size();
-        memcpy( classes, cls.chrs.c_str(), len*sizeof(char32_t) );
-        offset += 1 + len;
-        offsets[idx] = offset;
-        classes += len;
-    }
-    // initialize the rest of the elements
-    rtn->startinst_id = prog->get_start_inst();
-    rtn->num_capturing_groups = prog->groups_count();
-    rtn->insts_count = insts_count;
-    rtn->classes_count = classes_count;
-    rtn->unicode_flags = uflags;
-    rtn->relists_mem = 0;
-    // allocate memory for relist if necessary
-    if( (insts_count > LISTSIZE) && strscount )
-    {
-        int rsz = Relist::size_for(insts_count);
-        size_t rlmsz = rsz*2*strscount; // Reljunk has 2 Relist ptrs
-        void* rmem = 0;
-        RMM_ALLOC(&rmem,rlmsz,0);//cudaMalloc(&rmem,rlmsz);
-        rtn->relists_mem = rmem;
-    }
-
-    // compiled prog copied into flat memory
-    delete prog;
-
-    // copy flat prog to device memory
-    dreprog* d_rtn = 0;
-    RMM_ALLOC(&d_rtn,memsize,0);//cudaMalloc(&d_rtn,memsize);
-    cudaMemcpy(d_rtn,rtn,memsize,cudaMemcpyHostToDevice);
-    free(rtn);
-    return d_rtn;
-}
-
-void dreprog::destroy(dreprog* prog)
-{
-    prog->free_relists();
-    RMM_FREE(prog,0);//cudaFree(prog);
-}
-
-void dreprog::free_relists()
-{
-    void* cptr = 0; // this magic works but only as member function
-    cudaMemcpy(&cptr,&relists_mem,sizeof(void*),cudaMemcpyDeviceToHost);
-    if( cptr )
-        RMM_FREE(cptr,0);//cudaFree(cptr);
-}
-
-int dreprog::inst_counts()
-{
-    int count = 0;
-    cudaMemcpy(&count,&insts_count,sizeof(int),cudaMemcpyDeviceToHost);
-    return count;
-}
-
-int dreprog::group_counts()
-{
-    int count = 0;
-    cudaMemcpy(&count,&num_capturing_groups,sizeof(int),cudaMemcpyDeviceToHost);
-    return count;
-}
-
-__host__ __device__ Reinst* dreprog::get_inst(int idx)
+__host__ __device__ inline Reinst* dreprog::get_inst(int idx)
 {
     if( idx < 0 || idx >= insts_count )
         return 0;
@@ -299,7 +203,7 @@ __host__ __device__ Reinst* dreprog::get_inst(int idx)
 //	return classes;
 //}
 
-__device__ int dreprog::get_class(int idx, dreclass& cls)
+__device__ inline int dreprog::get_class(int idx, dreclass& cls)
 {
     if( idx < 0 || idx >= classes_count )
         return 0;
@@ -325,7 +229,7 @@ __device__ int dreprog::get_class(int idx, dreclass& cls)
 
 
 // execute compiled expression for each character in the provided string
-__device__ int dreprog::regexec(custring_view* dstr, Reljunk &jnk, int& begin, int& end, int groupId)
+__device__ inline int dreprog::regexec(custring_view* dstr, Reljunk &jnk, int& begin, int& end, int groupId)
 {
     int match = 0;
     int checkstart = jnk.starttype;
@@ -564,7 +468,7 @@ __device__ int dreprog::regexec(custring_view* dstr, Reljunk &jnk, int& begin, i
 }
 
 //
-__device__ int dreprog::contains( custring_view* dstr )
+__device__ inline int dreprog::contains( custring_view* dstr )
 {
     Reljunk jnk;
     jnk.starttype = 0;
@@ -584,7 +488,7 @@ __device__ int dreprog::contains( custring_view* dstr )
     return rtn;
 }
 
-__device__ int dreprog::contains( unsigned int idx, custring_view* dstr )
+__device__ inline int dreprog::contains( unsigned int idx, custring_view* dstr )
 {
     Reljunk jnk;
     jnk.starttype = 0;
@@ -614,7 +518,7 @@ __device__ int dreprog::contains( unsigned int idx, custring_view* dstr )
     return regexec(dstr,jnk,begin,end);
 }
 
-__device__ int dreprog::match( custring_view* dstr )
+__device__ inline int dreprog::match( custring_view* dstr )
 {
     Reljunk jnk;
     jnk.starttype = 0;
@@ -634,7 +538,7 @@ __device__ int dreprog::match( custring_view* dstr )
     return rtn;
 }
 
-__device__ int dreprog::match( unsigned int idx, custring_view* dstr )
+__device__ inline int dreprog::match( unsigned int idx, custring_view* dstr )
 {
     Reljunk jnk;
     jnk.starttype = 0;
@@ -664,7 +568,7 @@ __device__ int dreprog::match( unsigned int idx, custring_view* dstr )
     return regexec(dstr,jnk,begin,end);
 }
 
-__device__ int dreprog::find( custring_view* dstr, int& begin, int& end )
+__device__ inline int dreprog::find( custring_view* dstr, int& begin, int& end )
 {
     Reljunk jnk;
     jnk.starttype = 0;
@@ -685,7 +589,7 @@ __device__ int dreprog::find( custring_view* dstr, int& begin, int& end )
     return rtn;
 }
 
-__device__ int dreprog::find( unsigned int idx, custring_view* dstr, int& begin, int& end )
+__device__ inline int dreprog::find( unsigned int idx, custring_view* dstr, int& begin, int& end )
 {
     Reljunk jnk;
     jnk.starttype = 0;
@@ -721,7 +625,7 @@ __device__ int dreprog::find( unsigned int idx, custring_view* dstr, int& begin,
 }
 
 //
-__device__ int dreprog::extract( custring_view* str, int& begin, int& end, int col )
+__device__ inline int dreprog::extract( custring_view* str, int& begin, int& end, int col )
 {
     Reljunk jnk;
     jnk.starttype = 0;
@@ -742,7 +646,7 @@ __device__ int dreprog::extract( custring_view* str, int& begin, int& end, int c
     return rtn;
 }
 
-__device__ int dreprog::extract( unsigned int idx, custring_view* dstr, int& begin, int& end, int col )
+__device__ inline int dreprog::extract( unsigned int idx, custring_view* dstr, int& begin, int& end, int col )
 {
     Reljunk jnk;
     jnk.starttype = 0;
