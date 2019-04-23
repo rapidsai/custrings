@@ -206,20 +206,14 @@ static PyObject* n_destroyCategory( PyObject* self, PyObject* args )
 static PyObject* n_size( PyObject* self, PyObject* args )
 {
     NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    size_t count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    size_t count = tptr->size();
     return PyLong_FromLong(count);
 }
 
 static PyObject* n_keys_size( PyObject* self, PyObject* args )
 {
     NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    size_t count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->keys_size();
-    Py_END_ALLOW_THREADS
+    size_t count = tptr->keys_size();
     return PyLong_FromLong(count);
 }
 

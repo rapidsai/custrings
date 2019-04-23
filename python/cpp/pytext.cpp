@@ -112,10 +112,7 @@ static PyObject* n_token_count( PyObject* self, PyObject* args )
         return PyLong_FromLong((long)rtn);
     }
     //
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = strs->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = strs->size();
     PyObject* ret = PyList_New(count);
     if( count==0 )
         return ret;
@@ -183,11 +180,8 @@ static PyObject* n_contains_strings( PyObject* self, PyObject* args )
         return PyLong_FromLong((long)rtn);
     }
     //
-    unsigned int rows = 0, columns = 0;
-    Py_BEGIN_ALLOW_THREADS
-    rows = strs->size();
-    columns = tgts->size();
-    Py_END_ALLOW_THREADS
+    unsigned int rows = strs->size();
+    unsigned int columns = tgts->size();
     PyObject* ret = PyList_New(rows);
     if( rows==0 )
     {
@@ -274,11 +268,8 @@ static PyObject* n_strings_counts( PyObject* self, PyObject* args )
         return PyLong_FromLong((long)rtn);
     }
     // or fill in python list with host memory
-    unsigned int rows = 0, columns = 0;
-    Py_BEGIN_ALLOW_THREADS
-    rows = strs->size();
-    columns = tgts->size();
-    Py_END_ALLOW_THREADS
+    unsigned int rows = strs->size();
+    unsigned int columns = tgts->size();;
     PyObject* ret = PyList_New(rows);
     if( rows==0 )
     {
@@ -325,10 +316,7 @@ static PyObject* n_edit_distance( PyObject* self, PyObject* args )
         Py_RETURN_NONE;
     }
 
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = strs->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = strs->size();
     unsigned int* devptr = (unsigned int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,2));
     std::string cname = pytgts->ob_type->tp_name;
     if( cname.compare("str")==0 )

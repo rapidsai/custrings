@@ -260,10 +260,7 @@ static PyObject* n_destroyStrings( PyObject* self, PyObject* args )
 static PyObject* n_createHostStrings( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     if( count==0 )
         return PyList_New(0);
 
@@ -893,10 +890,7 @@ static PyObject* n_create_offsets( PyObject* self, PyObject* args )
 static PyObject* n_size( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     return PyLong_FromLong(count);
 }
 
@@ -914,10 +908,7 @@ static PyObject* n_len( PyObject* self, PyObject* args )
     }
 
     // copy to host option
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     PyObject* ret = PyList_New(count);
     if( count==0 )
         return ret;
@@ -1002,10 +993,7 @@ static PyObject* n_compare( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     const char* str = PyUnicode_AsUTF8(PyTuple_GetItem(args,1));
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     PyObject* ret = PyList_New(count);
     if( count==0 )
         return ret;
@@ -1046,10 +1034,7 @@ static PyObject* n_compare( PyObject* self, PyObject* args )
 static PyObject* n_hash( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     PyObject* ret = PyList_New(count);
     if( count==0 )
         return ret;
@@ -1090,10 +1075,7 @@ static PyObject* n_hash( PyObject* self, PyObject* args )
 static PyObject* n_stoi( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     PyObject* ret = PyList_New(count);
     if( count==0 )
         return ret;
@@ -1135,10 +1117,7 @@ static PyObject* n_stoi( PyObject* self, PyObject* args )
 static PyObject* n_stol( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     PyObject* ret = PyList_New(count);
     if( count==0 )
         return ret;
@@ -1180,10 +1159,7 @@ static PyObject* n_stol( PyObject* self, PyObject* args )
 static PyObject* n_stof( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     PyObject* ret = PyList_New(count);
     if( count==0 )
         return ret;
@@ -1223,10 +1199,7 @@ static PyObject* n_stof( PyObject* self, PyObject* args )
 static PyObject* n_stod( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     PyObject* ret = PyList_New(count);
     if( count==0 )
         return ret;
@@ -1266,10 +1239,7 @@ static PyObject* n_stod( PyObject* self, PyObject* args )
 static PyObject* n_htoi( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     PyObject* ret = PyList_New(count);
     if( count==0 )
         return ret;
@@ -1311,10 +1281,7 @@ static PyObject* n_htoi( PyObject* self, PyObject* args )
 static PyObject* n_ip2int( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     PyObject* ret = PyList_New(count);
     if( count==0 )
         return ret;
@@ -1356,10 +1323,7 @@ static PyObject* n_ip2int( PyObject* self, PyObject* args )
 static PyObject* n_timestamp2int( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     PyObject* ret = PyList_New(count);
     if( count==0 )
         return ret;
@@ -1415,10 +1379,7 @@ static PyObject* n_timestamp2int( PyObject* self, PyObject* args )
 static PyObject* n_to_bools( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     PyObject* ret = PyList_New(count);
     if( count==0 )
         return ret;
@@ -1512,7 +1473,7 @@ static PyObject* n_cat( PyObject* self, PyObject* args )
             Py_RETURN_NONE;
         }
 
-        if( count != (int)tptr->size() ) //Consider releasing GIL here?
+        if( count != (int)tptr->size() )
         {
             PyErr_Format(PyExc_ValueError,"nvstrings.cat list size must match");
             Py_RETURN_NONE;
@@ -2107,10 +2068,7 @@ static PyObject* n_find( PyObject* self, PyObject* args )
         return PyLong_FromVoidPtr((void*)devptr);
     }
     // copy to host option
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     PyObject* ret = PyList_New(count);
     if( count==0 )
         return ret;
@@ -2150,10 +2108,7 @@ static PyObject* n_find_from( PyObject* self, PyObject* args )
         return PyLong_FromVoidPtr((void*)devptr);
     }
     // copy to host option
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     PyObject* ret = PyList_New(count);
     if( count==0 )
         return ret;
@@ -2187,10 +2142,7 @@ static PyObject* n_rfind( PyObject* self, PyObject* args )
     if( argEnd != Py_None )
         end = (int)PyLong_AsLong(argEnd);
     //
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     //
     int* devptr = (int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,4));
     if( devptr )
@@ -2285,10 +2237,7 @@ static PyObject* n_find_multiple( PyObject* self, PyObject* args )
         return PyLong_FromVoidPtr((void*)devptr);
     }
     // copy to host option
-    unsigned int rows = 0;
-    Py_BEGIN_ALLOW_THREADS
-    rows = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int rows = tptr->size();
     PyObject* ret = PyList_New(rows);
     if( rows==0 )
     {
@@ -2301,10 +2250,7 @@ static PyObject* n_find_multiple( PyObject* self, PyObject* args )
         return ret;
     }
     //
-    unsigned int columns = 0;
-    Py_BEGIN_ALLOW_THREADS
-    columns = strs->size();
-    Py_END_ALLOW_THREADS
+    unsigned int columns = strs->size();
     int* rtn = new int[rows*columns];
     Py_BEGIN_ALLOW_THREADS
     tptr->find_multiple(*strs,rtn,false);
@@ -2348,10 +2294,7 @@ static PyObject* n_index( PyObject* self, PyObject* args )
     if( argEnd != Py_None )
         end = (int)PyLong_AsLong(argEnd);
     //
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     //
     int* devptr = (int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,4));
     if( devptr )
@@ -2403,10 +2346,7 @@ static PyObject* n_rindex( PyObject* self, PyObject* args )
     if( argEnd != Py_None )
         end = (int)PyLong_AsLong(argEnd);
     //
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     //
     int* devptr = (int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,4));
     if( devptr )
@@ -2510,10 +2450,7 @@ static PyObject* n_contains( PyObject* self, PyObject* args )
         return PyLong_FromVoidPtr((void*)devptr);
     }
     // copy to host option
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     if( count==0 )
         return PyList_New(0);
     bool* rtn = new bool[count];
@@ -2567,10 +2504,7 @@ static PyObject* n_match( PyObject* self, PyObject* args )
         return PyLong_FromVoidPtr((void*)devptr);
     }
     // copy to host option
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     if( count==0 )
         return PyList_New(0);
     bool* rtn = new bool[count];
@@ -2675,10 +2609,7 @@ static PyObject* n_match_strings( PyObject* self, PyObject* args )
         return PyLong_FromVoidPtr((void*)devptr);
     }
     // copy to host option
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     if( count==0 )
         return PyList_New(0);
     bool* rtn = new bool[count];
@@ -2717,10 +2648,7 @@ static PyObject* n_startswith( PyObject* self, PyObject* args )
         return PyLong_FromVoidPtr((void*)devptr);
     }
     // copy to host option
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     PyObject* ret = PyList_New(count);
     if( count==0 )
         return ret;
@@ -2761,10 +2689,7 @@ static PyObject* n_endswith( PyObject* self, PyObject* args )
         return PyLong_FromVoidPtr((void*)devptr);
     }
     // copy to host option
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     PyObject* ret = PyList_New(count);
     if( count==0 )
         return ret;
@@ -2808,10 +2733,7 @@ static PyObject* n_count( PyObject* self, PyObject* args )
         return PyLong_FromVoidPtr((void*)devptr);
     }
     // copy to host option
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     if( count==0 )
         return PyList_New(0);
     int* rtn = new int[count];
@@ -2991,10 +2913,7 @@ static PyObject* n_order( PyObject* self, PyObject* args )
     }
 
     // copy to host option
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     PyObject* ret = PyList_New(count);
     if( count==0 )
         return ret;
@@ -3173,10 +3092,7 @@ static PyObject* n_isalnum( PyObject* self, PyObject* args )
         return PyLong_FromVoidPtr((void*)devptr);
     }
     // copy to host option
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     PyObject* ret = PyList_New(count);
     if( count==0 )
         return ret;
@@ -3215,10 +3131,7 @@ static PyObject* n_isalpha( PyObject* self, PyObject* args )
         return PyLong_FromVoidPtr((void*)devptr);
     }
     // copy to host option
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     PyObject* ret = PyList_New(count);
     if( count==0 )
         return ret;
@@ -3257,10 +3170,7 @@ static PyObject* n_isdigit( PyObject* self, PyObject* args )
         return PyLong_FromVoidPtr((void*)devptr);
     }
     // copy to host option
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     PyObject* ret = PyList_New(count);
     if( count==0 )
         return ret;
@@ -3299,10 +3209,7 @@ static PyObject* n_isspace( PyObject* self, PyObject* args )
         return PyLong_FromVoidPtr((void*)devptr);
     }
     // copy to host option
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     PyObject* ret = PyList_New(count);
     if( count==0 )
         return ret;
@@ -3341,10 +3248,7 @@ static PyObject* n_isdecimal( PyObject* self, PyObject* args )
         return PyLong_FromVoidPtr((void*)devptr);
     }
     // copy to host option
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     PyObject* ret = PyList_New(count);
     if( count==0 )
         return ret;
@@ -3383,10 +3287,7 @@ static PyObject* n_isnumeric( PyObject* self, PyObject* args )
         return PyLong_FromVoidPtr((void*)devptr);
     }
     // copy to host option
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     PyObject* ret = PyList_New(count);
     if( count==0 )
         return ret;
@@ -3425,10 +3326,7 @@ static PyObject* n_islower( PyObject* self, PyObject* args )
         return PyLong_FromVoidPtr((void*)devptr);
     }
     // copy to host option
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     PyObject* ret = PyList_New(count);
     if( count==0 )
         return ret;
@@ -3467,10 +3365,7 @@ static PyObject* n_isupper( PyObject* self, PyObject* args )
         return PyLong_FromVoidPtr((void*)devptr);
     }
     // copy to host option
-    unsigned int count = 0;
-    Py_BEGIN_ALLOW_THREADS
-    count = tptr->size();
-    Py_END_ALLOW_THREADS
+    unsigned int count = tptr->size();
     PyObject* ret = PyList_New(count);
     if( count==0 )
         return ret;
