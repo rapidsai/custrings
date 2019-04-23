@@ -12,7 +12,7 @@
 
 
 //
-// cd ../cpp/build
+// cd ../build
 // nvcc -w -std=c++11 --expt-extended-lambda -gencode arch=compute_70,code=sm_70 ../tests/ipc_test.cu -L. -lNVStrings -lNVCategory -o ipc_test --linker-options -rpath,.:
 //
 

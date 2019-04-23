@@ -14,7 +14,6 @@
 * limitations under the License.
 */
 
-#include <stdlib.h>
 #include <cuda_runtime.h>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
@@ -23,7 +22,6 @@
 #include <thrust/remove.h>
 #include <thrust/sort.h>
 #include <thrust/unique.h>
-#include <locale.h>
 #include <rmm/rmm.h>
 #include <rmm/thrust_rmm_allocator.h>
 #include "NVStrings.h"
@@ -31,17 +29,17 @@
 #include "custring.cuh"
 #include "NVText.h"
 
-static void printCudaError( cudaError_t err, const char* prefix="\t" )
-{
-    if( err != cudaSuccess )
-        fprintf(stderr,"%s: %s(%d):%s\n",prefix,cudaGetErrorName(err),(int)err,cudaGetErrorString(err));
-}
+//static void printCudaError( cudaError_t err, const char* prefix="\t" )
+//{
+//    if( err != cudaSuccess )
+//        fprintf(stderr,"%s: %s(%d):%s\n",prefix,cudaGetErrorName(err),(int)err,cudaGetErrorString(err));
+//}
 
 // return unique set of tokens within all the strings using the specified delimiter
 NVStrings* NVText::unique_tokens(NVStrings& strs, const char* delimiter )
 {
     int bytes = (int)strlen(delimiter);
-    char* d_delimiter = 0;
+    char* d_delimiter = nullptr;
     auto execpol = rmm::exec_policy(0);
     RMM_ALLOC(&d_delimiter,bytes,0);
     cudaMemcpy(d_delimiter,delimiter,bytes,cudaMemcpyHostToDevice);
@@ -73,7 +71,7 @@ NVStrings* NVText::unique_tokens(NVStrings& strs, const char* delimiter )
         thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
             [d_strings, col, d_delimiter, bytes, d_counts, d_indexes] __device__(unsigned int idx){
                 custring_view* dstr = d_strings[idx];
-                d_indexes[idx].first = 0;   // initialize to
+                d_indexes[idx].first = nullptr;   // initialize to
                 d_indexes[idx].second = 0;  // null string
                 if( !dstr )
                     return;
@@ -106,12 +104,12 @@ NVStrings* NVText::unique_tokens(NVStrings& strs, const char* delimiter )
                     d_indexes[idx].second = (epos-spos);
                 }
             });
-        cudaError_t err = cudaDeviceSynchronize();
-        if( err != cudaSuccess )
-        {
-            fprintf(stderr,"unique_tokens:col=%d\n",col);
-            printCudaError(err);
-        }
+        //cudaError_t err = cudaDeviceSynchronize();
+        //if( err != cudaSuccess )
+        //{
+        //    fprintf(stderr,"unique_tokens:col=%d\n",col);
+        //    printCudaError(err);
+        //}
         // add column values to vocab list
         vocab.insert(vocab.end(),indexes.begin(),indexes.end());
         //printf("vocab size = %lu\n",vocab.size());
@@ -150,7 +148,7 @@ NVStrings* NVText::unique_tokens(NVStrings& strs, const char* delimiter )
 unsigned int NVText::token_count( NVStrings& strs, const char* delimiter, unsigned int* results, bool bdevmem )
 {
     int bytes = (int)strlen(delimiter);
-    char* d_delimiter = 0;
+    char* d_delimiter = nullptr;
     auto execpol = rmm::exec_policy(0);
     RMM_ALLOC(&d_delimiter,bytes,0);
     cudaMemcpy(d_delimiter,delimiter,bytes,cudaMemcpyHostToDevice);
@@ -173,16 +171,12 @@ unsigned int NVText::token_count( NVStrings& strs, const char* delimiter, unsign
             d_counts[idx] = tc;
         });
     //
-    cudaError_t err = cudaDeviceSynchronize();
-    if( err != cudaSuccess )
-        printCudaError(err,"token_count:");
-    //
-    RMM_FREE(d_delimiter,0);
     if( !bdevmem )
     {
         cudaMemcpy(results,d_counts,count*sizeof(unsigned int),cudaMemcpyDeviceToHost);
         RMM_FREE(d_counts,0);
     }
+    RMM_FREE(d_delimiter,0);
     return 0;
 }
 
@@ -216,13 +210,6 @@ unsigned int NVText::contains_strings( NVStrings& strs, NVStrings& tkns, bool* r
                 d_rtn[(idx*tcount)+jdx] = ((dstr && dtgt) ? dstr->find(*dtgt) : -2) >=0 ;
             }
         });
-    //
-    cudaError_t err = cudaDeviceSynchronize();
-    if( err != cudaSuccess )
-    {
-        fprintf(stderr,"contains-strings(%u,%p,%d)\n",tcount,results,(int)todevice);
-        printCudaError(err);
-    }
     //
     if( !todevice )
     {   // copy result back to host
@@ -278,13 +265,6 @@ unsigned int NVText::strings_counts( NVStrings& strs, NVStrings& tkns, unsigned 
                 d_rtn[(idx*tcount)+jdx] = fnd;
             }
         });
-    //
-    cudaError_t err = cudaDeviceSynchronize();
-    if( err != cudaSuccess )
-    {
-        fprintf(stderr,"strings-count(%u,%p,%d)\n",tcount,results,(int)todevice);
-        printCudaError(err);
-    }
     //
     if( !todevice )
     {   // copy result back to host
@@ -392,7 +372,7 @@ unsigned int NVText::edit_distance( distance_type algo, NVStrings& strs, const c
     auto execpol = rmm::exec_policy(0);
     unsigned int len = strlen(str);
     unsigned int alcsz = custring_view::alloc_size(str,len);
-    custring_view* d_tgt = 0;
+    custring_view* d_tgt = nullptr;
     RMM_ALLOC(&d_tgt,alcsz,0);
     custring_view::create_from_host(d_tgt,str,len);
 
@@ -430,16 +410,12 @@ unsigned int NVText::edit_distance( distance_type algo, NVStrings& strs, const c
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         editdistance_levenshtein_algorithm(d_strings, d_tgt, d_buffer, d_offsets, d_rtn));
     //
-    cudaError_t err = cudaDeviceSynchronize();
-    if( err != cudaSuccess )
-        printCudaError(err,"edit-distance1");
-    //
-    RMM_FREE(d_tgt,0);
     if( !bdevmem )
     {
         cudaMemcpy(results,d_rtn,count*sizeof(unsigned int),cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
+    RMM_FREE(d_tgt,0);
     return 0;
 }
 
@@ -492,10 +468,6 @@ unsigned int NVText::edit_distance( distance_type algo, NVStrings& strs1, NVStri
     // compute edit distance
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         editdistance_levenshtein_algorithm(d_strings1, d_strings2, d_buffer, d_offsets, d_rtn));
-    //
-    cudaError_t err = cudaDeviceSynchronize();
-    if( err != cudaSuccess )
-        printCudaError(err,"edit-distance2");
     //
     if( !bdevmem )
     {

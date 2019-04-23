@@ -5,11 +5,12 @@
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
 #include <thrust/count.h>
-#include "NVStrings.h"
+#include "../include/NVStrings.h"
 
 
 //
-// nvcc -std=c++11 --expt-extended-lambda --expt-relaxed-constexpr -gencode arch=compute_50,code=sm_50 -gencode arch=compute_60,code=sm_60 -gencode arch=compute_70,code=sm_70 -rdc=true ../example.cu -L. -lNVStrings -o example
+// cd ../build
+// nvcc -w -std=c++11 --expt-extended-lambda -gencode arch=compute_70,code=sm_70 ../tests/example.cu -L. -lNVStrings -o example --linker-options -rpath,.:
 //
 
 void my_function( NVStrings& strs )
@@ -47,7 +48,7 @@ NVStrings* first_word1( NVStrings& strs )
 NVStrings* first_word2( NVStrings& strs )
 {
     std::vector<NVStrings*> strings;
-    strs.split_column(" ",2,strings);
+    strs.split(" ",2,strings);
     NVStrings::destroy(strings[1]);
     return strings[0];
 }

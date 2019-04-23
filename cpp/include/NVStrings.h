@@ -1069,6 +1069,4 @@ public:
      */
     void compute_statistics(StringsStatistics& stats);
 
-    /** For performance analysis only. Not complete. */
-    void printTimingRecords();
 };
