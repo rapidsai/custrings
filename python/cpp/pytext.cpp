@@ -269,7 +269,7 @@ static PyObject* n_strings_counts( PyObject* self, PyObject* args )
     }
     // or fill in python list with host memory
     unsigned int rows = strs->size();
-    unsigned int columns = tgts->size();;
+    unsigned int columns = tgts->size();
     PyObject* ret = PyList_New(rows);
     if( rows==0 )
     {
