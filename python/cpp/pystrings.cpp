@@ -1492,7 +1492,7 @@ static PyObject* n_cat( PyObject* self, PyObject* args )
         // this is just a join -- need to account for the other parms too
         NVStrings* rtn = nullptr;
         Py_BEGIN_ALLOW_THREADS
-        tptr->join(sep,narep);
+        rtn = tptr->join(sep,narep);
         Py_END_ALLOW_THREADS
         if( rtn )
             return PyLong_FromVoidPtr((void*)rtn);
