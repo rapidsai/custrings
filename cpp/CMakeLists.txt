@@ -64,7 +64,7 @@ if(CMAKE_COMPILER_IS_GNUCXX)
     endif(NOT CMAKE_CXX11_ABI)
 endif(CMAKE_COMPILER_IS_GNUCXX)
 
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda -gencode=arch=compute_50,code=sm_50 -gencode=arch=compute_60,code=sm_60 -gencode=arch=compute_70,code=sm_70 -rdc=true")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda -gencode=arch=compute_50,code=sm_50 -gencode=arch=compute_60,code=sm_60 -gencode=arch=compute_70,code=sm_70")
 
 # Debug options
 if(CMAKE_BUILD_TYPE MATCHES Debug)
@@ -127,21 +127,15 @@ add_library(NVStrings SHARED
             src/NVStrings_case.cu
             src/NVStrings_find.cu
             src/NVStrings_convert.cu
-            src/custring_view.cu
-            src/custring.cu
             src/util.cu
-            src/regex/regexec.cu
+            src/regex/regexec.cpp
             src/regex/regcomp.cpp)
 
 add_library(NVCategory SHARED
-            src/NVCategory.cu
-            src/custring_view.cu
-            src/custring.cu)
+            src/NVCategory.cu)
 
 add_library(NVText SHARED
-            src/NVText.cu
-            src/custring_view.cu
-            src/custring.cu)
+            src/NVText.cu)
 
 ###################################################################################################
 # - link libraries --------------------------------------------------------------------------------

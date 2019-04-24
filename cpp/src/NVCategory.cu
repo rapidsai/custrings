@@ -37,7 +37,7 @@
 //
 typedef custring_view** custring_view_array;
 
-#define ALIGN_SIZE(v)  (((v+7)/8)*8)
+//#define ALIGN_SIZE(v)  (((v+7)/8)*8)
 
 //static void printDeviceInts( const char* title, int* d_ints, int count )
 //{

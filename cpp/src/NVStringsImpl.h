@@ -54,7 +54,7 @@ public:
     }
 };
 
-#define ALIGN_SIZE(v)  (((v+7)/8)*8)
+//#define ALIGN_SIZE(v)  (((v+7)/8)*8)
 
 
 void printCudaError( cudaError_t err, const char* prefix="\t" );

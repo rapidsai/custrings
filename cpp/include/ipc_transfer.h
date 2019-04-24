@@ -15,11 +15,19 @@
 */
 #pragma once
 
+#include <cstdio>
 #include <cuda_runtime.h>
 
-//
-// This is used by the create_from_ipc and create_ipc_transfer methods.
-//
+/**
+ * @file ipc_transfer.h
+ * @brief Definition for IPC transfer structures.
+ */
+
+/**
+ * @brief This is used by the create_from_ipc and create_ipc_transfer methods.
+ *
+ * It is used to serialize and deserialize an NVStrings instance to/from another context.
+ */
 struct nvstrings_ipc_transfer
 {
     char* base_address;
@@ -34,23 +42,37 @@ struct nvstrings_ipc_transfer
     nvstrings_ipc_transfer()
     : base_address(0), count(0), strs(0), size(0), mem(0) {}
 
-    ~nvstrings_ipc_transfer()
+    ~nvstrings_ipc_transfer() {}
+
+    /**
+     * @brief Sets the strings pointers memory into this context.
+     *
+     * @param[in] in_ptr Memory pointer to strings array.
+     * @param[in] base_address Address of original context.
+     * @param[in] count Number of elements in the array.
+     */
+    void setStrsHandle(void* in_ptr, char* base_address, unsigned int count)
     {
+        this->count = count;
+        this->base_address = base_address;
+        cudaIpcGetMemHandle(&hstrs,in_ptr);
     }
 
-    void setStrsHandle(void* in, char* base, unsigned int c)
+    /**
+     * @brief Sets the strings objects memory into this context.
+     *
+     * @param[in] in_ptr Memory pointer to strings object array.
+     * @param[in] size The size of the memory in bytes.
+     */
+    void setMemHandle(void* in_ptr, size_t size)
     {
-        count = c;
-        base_address = base;
-        cudaIpcGetMemHandle(&hstrs,in);
+        this->size = size;
+        cudaIpcGetMemHandle(&hmem,in_ptr);
     }
 
-    void setMemHandle(void* in, size_t sz)
-    {
-        size = sz;
-        cudaIpcGetMemHandle(&hmem,in);
-    }
-
+    /**
+     * @brief Creates array pointer that can be transferred.
+     */
     void* getStringsPtr()
     {
         if( !strs && count )
@@ -62,6 +84,9 @@ struct nvstrings_ipc_transfer
         return strs;
     }
 
+    /**
+     * @brief Creates memory pointer that can be transferred.
+     */
     void* getMemoryPtr()
     {
         if( !mem && size )
@@ -74,6 +99,11 @@ struct nvstrings_ipc_transfer
     }
 };
 
+/**
+ * @brief This is used by the create_from_ipc and create_ipc_transfer methods.
+ *
+ * It is used to serialize and deserialize an NVStrings instance to/from another context.
+ */
 struct nvcategory_ipc_transfer
 {
     char* base_address;
@@ -102,25 +132,47 @@ struct nvcategory_ipc_transfer
             cudaIpcCloseMemHandle(vals);
     }
 
-    void setStrsHandle(void* in, char* base, unsigned int n)
+    /**
+     * @brief Sets the strings pointers memory into this context.
+     *
+     * @param[in] in_ptr Memory pointer to strings array.
+     * @param[in] base_address Address of original context.
+     * @param[in] count Number of elements in the array.
+     */
+    void setStrsHandle(void* in_ptr, char* base_address, unsigned int count)
     {
-        keys = n;
-        base_address = base;
-        cudaIpcGetMemHandle(&hstrs,in);
+        keys = count;
+        this->base_address = base_address;
+        cudaIpcGetMemHandle(&hstrs,in_ptr);
     }
 
-    void setMemHandle(void* in, size_t sz)
+    /**
+     * @brief Sets the strings objects memory into this context.
+     *
+     * @param[in] in_ptr Memory pointer to strings object array.
+     * @param[in] size The size of the memory in bytes.
+     */
+    void setMemHandle(void* in_ptr, size_t size)
     {
-        size = sz;
-        cudaIpcGetMemHandle(&hmem,in);
+        this->size = size;
+        cudaIpcGetMemHandle(&hmem,in_ptr);
     }
 
-    void setMapHandle(void* in, unsigned int n)
+    /**
+     * @brief Sets the index values memory into this context.
+     *
+     * @param[in] in_ptr Memory pointer to the array.
+     * @param[in] count The number of elements in the array.
+     */
+    void setMapHandle(void* in_ptr, unsigned int count)
     {
-        count = n;
-        cudaIpcGetMemHandle(&hmap,in);
+        this->count = count;
+        cudaIpcGetMemHandle(&hmap,in_ptr);
     }
 
+    /**
+     * @brief Creates strings array pointer that can be transferred.
+     */
     void* getStringsPtr()
     {
         if( !strs && keys )
@@ -128,6 +180,9 @@ struct nvcategory_ipc_transfer
         return strs;
     }
 
+    /**
+     * @brief Creates memory pointer that can be transferred.
+     */
     void* getMemoryPtr()
     {
         if( !mem && size )
@@ -135,6 +190,9 @@ struct nvcategory_ipc_transfer
         return mem;
     }
 
+    /**
+     * @brief Creates value arrays pointer that can be transferred.
+     */
     void* getMapPtr()
     {
         if( !vals && count )
