@@ -29,6 +29,7 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 - PR #181 Update python docstrings to numpydoc style
 - PR #196 Include nvtext in python module setup
 - PR #221 Create separate conda packages for libnvstrings and nvstrings
+- PR #247 Release Python GIl while calling underlying C++ API from python
 
 ## Bug Fixes
 

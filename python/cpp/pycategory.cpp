@@ -75,7 +75,10 @@ static PyObject* n_createCategoryFromNVStrings( PyObject* self, PyObject* args )
         Py_RETURN_NONE;
     }
 
-    NVCategory* thisptr = NVCategory::create_from_strings(strslist);
+    NVCategory* thisptr = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    thisptr = NVCategory::create_from_strings(strslist);
+    Py_END_ALLOW_THREADS
     return PyLong_FromVoidPtr((void*)thisptr);
 }
 
@@ -111,7 +114,10 @@ static PyObject* n_createCategoryFromHostStrings( PyObject* self, PyObject* args
             list[idx] = PyUnicode_AsUTF8(pystr);
     }
     //
-    NVCategory* thisptr = NVCategory::create_from_array(list,count);
+    NVCategory* thisptr = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    thisptr = NVCategory::create_from_array(list,count);
+    Py_END_ALLOW_THREADS
     delete list;
     return PyLong_FromVoidPtr((void*)thisptr);
 }
@@ -169,7 +175,10 @@ static PyObject* n_createFromOffsets( PyObject* self, PyObject* args )
     //printf(" ptrs=%p,%p,%p\n",sbuffer,obuffer,nbuffer);
     //printf(" scount=%d,ncount=%d\n",scount,ncount);
     // create strings object from these buffers
-    NVCategory* rtn = NVCategory::create_from_offsets(sbuffer,scount,obuffer,nbuffer,ncount);
+    NVCategory* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = NVCategory::create_from_offsets(sbuffer,scount,obuffer,nbuffer,ncount);
+    Py_END_ALLOW_THREADS
 
     if( PyObject_CheckBuffer(pysbuf) )
         PyBuffer_Release(&sbuf);
@@ -188,7 +197,9 @@ static PyObject* n_destroyCategory( PyObject* self, PyObject* args )
 {
     NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     //printf("destroy: self=%p,args=%p,ptr=%p\n",(void*)self,(void*)args,(void*)tptr);
+    Py_BEGIN_ALLOW_THREADS
     NVCategory::destroy(tptr);
+    Py_END_ALLOW_THREADS
     return PyLong_FromLong(0);
 }
 
@@ -209,7 +220,10 @@ static PyObject* n_keys_size( PyObject* self, PyObject* args )
 static PyObject* n_get_keys( PyObject* self, PyObject* args )
 {
     NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    NVStrings* strs = tptr->get_keys();
+    NVStrings* strs = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    strs = tptr->get_keys();
+    Py_END_ALLOW_THREADS
     if( strs )
         return PyLong_FromVoidPtr((void*)strs);
     Py_RETURN_NONE;
@@ -219,7 +233,11 @@ static PyObject* n_get_value_for_index( PyObject* self, PyObject* args )
 {
     NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     unsigned int index = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,1));
-    return PyLong_FromLong(tptr->get_value(index));
+    int value = 0;
+    Py_BEGIN_ALLOW_THREADS
+    value = tptr->get_value(index);
+    Py_END_ALLOW_THREADS
+    return PyLong_FromLong(value);
 }
 
 static PyObject* n_get_value_for_string( PyObject* self, PyObject* args )
@@ -230,7 +248,9 @@ static PyObject* n_get_value_for_string( PyObject* self, PyObject* args )
     const char* str = 0;
     if( argStr != Py_None )
         str = PyUnicode_AsUTF8(argStr);
+    Py_BEGIN_ALLOW_THREADS
     rtn = tptr->get_value(str);
+    Py_END_ALLOW_THREADS
     return PyLong_FromLong(rtn);
 }
 
@@ -244,13 +264,17 @@ static PyObject* n_get_values( PyObject* self, PyObject* args )
     int* devptr = (int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,1));
     if( devptr )
     {
+        Py_BEGIN_ALLOW_THREADS
         tptr->get_values(devptr);
+        Py_END_ALLOW_THREADS
         return PyLong_FromVoidPtr((void*)devptr);
     }
 
     // copy to host option
     int* rtn = new int[count];
+    Py_BEGIN_ALLOW_THREADS
     tptr->get_values(rtn,false);
+    Py_END_ALLOW_THREADS
     for(unsigned idx=0; idx < count; idx++)
         PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));
     delete rtn;
@@ -260,7 +284,10 @@ static PyObject* n_get_values( PyObject* self, PyObject* args )
 static PyObject* n_get_values_cpointer( PyObject* self, PyObject* args )
 {
     NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    const int* vptr = tptr->values_cptr();
+    const int * vptr = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    vptr = tptr->values_cptr();
+    Py_END_ALLOW_THREADS
     return PyLong_FromVoidPtr((void*)vptr);
 }
 
@@ -274,13 +301,19 @@ static PyObject* n_get_indexes_for_key( PyObject* self, PyObject* args )
         str = PyUnicode_AsUTF8(argStr);
     if( devptr )
     {
-        int count = tptr->get_indexes_for(str,devptr);
+        int count = 0;
+        Py_BEGIN_ALLOW_THREADS
+        count = tptr->get_indexes_for(str,devptr);
+        Py_END_ALLOW_THREADS
         if( count < 0 )
             PyErr_Format(PyExc_ValueError,"nvcategory: string not found in keys");
         return PyLong_FromLong(count);
     }
     //
-    int count = tptr->get_indexes_for(str,0,false);
+    int count = 0;
+    Py_BEGIN_ALLOW_THREADS
+    count = tptr->get_indexes_for(str,0,false);
+    Py_END_ALLOW_THREADS
     if( count < 0 )
     {
         PyErr_Format(PyExc_ValueError,"nvcategory: string not found in keys");
@@ -291,7 +324,9 @@ static PyObject* n_get_indexes_for_key( PyObject* self, PyObject* args )
         return ret;
     // copy to host option
     int* rtn = new int[count];
+    Py_BEGIN_ALLOW_THREADS
     tptr->get_indexes_for(str,rtn,false);
+    Py_END_ALLOW_THREADS
     for(int idx=0; idx < count; idx++)
         PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));
     delete rtn;
@@ -320,7 +355,10 @@ static PyObject* n_add_strings( PyObject* self, PyObject* args )
         Py_RETURN_NONE;
     }
 
-    NVCategory* rtn = tptr->add_strings(*strs);
+    NVCategory* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->add_strings(*strs);
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -348,7 +386,10 @@ static PyObject* n_remove_strings( PyObject* self, PyObject* args )
         Py_RETURN_NONE;
     }
 
-    NVCategory* rtn = tptr->remove_strings(*strs);
+    NVCategory* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->remove_strings(*strs);
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -357,7 +398,10 @@ static PyObject* n_remove_strings( PyObject* self, PyObject* args )
 static PyObject* n_to_strings( PyObject* self, PyObject* args )
 {
     NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    NVStrings* strs = tptr->to_strings();
+    NVStrings* strs = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    strs = tptr->to_strings();
+    Py_END_ALLOW_THREADS
     if( strs )
         return PyLong_FromVoidPtr((void*)strs);
     Py_RETURN_NONE;
@@ -381,7 +425,9 @@ static PyObject* n_gather_strings( PyObject* self, PyObject* args )
                 indexes[idx] = (int)PyLong_AsLong(pyidx);
             }
             //
+            Py_BEGIN_ALLOW_THREADS
             rtn = tptr->gather_strings(indexes,count,false);
+            Py_END_ALLOW_THREADS
             delete indexes;
         }
         else
@@ -389,7 +435,9 @@ static PyObject* n_gather_strings( PyObject* self, PyObject* args )
             // assume device pointer
             int* indexes = (int*)PyLong_AsVoidPtr(pyidxs);
             unsigned int count = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,2));
+            Py_BEGIN_ALLOW_THREADS
             rtn = tptr->gather_strings(indexes,count);
+            Py_END_ALLOW_THREADS
         }
     }
     catch(const std::out_of_range& eor)
@@ -419,7 +467,9 @@ static PyObject* n_gather( PyObject* self, PyObject* args )
                 indexes[idx] = (int)PyLong_AsLong(pyidx);
             }
             //
+            Py_BEGIN_ALLOW_THREADS
             rtn = tptr->gather(indexes,count,false);
+            Py_END_ALLOW_THREADS
             delete indexes;
         }
         else
@@ -427,7 +477,9 @@ static PyObject* n_gather( PyObject* self, PyObject* args )
             // assume device pointer
             int* indexes = (int*)PyLong_AsVoidPtr(pyidxs);
             unsigned int count = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,2));
+            Py_BEGIN_ALLOW_THREADS
             rtn = tptr->gather(indexes,count);
+            Py_END_ALLOW_THREADS
         }
     }
     catch(const std::out_of_range& eor)
@@ -457,7 +509,9 @@ static PyObject* n_gather_and_remap( PyObject* self, PyObject* args )
                 indexes[idx] = (int)PyLong_AsLong(pyidx);
             }
             //
+            Py_BEGIN_ALLOW_THREADS
             rtn = tptr->gather_and_remap(indexes,count,false);
+            Py_END_ALLOW_THREADS
             delete indexes;
         }
         else
@@ -465,7 +519,9 @@ static PyObject* n_gather_and_remap( PyObject* self, PyObject* args )
             // assume device pointer
             int* indexes = (int*)PyLong_AsVoidPtr(pyidxs);
             unsigned int count = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,2));
+            Py_BEGIN_ALLOW_THREADS
             rtn = tptr->gather_and_remap(indexes,count);
+            Py_END_ALLOW_THREADS
         }
     }
     catch(const std::out_of_range& eor)
@@ -499,7 +555,10 @@ static PyObject* n_merge_category( PyObject* self, PyObject* args )
         Py_RETURN_NONE;
     }
 
-    NVCategory* rtn = tptr->merge_category(*cat2);
+    NVCategory* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->merge_category(*cat2);
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -527,7 +586,10 @@ static PyObject* n_merge_and_remap( PyObject* self, PyObject* args )
         Py_RETURN_NONE;
     }
 
-    NVCategory* rtn = tptr->merge_and_remap(*cat2);
+    NVCategory* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->merge_and_remap(*cat2);
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -555,7 +617,10 @@ static PyObject* n_add_keys( PyObject* self, PyObject* args )
         Py_RETURN_NONE;
     }
 
-    NVCategory* rtn = tptr->add_keys_and_remap(*strs);
+    NVCategory* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->add_keys_and_remap(*strs);
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -583,7 +648,10 @@ static PyObject* n_remove_keys( PyObject* self, PyObject* args )
         Py_RETURN_NONE;
     }
 
-    NVCategory* rtn = tptr->remove_keys_and_remap(*strs);
+    NVCategory* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->remove_keys_and_remap(*strs);
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -592,7 +660,10 @@ static PyObject* n_remove_keys( PyObject* self, PyObject* args )
 static PyObject* n_remove_unused_keys( PyObject* self, PyObject* args )
 {
     NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    NVCategory* rtn = tptr->remove_unused_keys_and_remap();
+    NVCategory* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->remove_unused_keys_and_remap();
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -620,7 +691,10 @@ static PyObject* n_set_keys( PyObject* self, PyObject* args )
         Py_RETURN_NONE;
     }
 
-    NVCategory* rtn = tptr->set_keys_and_remap(*strs);
+    NVCategory* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->set_keys_and_remap(*strs);
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -661,4 +735,3 @@ PyMODINIT_FUNC PyInit_pyniNVCategory(void)
 {
     return PyModule_Create(&cModPyDem);
 }
-
