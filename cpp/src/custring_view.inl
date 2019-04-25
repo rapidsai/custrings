@@ -16,14 +16,6 @@
 
 #include <memory.h>
 #include <math.h>
-#include <thrust/device_vector.h>
-#include <thrust/execution_policy.h>
-#include <thrust/system/cuda/execution_policy.h>
-#include <thrust/copy.h>
-#include <thrust/iterator/counting_iterator.h>
-#include <thrust/device_malloc.h>
-#include <thrust/device_free.h>
-#include "custring_view.cuh"
 
 // 8-byte boundary
 #define ALIGN_SIZE(v) (((v + 7) / 8) * 8)
@@ -133,7 +125,7 @@ public:
     }
 };
 
-__host__ __device__ unsigned int custring_view::alloc_size(const char* data, unsigned int bytes)
+__host__ __device__ inline unsigned int custring_view::alloc_size(const char* data, unsigned int bytes)
 {
     unsigned int nsz = ALIGN_SIZE(sizeof(custring_view));
     //printf("as: custring_view(%lu)=%d\n",sizeof(custring_view),nsz);
@@ -146,7 +138,7 @@ __host__ __device__ unsigned int custring_view::alloc_size(const char* data, uns
     return nsz;
 }
 
-__host__ __device__ unsigned int custring_view::alloc_size(unsigned int bytes, unsigned int nchars)
+__host__ __device__ inline unsigned int custring_view::alloc_size(unsigned int bytes, unsigned int nchars)
 {
     unsigned int nsz = ALIGN_SIZE(sizeof(custring_view));
     {
@@ -158,13 +150,7 @@ __host__ __device__ unsigned int custring_view::alloc_size(unsigned int bytes, u
     return nsz;
 }
 
-// only here so that users cannot instantiate this class directly
-custring_view::custring_view() {}
-custring_view::custring_view(const custring_view&) {}
-custring_view::~custring_view() {}
-custring_view& custring_view::operator=(const custring_view&) { return *this; }
-
-__device__ unsigned int custring_view::alloc_size() const
+__device__ inline unsigned int custring_view::alloc_size() const
 {
     unsigned int nsz = ALIGN_SIZE(sizeof(custring_view));
     {
@@ -178,7 +164,7 @@ __device__ unsigned int custring_view::alloc_size() const
     return nsz;
 }
 
-__host__ __device__ custring_view* custring_view::create_from(void* buffer, const char* data, unsigned int bytes)
+__host__ __device__ inline custring_view* custring_view::create_from(void* buffer, const char* data, unsigned int bytes)
 {
     char* ptr = (char*)buffer;
     custring_view* dout = (custring_view*)ptr;
@@ -192,7 +178,7 @@ __host__ __device__ custring_view* custring_view::create_from(void* buffer, cons
     return dout;
 }
 
-__device__ custring_view* custring_view::create_from(void* buffer, custring_view& str)
+__device__ inline custring_view* custring_view::create_from(void* buffer, custring_view& str)
 {
     char* ptr = (char*)buffer;
     custring_view* dout = (custring_view*)ptr;
@@ -222,7 +208,7 @@ __device__ custring_view* custring_view::create_from(void* buffer, custring_view
     return dout;
 }
 
-__device__ custring_view* custring_view::create_from(void* buffer)
+__device__ inline custring_view* custring_view::create_from(void* buffer)
 {
     char* ptr = (char*)buffer;
     custring_view* dout = (custring_view*)ptr;
@@ -235,7 +221,7 @@ __device__ custring_view* custring_view::create_from(void* buffer)
     return dout;
 }
 
-__host__ custring_view* custring_view::create_from_host(void* devmem, const char* data, unsigned int size)
+__host__ inline custring_view* custring_view::create_from_host(void* devmem, const char* data, unsigned int size)
 {
     if( data==0 || devmem==0 )
         return 0; // nulls is as nulls does Mrs Blue
@@ -248,7 +234,7 @@ __host__ custring_view* custring_view::create_from_host(void* devmem, const char
 }
 
 // called to finalize the impl fields
-__host__ __device__ void custring_view::init_fields(unsigned int bytes)
+__host__ __device__ inline void custring_view::init_fields(unsigned int bytes)
 {
     m_bytes = bytes;
     //char* data = m_data;
@@ -262,7 +248,7 @@ __host__ __device__ void custring_view::init_fields(unsigned int bytes)
     }
 }
 
-__device__ unsigned int custring_view::offset_for_char_pos(unsigned int chpos) const
+__device__ inline unsigned int custring_view::offset_for_char_pos(unsigned int chpos) const
 {
     if(chpos == 0)
         return 0;
@@ -285,7 +271,7 @@ __device__ unsigned int custring_view::offset_for_char_pos(unsigned int chpos) c
 }
 
 // epos must be >= spos
-__device__ void custring_view::offsets_for_char_pos(unsigned int& spos, unsigned int& epos) const
+__device__ inline void custring_view::offsets_for_char_pos(unsigned int& spos, unsigned int& epos) const
 {
     if(epos > m_chars)
         epos = m_chars;
@@ -316,40 +302,40 @@ __device__ void custring_view::offsets_for_char_pos(unsigned int& spos, unsigned
 
 
 //
-__device__ unsigned int custring_view::size() const
+__device__ inline unsigned int custring_view::size() const
 {
     return m_bytes;
 }
 
-__device__ unsigned int custring_view::length() const
+__device__ inline unsigned int custring_view::length() const
 {
     return m_bytes;
 }
 
-__device__ unsigned int custring_view::chars_count() const
+__device__ inline unsigned int custring_view::chars_count() const
 {
     return m_chars;
 }
 
-__device__ char* custring_view::data()
+__device__ inline char* custring_view::data()
 {
     //return m_data;
     return ((char*)this) + ALIGN_SIZE(sizeof(custring_view));
 }
 
-__device__ const char* custring_view::data() const
+__device__ inline const char* custring_view::data() const
 {
     //return m_data;
     return ((const char*)this) + ALIGN_SIZE(sizeof(custring_view));
 }
 
-__device__ bool custring_view::empty() const
+__device__ inline bool custring_view::empty() const
 {
     return m_chars == 0;
 }
 
 // the custom iterator knows about UTF8 encoding
-__device__ custring_view::iterator::iterator(custring_view& str, unsigned int initPos)
+__device__ inline custring_view::iterator::iterator(custring_view& str, unsigned int initPos)
     : p(0), cpos(0), offset(0)
 {
     p = str.data();
@@ -357,12 +343,12 @@ __device__ custring_view::iterator::iterator(custring_view& str, unsigned int in
     offset = str.offset_for_char_pos(cpos);
 }
 
-__device__ custring_view::iterator::iterator(const custring_view::iterator& mit)
+__device__ inline custring_view::iterator::iterator(const custring_view::iterator& mit)
     : p(mit.p), cpos(mit.cpos), offset(mit.offset)
 {
 }
 
-__device__ custring_view::iterator& custring_view::iterator::operator++()
+__device__ inline custring_view::iterator& custring_view::iterator::operator++()
 {
     offset += _bytes_in_char((BYTE)p[offset]);
     ++cpos;
@@ -370,42 +356,42 @@ __device__ custring_view::iterator& custring_view::iterator::operator++()
 }
 
 // what is the int parm for?
-__device__ custring_view::iterator custring_view::iterator::operator++(int)
+__device__ inline custring_view::iterator custring_view::iterator::operator++(int)
 {
     iterator tmp(*this);
     operator++();
     return tmp;
 }
 
-__device__ bool custring_view::iterator::operator==(const custring_view::iterator& rhs) const
+__device__ inline bool custring_view::iterator::operator==(const custring_view::iterator& rhs) const
 {
     return (p == rhs.p) && (cpos == rhs.cpos);
 }
 
-__device__ bool custring_view::iterator::operator!=(const custring_view::iterator& rhs) const
+__device__ inline bool custring_view::iterator::operator!=(const custring_view::iterator& rhs) const
 {
     return (p != rhs.p) || (cpos != rhs.cpos);
 }
 
 // unsigned int can hold 1-4 bytes for the UTF8 char
-__device__ Char custring_view::iterator::operator*() const
+__device__ inline Char custring_view::iterator::operator*() const
 {
     Char chr = 0;
     char_to_Char(p + offset, chr);
     return chr;
 }
 
-__device__ custring_view::iterator custring_view::begin()
+__device__ inline custring_view::iterator custring_view::begin()
 {
     return iterator(*this, 0);
 }
 
-__device__ custring_view::iterator custring_view::end()
+__device__ inline custring_view::iterator custring_view::end()
 {
     return iterator(*this, chars_count());
 }
 
-__device__ Char custring_view::at(unsigned int pos) const
+__device__ inline Char custring_view::at(unsigned int pos) const
 {
     unsigned int offset = offset_for_char_pos(pos);
     if(offset >= m_bytes)
@@ -415,12 +401,12 @@ __device__ Char custring_view::at(unsigned int pos) const
     return chr;
 }
 
-__device__ Char custring_view::operator[](unsigned int pos) const
+__device__ inline Char custring_view::operator[](unsigned int pos) const
 {
     return at(pos);
 }
 
-__device__ unsigned int custring_view::byte_offset_for(unsigned int pos) const
+__device__ inline unsigned int custring_view::byte_offset_for(unsigned int pos) const
 {
     return offset_for_char_pos(pos);
 }
@@ -431,12 +417,12 @@ __device__ unsigned int custring_view::byte_offset_for(unsigned int pos) const
 //      or all compared characters match but the arg string is shorter.
 // >0	Either the value of the first character of this string that does not match is greater in the arg string,
 //      or all compared characters match but the arg string is longer.
-__device__ int custring_view::compare(const custring_view& in) const
+__device__ inline int custring_view::compare(const custring_view& in) const
 {
     return compare(in.data(), in.size());
 }
 
-__device__ int custring_view::compare(const char* data, unsigned int bytes) const
+__device__ inline int custring_view::compare(const char* data, unsigned int bytes) const
 {
     char* ptr1 = (char*)this->data();
     if(!ptr1)
@@ -461,44 +447,44 @@ __device__ int custring_view::compare(const char* data, unsigned int bytes) cons
     return 0;
 }
 
-__device__ bool custring_view::operator==(const custring_view& rhs)
+__device__ inline bool custring_view::operator==(const custring_view& rhs)
 {
     return compare(rhs) == 0;
 }
 
-__device__ bool custring_view::operator!=(const custring_view& rhs)
+__device__ inline bool custring_view::operator!=(const custring_view& rhs)
 {
     return compare(rhs) != 0;
 }
 
-__device__ bool custring_view::operator<(const custring_view& rhs)
+__device__ inline bool custring_view::operator<(const custring_view& rhs)
 {
     return compare(rhs) < 0;
 }
 
-__device__ bool custring_view::operator>(const custring_view& rhs)
+__device__ inline bool custring_view::operator>(const custring_view& rhs)
 {
     return compare(rhs) > 0;
 }
 
-__device__ bool custring_view::operator<=(const custring_view& rhs)
+__device__ inline bool custring_view::operator<=(const custring_view& rhs)
 {
     int rc = compare(rhs);
     return (rc == 0) || (rc < 0);
 }
 
-__device__ bool custring_view::operator>=(const custring_view& rhs)
+__device__ inline bool custring_view::operator>=(const custring_view& rhs)
 {
     int rc = compare(rhs);
     return (rc == 0) || (rc > 0);
 }
 
-__device__ int custring_view::find(const custring_view& str, unsigned int pos, int count) const
+__device__ inline int custring_view::find(const custring_view& str, unsigned int pos, int count) const
 {
     return find(str.data(), str.size(), pos, count);
 }
 
-__device__ int custring_view::find(const char* str, unsigned int bytes, unsigned int pos, int count) const
+__device__ inline int custring_view::find(const char* str, unsigned int bytes, unsigned int pos, int count) const
 {
     char* sptr = (char*)data();
     if(!str || !bytes)
@@ -534,7 +520,7 @@ __device__ int custring_view::find(const char* str, unsigned int bytes, unsigned
 }
 
 // maybe get rid of this one
-__device__ int custring_view::find(Char chr, unsigned int pos, int count) const
+__device__ inline int custring_view::find(Char chr, unsigned int pos, int count) const
 {
     unsigned int sz = size();
     unsigned int nchars = chars_count();
@@ -562,12 +548,12 @@ __device__ int custring_view::find(Char chr, unsigned int pos, int count) const
     return -1;
 }
 
-__device__ int custring_view::rfind(const custring_view& str, unsigned int pos, int count) const
+__device__ inline int custring_view::rfind(const custring_view& str, unsigned int pos, int count) const
 {
     return rfind(str.data(), str.size(), pos, count);
 }
 
-__device__ int custring_view::rfind(const char* str, unsigned int bytes, unsigned int pos, int count) const
+__device__ inline int custring_view::rfind(const char* str, unsigned int bytes, unsigned int pos, int count) const
 {
     char* sptr = (char*)data();
     if(!str || !bytes)
@@ -601,7 +587,7 @@ __device__ int custring_view::rfind(const char* str, unsigned int bytes, unsigne
     return -1;
 }
 
-__device__ int custring_view::rfind(Char chr, unsigned int pos, int count) const
+__device__ inline int custring_view::rfind(Char chr, unsigned int pos, int count) const
 {
     unsigned int sz = size();
     unsigned int nchars = chars_count();
@@ -629,12 +615,12 @@ __device__ int custring_view::rfind(Char chr, unsigned int pos, int count) const
     return -1;
 }
 
-__device__ int custring_view::find_first_of(const custring_view& str, unsigned int pos) const
+__device__ inline int custring_view::find_first_of(const custring_view& str, unsigned int pos) const
 {
     return find_first_of(str.data(), str.size(), pos);
 }
 
-__device__ int custring_view::find_first_of(const char* str, unsigned int bytes, unsigned int pos) const
+__device__ inline int custring_view::find_first_of(const char* str, unsigned int bytes, unsigned int pos) const
 {
     unsigned int sz = size();
     if(!sz || !bytes || !str)
@@ -665,17 +651,17 @@ __device__ int custring_view::find_first_of(const char* str, unsigned int bytes,
     return -1;
 }
 
-__device__ int custring_view::find_first_of(Char ch, unsigned int pos) const
+__device__ inline int custring_view::find_first_of(Char ch, unsigned int pos) const
 {
     return find(ch, pos);
 }
 
-__device__ int custring_view::find_first_not_of(const custring_view& str, unsigned int pos) const
+__device__ inline int custring_view::find_first_not_of(const custring_view& str, unsigned int pos) const
 {
     return find_first_not_of(str.data(), str.size(), pos);
 }
 
-__device__ int custring_view::find_first_not_of(const char* str, unsigned int bytes, unsigned int pos) const
+__device__ inline int custring_view::find_first_not_of(const char* str, unsigned int bytes, unsigned int pos) const
 {
     unsigned int sz = size();
     if(!sz || !bytes || !str)
@@ -706,7 +692,7 @@ __device__ int custring_view::find_first_not_of(const char* str, unsigned int by
     return -1;
 }
 
-__device__ int custring_view::find_first_not_of(Char ch, unsigned int pos) const
+__device__ inline int custring_view::find_first_not_of(Char ch, unsigned int pos) const
 {
     unsigned int sz = size();
     if(!sz)
@@ -723,12 +709,12 @@ __device__ int custring_view::find_first_not_of(Char ch, unsigned int pos) const
     return -1;
 }
 
-__device__ int custring_view::find_last_of(const custring_view& str, unsigned int pos) const
+__device__ inline int custring_view::find_last_of(const custring_view& str, unsigned int pos) const
 {
     return find_last_of(str.data(), str.size(), pos);
 }
 
-__device__ int custring_view::find_last_of(const char* str, unsigned int bytes, unsigned int pos) const
+__device__ inline int custring_view::find_last_of(const char* str, unsigned int bytes, unsigned int pos) const
 {
     unsigned int sz = size();
     if(!sz || !bytes || !str)
@@ -759,17 +745,17 @@ __device__ int custring_view::find_last_of(const char* str, unsigned int bytes, 
     return -1;
 }
 
-__device__ int custring_view::find_last_of(Char ch, unsigned int pos) const
+__device__ inline int custring_view::find_last_of(Char ch, unsigned int pos) const
 {
     return rfind(ch, pos);
 }
 
-__device__ int custring_view::find_last_not_of(const custring_view& str, unsigned int pos) const
+__device__ inline int custring_view::find_last_not_of(const custring_view& str, unsigned int pos) const
 {
     return find_last_not_of(str.data(), str.size(), pos);
 }
 
-__device__ int custring_view::find_last_not_of(const char* str, unsigned int bytes, unsigned int pos) const
+__device__ inline int custring_view::find_last_not_of(const char* str, unsigned int bytes, unsigned int pos) const
 {
     unsigned int sz = size();
     if(!sz || !bytes || !str)
@@ -800,7 +786,7 @@ __device__ int custring_view::find_last_not_of(const char* str, unsigned int byt
     return -1;
 }
 
-__device__ int custring_view::find_last_not_of(Char ch, unsigned int pos) const
+__device__ inline int custring_view::find_last_not_of(Char ch, unsigned int pos) const
 {
     unsigned int sz = size();
     if(!sz)
@@ -818,7 +804,7 @@ __device__ int custring_view::find_last_not_of(Char ch, unsigned int pos) const
 }
 
 // parameters are character position values
-__device__ custring_view* custring_view::substr(unsigned int pos, unsigned int length, unsigned int step, void* mem)
+__device__ inline custring_view* custring_view::substr(unsigned int pos, unsigned int length, unsigned int step, void* mem)
 {
     custring_view* str = create_from(mem);
     unsigned int sz = size();
@@ -859,7 +845,7 @@ __device__ custring_view* custring_view::substr(unsigned int pos, unsigned int l
     return str;
 }
 
-__device__ unsigned int custring_view::substr_size(unsigned int pos, unsigned int length, unsigned int step) const
+__device__ inline unsigned int custring_view::substr_size(unsigned int pos, unsigned int length, unsigned int step) const
 {
     unsigned int sz = size();
     unsigned int spos = offset_for_char_pos(pos);
@@ -885,7 +871,7 @@ __device__ unsigned int custring_view::substr_size(unsigned int pos, unsigned in
     return alloc_size(bytes, nchars);
 }
 
-__device__ unsigned int custring_view::copy(char* str, int count, unsigned int pos)
+__device__ inline unsigned int custring_view::copy(char* str, int count, unsigned int pos)
 {
     unsigned int nchars = chars_count();
     if(count < 0)
@@ -907,7 +893,7 @@ __device__ unsigned int custring_view::copy(char* str, int count, unsigned int p
 
 // this is useful since operator+= takes only 1 argument
 // inplace append; memory must be pre-allocated
-__device__ custring_view& custring_view::append(const char* str, unsigned int bytes)
+__device__ inline custring_view& custring_view::append(const char* str, unsigned int bytes)
 {
     unsigned int sz = size();
     char* sptr = data() + sz;
@@ -916,7 +902,7 @@ __device__ custring_view& custring_view::append(const char* str, unsigned int by
     return *this;
 }
 
-__device__ custring_view& custring_view::append(Char chr, unsigned int count)
+__device__ inline custring_view& custring_view::append(Char chr, unsigned int count)
 {
     unsigned int sz = size();
     char* sptr = data();
@@ -927,12 +913,12 @@ __device__ custring_view& custring_view::append(Char chr, unsigned int count)
     return *this;
 }
 
-__device__ custring_view& custring_view::append(const custring_view& in)
+__device__ inline custring_view& custring_view::append(const custring_view& in)
 {
     return append(in.data(), in.size());
 }
 
-__device__ unsigned int custring_view::append_size(const char* str, unsigned int bytes) const
+__device__ inline unsigned int custring_view::append_size(const char* str, unsigned int bytes) const
 {
     unsigned int nbytes = size();
     unsigned int nchars = chars_count();
@@ -944,12 +930,12 @@ __device__ unsigned int custring_view::append_size(const char* str, unsigned int
     return alloc_size(nbytes, nchars);
 }
 
-__device__ unsigned int custring_view::append_size(const custring_view& in) const
+__device__ inline unsigned int custring_view::append_size(const custring_view& in) const
 {
     return append_size(in.data(), in.size());
 }
 
-__device__ unsigned int custring_view::append_size(Char chr, unsigned int count) const
+__device__ inline unsigned int custring_view::append_size(Char chr, unsigned int count) const
 {
     unsigned int bytes = size();
     unsigned int nchars = chars_count();
@@ -961,18 +947,18 @@ __device__ unsigned int custring_view::append_size(Char chr, unsigned int count)
     return alloc_size(bytes, nchars);
 }
 
-__device__ custring_view& custring_view::operator+=(const custring_view& in)
+__device__ inline custring_view& custring_view::operator+=(const custring_view& in)
 {
     return append(in);
 }
 
-__device__ custring_view& custring_view::operator+=(Char chr)
+__device__ inline custring_view& custring_view::operator+=(Char chr)
 {
     return append(chr);
 }
 
 // operators can only take one argument
-__device__ custring_view& custring_view::operator+=(const char* str)
+__device__ inline custring_view& custring_view::operator+=(const char* str)
 {
     char* sptr = (char*)str;
     unsigned int bytes = 0;
@@ -981,7 +967,7 @@ __device__ custring_view& custring_view::operator+=(const char* str)
     return append(str, bytes);
 }
 
-__device__ custring_view& custring_view::insert(unsigned int pos, const char* str, unsigned int bytes)
+__device__ inline custring_view& custring_view::insert(unsigned int pos, const char* str, unsigned int bytes)
 {
     unsigned int sz = size();
     unsigned int spos = offset_for_char_pos(pos);
@@ -1012,12 +998,12 @@ __device__ custring_view& custring_view::insert(unsigned int pos, const char* st
     return *this;
 }
 
-__device__ custring_view& custring_view::insert(unsigned int pos, custring_view& in)
+__device__ inline custring_view& custring_view::insert(unsigned int pos, custring_view& in)
 {
     return insert(pos, in.data(), in.size());
 }
 
-__device__ custring_view& custring_view::insert(unsigned int pos, unsigned int count, Char chr)
+__device__ inline custring_view& custring_view::insert(unsigned int pos, unsigned int count, Char chr)
 {
     unsigned int sz = size();
     unsigned int spos = offset_for_char_pos(pos);
@@ -1042,23 +1028,23 @@ __device__ custring_view& custring_view::insert(unsigned int pos, unsigned int c
     return *this;
 }
 
-__device__ unsigned int custring_view::insert_size(const char* str, unsigned int bytes) const
+__device__ inline unsigned int custring_view::insert_size(const char* str, unsigned int bytes) const
 {
     return append_size(str, bytes);
 }
 
-__device__ unsigned int custring_view::insert_size(const custring_view& in) const
+__device__ inline unsigned int custring_view::insert_size(const custring_view& in) const
 {
     return append_size(in);
 }
 
-__device__ unsigned int custring_view::insert_size(Char chr, unsigned int count) const
+__device__ inline unsigned int custring_view::insert_size(Char chr, unsigned int count) const
 {
     return append_size(chr, count);
 }
 
 // replace specified section with the given string
-__device__ custring_view* custring_view::replace(unsigned int pos, unsigned int length, const char* data, unsigned int bytes, void* mem)
+__device__ inline custring_view* custring_view::replace(unsigned int pos, unsigned int length, const char* data, unsigned int bytes, void* mem)
 {
     // this will have upto 3 sections: left, arg-str, right
     unsigned int sz = size();
@@ -1093,12 +1079,12 @@ __device__ custring_view* custring_view::replace(unsigned int pos, unsigned int 
     return str;
 }
 
-__device__ custring_view* custring_view::replace(unsigned int pos, unsigned int length, const custring_view& in, void* mem)
+__device__ inline custring_view* custring_view::replace(unsigned int pos, unsigned int length, const custring_view& in, void* mem)
 {
     return replace(pos, length, in.data(), in.size(), mem);
 }
 
-__device__ custring_view* custring_view::replace(unsigned int pos, unsigned int length, unsigned int count, Char chr, void* mem)
+__device__ inline custring_view* custring_view::replace(unsigned int pos, unsigned int length, unsigned int count, Char chr, void* mem)
 {
     // this will have upto 3 sections: left, arg-str, right
     unsigned int sz = size();
@@ -1135,13 +1121,13 @@ __device__ custring_view* custring_view::replace(unsigned int pos, unsigned int 
 }
 
 //
-__device__ unsigned int custring_view::replace_size(unsigned int pos, unsigned int length, const custring_view& in) const
+__device__ inline unsigned int custring_view::replace_size(unsigned int pos, unsigned int length, const custring_view& in) const
 {
     return replace_size(pos, length, in.data(), in.size());
 }
 
 //
-__device__ unsigned int custring_view::replace_size(unsigned int pos, unsigned int length, const char* data, unsigned int bytes) const
+__device__ inline unsigned int custring_view::replace_size(unsigned int pos, unsigned int length, const char* data, unsigned int bytes) const
 {
     // this needs to over estimate
     // - if the new size is greater then we are ok
@@ -1165,7 +1151,7 @@ __device__ unsigned int custring_view::replace_size(unsigned int pos, unsigned i
     return alloc_size(nbytes, nchars);
 }
 
-__device__ unsigned int custring_view::replace_size(unsigned int pos, unsigned int length, unsigned int count, Char chr) const
+__device__ inline unsigned int custring_view::replace_size(unsigned int pos, unsigned int length, unsigned int count, Char chr) const
 {
     unsigned int sz = size();
     unsigned int chars = chars_count();
@@ -1186,7 +1172,7 @@ __device__ unsigned int custring_view::replace_size(unsigned int pos, unsigned i
     return alloc_size(nbytes, nchars);
 }
 
-__device__ unsigned int custring_view::split(const char* delim, unsigned int bytes, int count, custring_view** strs)
+__device__ inline unsigned int custring_view::split(const char* delim, unsigned int bytes, int count, custring_view** strs)
 {
     char* sptr = data();
     unsigned int sz = size();
@@ -1240,7 +1226,7 @@ __device__ unsigned int custring_view::split(const char* delim, unsigned int byt
 }
 
 //
-__device__ unsigned int custring_view::split_size(const char* delim, unsigned int bytes, int *sizes, int count) const
+__device__ inline unsigned int custring_view::split_size(const char* delim, unsigned int bytes, int *sizes, int count) const
 {
     char* sptr = (char*)data();
     unsigned int sz = size();
@@ -1298,7 +1284,7 @@ __device__ unsigned int custring_view::split_size(const char* delim, unsigned in
     return total;
 }
 
-__device__ unsigned int custring_view::rsplit(const char* delim, unsigned int bytes, int count, custring_view** strs)
+__device__ inline unsigned int custring_view::rsplit(const char* delim, unsigned int bytes, int count, custring_view** strs)
 {
     char* sptr = data();
     unsigned int sz = size();
@@ -1355,7 +1341,7 @@ __device__ unsigned int custring_view::rsplit(const char* delim, unsigned int by
     return rtn;
 }
 
-__device__ unsigned int custring_view::rsplit_size(const char* delim, unsigned int bytes, int *sizes, int count) const
+__device__ inline unsigned int custring_view::rsplit_size(const char* delim, unsigned int bytes, int *sizes, int count) const
 {
     char* sptr = (char*)data();
     unsigned int sz = size();
@@ -1415,7 +1401,7 @@ __device__ unsigned int custring_view::rsplit_size(const char* delim, unsigned i
     return total;
 }
 
-__device__ custring_view* custring_view::strip(const char* tgts, void* mem)
+__device__ inline custring_view* custring_view::strip(const char* tgts, void* mem)
 {
     custring_view* str = create_from(mem);
     unsigned int sz = size();
@@ -1468,7 +1454,7 @@ __device__ custring_view* custring_view::strip(const char* tgts, void* mem)
     return str;
 }
 
-__device__ unsigned int custring_view::strip_size(const char* tgts) const
+__device__ inline unsigned int custring_view::strip_size(const char* tgts) const
 {
     unsigned int sz = size();
     char* sptr = (char*)data();
@@ -1513,7 +1499,7 @@ __device__ unsigned int custring_view::strip_size(const char* tgts) const
     return nsz;
 }
 
-__device__ custring_view* custring_view::lstrip(const char* tgts, void* mem)
+__device__ inline custring_view* custring_view::lstrip(const char* tgts, void* mem)
 {
     custring_view* str = create_from(mem);
     unsigned int sz = size();
@@ -1545,7 +1531,7 @@ __device__ custring_view* custring_view::lstrip(const char* tgts, void* mem)
     return str;
 }
 
-__device__ unsigned int custring_view::lstrip_size(const char* tgts) const
+__device__ inline unsigned int custring_view::lstrip_size(const char* tgts) const
 {
     unsigned int sz = size();
     if(sz == 0)
@@ -1568,7 +1554,7 @@ __device__ unsigned int custring_view::lstrip_size(const char* tgts) const
     return alloc_size(sptr + count, sz - count);
 }
 
-__device__ custring_view* custring_view::rstrip(const char* tgts, void* mem)
+__device__ inline custring_view* custring_view::rstrip(const char* tgts, void* mem)
 {
     custring_view* str = create_from(mem);
     unsigned int sz = size();
@@ -1595,7 +1581,7 @@ __device__ custring_view* custring_view::rstrip(const char* tgts, void* mem)
     return str;
 }
 
-__device__ unsigned int custring_view::rstrip_size(const char* tgts) const
+__device__ inline unsigned int custring_view::rstrip_size(const char* tgts) const
 {
     unsigned int sz = size();
     char* sptr = (char*)data();
@@ -1618,12 +1604,12 @@ __device__ unsigned int custring_view::rstrip_size(const char* tgts) const
 }
 
 // these expect only numbers (ascii charset)
-__device__ int custring_view::stoi() const
+__device__ inline int custring_view::stoi() const
 {
     return (int)stol();
 }
 
-__device__ long custring_view::stol() const
+__device__ inline long custring_view::stol() const
 {
     char* ptr = (char*)data();
     if(!ptr)
@@ -1647,7 +1633,7 @@ __device__ long custring_view::stol() const
     return value * (long)sign;
 }
 
-__device__ unsigned long custring_view::stoul() const
+__device__ inline unsigned long custring_view::stoul() const
 {
     char* ptr = (char*)data();
     if(!ptr)
@@ -1665,12 +1651,12 @@ __device__ unsigned long custring_view::stoul() const
     return value;
 }
 
-__device__ float custring_view::stof() const
+__device__ inline float custring_view::stof() const
 {
     return (float)stod();
 }
 
-__device__ double custring_view::stod() const
+__device__ inline double custring_view::stod() const
 {
     char* ptr = (char*)data();
     if(!ptr)
@@ -1732,7 +1718,7 @@ __device__ double custring_view::stod() const
     return (value * sign);
 }
 
-__device__ custring_view* custring_view::ltos( long value, void* mem )
+__device__ inline custring_view* custring_view::ltos( long value, void* mem )
 {
     if( value==0 )
         return create_from(mem,"0",1);
@@ -1761,7 +1747,7 @@ __device__ custring_view* custring_view::ltos( long value, void* mem )
     return create_from(str,str,len);
 }
 
-__device__ unsigned int custring_view::ltos_size( long value )
+__device__ inline unsigned int custring_view::ltos_size( long value )
 {
     if( value==0 )
         return alloc_size(1,1);
@@ -1779,7 +1765,7 @@ __device__ unsigned int custring_view::ltos_size( long value )
 }
 
 //
-__device__ bool custring_view::starts_with(const char* str, unsigned int bytes) const
+__device__ inline bool custring_view::starts_with(const char* str, unsigned int bytes) const
 {
     if(bytes > size())
         return false;
@@ -1792,12 +1778,12 @@ __device__ bool custring_view::starts_with(const char* str, unsigned int bytes) 
     return true;
 }
 
-__device__ bool custring_view::starts_with(custring_view& in) const
+__device__ inline bool custring_view::starts_with(custring_view& in) const
 {
     return starts_with(in.data(), in.size());
 }
 
-__device__ bool custring_view::ends_with(const char* str, unsigned int bytes) const
+__device__ inline bool custring_view::ends_with(const char* str, unsigned int bytes) const
 {
     unsigned int sz = size();
     if(bytes > sz)
@@ -1811,7 +1797,7 @@ __device__ bool custring_view::ends_with(const char* str, unsigned int bytes) co
     return true;
 }
 
-__device__ bool custring_view::ends_with(custring_view& str) const
+__device__ inline bool custring_view::ends_with(custring_view& str) const
 {
     unsigned int sz = size();
     unsigned int bytes = str.size();
@@ -1820,7 +1806,7 @@ __device__ bool custring_view::ends_with(custring_view& str) const
     return find(str, sz - bytes) >= 0;
 }
 
-__device__ unsigned int custring_view::hash() const
+__device__ inline unsigned int custring_view::hash() const
 {
     unsigned int sz = size();
     char* sptr = (char*)data();
@@ -1831,7 +1817,7 @@ __device__ unsigned int custring_view::hash() const
     return hash;
 }
 
-__host__ __device__ unsigned int custring_view::bytes_in_char(Char chr)
+__host__ __device__ inline unsigned int custring_view::bytes_in_char(Char chr)
 {
     unsigned int count = 1;
     // no if-statements means no divergence
@@ -1841,7 +1827,7 @@ __host__ __device__ unsigned int custring_view::bytes_in_char(Char chr)
     return count;
 }
 
-__host__ __device__ unsigned int custring_view::char_to_Char(const char* pSrc, Char &chr)
+__host__ __device__ inline unsigned int custring_view::char_to_Char(const char* pSrc, Char &chr)
 {
     unsigned int chwidth = _bytes_in_char((BYTE)*pSrc);
     chr = (Char)(*pSrc++) & 0xFF;
@@ -1863,7 +1849,7 @@ __host__ __device__ unsigned int custring_view::char_to_Char(const char* pSrc, C
     return chwidth;
 }
 
-__host__ __device__ unsigned int custring_view::Char_to_char(Char chr, char* dst)
+__host__ __device__ inline unsigned int custring_view::Char_to_char(Char chr, char* dst)
 {
     unsigned int chwidth = bytes_in_char(chr);
     for(unsigned int idx = 0; idx < chwidth; ++idx)
@@ -1875,7 +1861,7 @@ __host__ __device__ unsigned int custring_view::Char_to_char(Char chr, char* dst
 }
 
 // counts the number of character in the first bytes of the given char array
-__host__ __device__ unsigned int custring_view::chars_in_string(const char* str, unsigned int bytes)
+__host__ __device__ inline unsigned int custring_view::chars_in_string(const char* str, unsigned int bytes)
 {
     if( (str==0) || (bytes==0) )
         return 0;
@@ -1910,7 +1896,7 @@ __host__ __device__ unsigned int custring_view::chars_in_string(const char* str,
     //return nchars;
 }
 
-__device__ unsigned int custring_view::char_offset(unsigned int bytepos) const
+__device__ inline unsigned int custring_view::char_offset(unsigned int bytepos) const
 {
     if(m_bytes == m_chars)
         return bytepos;

@@ -21,7 +21,6 @@
 #include <exception>
 #include <stdexcept>
 #include <nvstrings/NVStrings.h>
-#include <nvstrings/util.h>
 #include <nvstrings/ipc_transfer.h>
 
 //
@@ -44,25 +43,29 @@ class DataBuffer
     PyObject* pyobj;
     void* pdata;
     std::string name;
-    enum datatype { none, error, list, device_ndarray, buffer, pointer };
-    datatype dtype;
+    enum listtype { none, error, blist, list, device_ndarray, ndarray, buffer, pointer };
+    listtype ltype;
+    std::string errortext;
     unsigned int type_width;
+    std::string dtype_name;
 
     T* values;
     unsigned int count;
 
 public:
     //
-    DataBuffer( PyObject* obj ) : pyobj(obj), pdata(0), values(0), count(0), dtype(none), type_width(4)
+    DataBuffer( PyObject* obj ) : pyobj(obj), pdata(0), values(0), count(0), ltype(none)
     {
+        type_width = sizeof(T);
         if( pyobj == Py_None )
             return;
-        dtype = error;
+
         name = pyobj->ob_type->tp_name;
         if( name.compare("list")==0 )
         {
-            dtype = list;
             count = (unsigned int)PyList_Size(pyobj);
+            std::string stname = (count>0 ? PyList_GetItem(pyobj,0)->ob_type->tp_name : "");
+            bool btype = (count>0) && (stname.compare("bool")==0);
             T* data = new T[count];
             for( unsigned int idx=0; idx < count; ++idx )
             {
@@ -73,15 +76,19 @@ public:
                     data[idx] = PyObject_IsTrue(pyidx);
                 else
                     data[idx] = (T)PyLong_AsLong(pyidx);
+                stname = pyidx->ob_type->tp_name;
+                btype &= stname.compare("bool")==0;
             }
+            ltype = btype ? blist : list;
             values = data;
             pdata = data;
         }
         else if( name.compare("DeviceNDArray")==0 )
         {
-            dtype = device_ndarray;
+            ltype = device_ndarray;
             PyObject* pyasize = PyObject_GetAttr(pyobj,PyUnicode_FromString("alloc_size"));
             PyObject* pysize = PyObject_GetAttr(pyobj,PyUnicode_FromString("size"));
+            PyObject* pydtype = PyObject_GetAttr(pyobj,PyUnicode_FromString("dtype"));
             PyObject* pydcp = PyObject_GetAttr(pyobj,PyUnicode_FromString("device_ctypes_pointer"));
             pyobj = PyObject_GetAttr(pydcp,PyUnicode_FromString("value"));
             //printf("dnda: size=%d, alloc_size=%d\n",(int)PyLong_AsLong(pysize),(int)PyLong_AsLong(pyasize));
@@ -90,11 +97,35 @@ public:
                 type_width = PyLong_AsLong(pyasize)/count;
             //printf("dnda: count=%d, twidth=%d\n",(int)count,(int)type_width);
             if( pyobj != Py_None )
+            {
                 values = (T*)PyLong_AsVoidPtr(pyobj);
+                // get the dtype name in case that helps with type-checking
+                dtype_name = PyUnicode_AsUTF8(PyObject_Str(pydtype));
+            }
+        }
+        else if( name.compare("numpy.ndarray")==0 )
+        {
+            ltype = ndarray;
+            PyObject* pyasize = PyObject_GetAttr(pyobj,PyUnicode_FromString("nbytes"));
+            PyObject* pysize = PyObject_GetAttr(pyobj,PyUnicode_FromString("size"));
+            PyObject* pydtype = PyObject_GetAttr(pyobj,PyUnicode_FromString("dtype"));
+            PyObject* pydcp = PyObject_GetAttr(pyobj,PyUnicode_FromString("ctypes"));
+            pyobj = PyObject_GetAttr(pydcp,PyUnicode_FromString("data"));
+            //printf("nda: size=%d, alloc_size=%d\n",(int)PyLong_AsLong(pysize),(int)PyLong_AsLong(pyasize));
+            count = (unsigned int)PyLong_AsLong(pysize);
+            if( count > 0 )
+                type_width = PyLong_AsLong(pyasize)/count;
+            //printf("nda: count=%d, twidth=%d\n",(int)count,(int)type_width);
+            if( pyobj != Py_None )
+            {
+                values = (T*)PyLong_AsVoidPtr(pyobj);
+                // get the dtype name in case that helps with type-checking
+                dtype_name = PyUnicode_AsUTF8(PyObject_Str(pydtype));
+            }
         }
         else if( PyObject_CheckBuffer(pyobj) )
         {
-            dtype = buffer;
+            ltype = buffer;
             Py_buffer* pybuf = new Py_buffer;
             PyObject_GetBuffer(pyobj,pybuf,PyBUF_SIMPLE);
             values = (T*)pybuf->buf;
@@ -103,17 +134,23 @@ public:
         }
         else if( name.compare("int")==0 )
         {
-            dtype = pointer;
+            ltype = pointer;
             values = (T*)PyLong_AsVoidPtr(pyobj);
+        }
+        else
+        {
+            ltype = error;
+            errortext = "unknown_type: ";
+            errortext += name;
         }
     }
 
     //
     ~DataBuffer()
     {
-        if( dtype==list )
+        if( ltype==list || ltype==blist )
             delete (T*)pdata;
-        else if( dtype==buffer )
+        else if( ltype==buffer )
         {
             PyBuffer_Release((Py_buffer*)pdata);
             delete (Py_buffer*)pdata;
@@ -121,13 +158,16 @@ public:
     }
 
     //
-    bool is_error()          { return dtype==error; }
-    const char* get_name()   { return name.c_str(); }
-    bool is_device_type()    { return (dtype==device_ndarray) || (dtype==pointer); }
+    bool is_error()               { return ltype==error; }
+    const char* get_error_text()  { return errortext.c_str(); }
+    bool is_blist()               { return ltype==blist; }
+    const char* get_name()        { return name.c_str(); }
+    bool is_device_type()         { return (ltype==device_ndarray) || (ltype==pointer); }
 
-    T* get_values()          { return values; }
-    unsigned int get_count() { return count; }
+    T* get_values()               { return values; }
+    unsigned int get_count()      { return count; }
     unsigned int get_type_width() { return type_width; }
+    const char* get_dtype_name()  { return dtype_name.c_str(); }
 };
 
 // PyArg_VaParse format types are documented here:
@@ -171,7 +211,10 @@ static PyObject* n_createFromIPC( PyObject* self, PyObject* args )
     ipc.size = (size_t)PyLong_AsLong(PyList_GetItem(pylist, 3)); // size_t
     ipc.base_address = reinterpret_cast<char*>(PyLong_AsLong(PyList_GetItem(pylist, 4))); // char*
 
-    NVStrings* thisptr = NVStrings::create_from_ipc(ipc);
+    NVStrings* thisptr = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    thisptr = NVStrings::create_from_ipc(ipc);
+    Py_END_ALLOW_THREADS
     return PyLong_FromVoidPtr((void*)thisptr);
 }
 
@@ -180,6 +223,8 @@ static PyObject* n_getIPCData( PyObject* self, PyObject* args )
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
 
     nvstrings_ipc_transfer ipc;
+
+    Py_BEGIN_ALLOW_THREADS
     tptr->create_ipc_transfer(ipc);
 
     PyObject* ipc_data = PyList_New(5);
@@ -189,6 +234,7 @@ static PyObject* n_getIPCData( PyObject* self, PyObject* args )
     PyList_SetItem(ipc_data, 3, PyLong_FromLong(ipc.size)); //custrings_membuffer_size
     PyList_SetItem(ipc_data, 4, PyLong_FromLong(reinterpret_cast<long>(ipc.base_address))); //custrings_base_ptr
 
+    Py_END_ALLOW_THREADS
     return ipc_data;
 }
 
@@ -201,7 +247,11 @@ static PyObject* n_createFromHostStrings( PyObject* self, PyObject* args )
     if( PyObject_TypeCheck(pystrs,&PyUnicode_Type) )
     {
         const char* str = PyUnicode_AsUTF8(PyTuple_GetItem(args,0));
-        return PyLong_FromVoidPtr((void*)NVStrings::create_from_array(&str,1));
+        NVStrings* thisptr = nullptr;
+        Py_BEGIN_ALLOW_THREADS
+        thisptr = NVStrings::create_from_array(&str,1);
+        Py_END_ALLOW_THREADS
+        return PyLong_FromVoidPtr((void*)thisptr);
     }
 
     // would be cool if we could check the type is list/array
@@ -221,7 +271,10 @@ static PyObject* n_createFromHostStrings( PyObject* self, PyObject* args )
     }
     //
     //printf("creating %d strings in device memory\n",count);
-    NVStrings* thisptr = NVStrings::create_from_array(list,count);
+    NVStrings* thisptr = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    thisptr = NVStrings::create_from_array(list,count);
+    Py_END_ALLOW_THREADS
     delete list;
     return PyLong_FromVoidPtr((void*)thisptr);
 }
@@ -230,7 +283,9 @@ static PyObject* n_createFromHostStrings( PyObject* self, PyObject* args )
 static PyObject* n_destroyStrings( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    Py_BEGIN_ALLOW_THREADS
     NVStrings::destroy(tptr);
+    Py_END_ALLOW_THREADS
     return PyLong_FromLong(0);
 }
 
@@ -241,6 +296,7 @@ static PyObject* n_createHostStrings( PyObject* self, PyObject* args )
     unsigned int count = tptr->size();
     if( count==0 )
         return PyList_New(0);
+
     std::vector<char*> list(count);
     char** plist = list.data();
     std::vector<int> lens(count);
@@ -253,7 +309,9 @@ static PyObject* n_createHostStrings( PyObject* self, PyObject* args )
         plist[idx] = pbuffer + offset;
         offset += lens[idx]+1; // account for null-terminator; also nulls are -1
     }
+    Py_BEGIN_ALLOW_THREADS
     tptr->to_host(plist,0,count);
+    Py_END_ALLOW_THREADS
     PyObject* ret = PyList_New(count);
     for( unsigned int idx=0; idx < count; ++idx )
     {
@@ -322,7 +380,10 @@ static PyObject* n_createFromNVStrings( PyObject* self, PyObject* args )
         Py_RETURN_NONE;
     }
 
-    NVStrings* thisptr = NVStrings::create_from_strings(strslist);
+    NVStrings* thisptr = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    thisptr = NVStrings::create_from_strings(strslist);
+    Py_END_ALLOW_THREADS
     return PyLong_FromVoidPtr((void*)thisptr);
 }
 
@@ -333,7 +394,12 @@ static PyObject* n_createFromCSV( PyObject* self, PyObject* args )
     unsigned int column = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,1));
     unsigned int lines = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,2));
     unsigned int flags = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,3));
-    NVStrings* rtn = createFromCSV(csvfile,column,lines,flags);
+    NVStrings::sorttype stype = (NVStrings::sorttype)(flags & 3);
+    bool nullIsEmpty = (flags & 8) > 0;
+    NVStrings* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = NVStrings::create_from_csv(csvfile.c_str(),column,lines,stype,nullIsEmpty);
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -392,7 +458,11 @@ static PyObject* n_createFromOffsets( PyObject* self, PyObject* args )
     //printf(" ptrs=%p,%p,%p\n",sbuffer,obuffer,nbuffer);
     //printf(" scount=%d,ncount=%d\n",scount,ncount);
     // create strings object from these buffers
-    NVStrings* rtn = NVStrings::create_from_offsets(sbuffer,scount,obuffer,nbuffer,ncount);
+    NVStrings* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = NVStrings::create_from_offsets(sbuffer,scount,obuffer,
+                                         nbuffer,ncount);
+    Py_END_ALLOW_THREADS
 
     if( PyObject_CheckBuffer(pysbuf) )
         PyBuffer_Release(&sbuf);
@@ -418,7 +488,12 @@ static PyObject* n_createFromInt32s( PyObject* self, PyObject* args )
     DataBuffer<int> dbvalues(pyvals);
     if( dbvalues.is_error() )
     {
-        PyErr_Format(PyExc_TypeError,"nvstrings.itos(): unknown type %s",dbvalues.get_name());
+        PyErr_Format(PyExc_TypeError,"nvstrings.itos(): %s",dbvalues.get_error_text());
+        Py_RETURN_NONE;
+    }
+    if( dbvalues.get_type_width()!=sizeof(int) )
+    {
+        PyErr_Format(PyExc_TypeError,"nvstrings.itos(): values must be of type int32");
         Py_RETURN_NONE;
     }
 
@@ -429,17 +504,23 @@ static PyObject* n_createFromInt32s( PyObject* self, PyObject* args )
 
     NVStrings* rtn = 0;
     if( pynulls == Py_None )
-            rtn = NVStrings::itos(values,count,0,bdevmem);
+    {
+        Py_BEGIN_ALLOW_THREADS
+        rtn = NVStrings::itos(values,count,0,bdevmem);
+        Py_END_ALLOW_THREADS
+    }
     else
     {   // get the nulls
         DataBuffer<unsigned char> dbnulls(pynulls);
         if( dbnulls.is_error() )
         {
-            PyErr_Format(PyExc_TypeError,"nvstrings.itos(): unknown type %s",dbnulls.get_name());
+            PyErr_Format(PyExc_TypeError,"nvstrings.itos(): %s",dbnulls.get_error_text());
             Py_RETURN_NONE;
         }
         unsigned char* nulls = dbnulls.get_values();
+        Py_BEGIN_ALLOW_THREADS
         rtn = NVStrings::itos(values,count,nulls,bdevmem);
+        Py_END_ALLOW_THREADS
     }
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
@@ -458,7 +539,12 @@ static PyObject* n_createFromInt64s( PyObject* self, PyObject* args )
     DataBuffer<long> dbvalues(pyvals);
     if( dbvalues.is_error() )
     {
-        PyErr_Format(PyExc_TypeError,"nvstrings.ltos(): unknown type %s",dbvalues.get_name());
+        PyErr_Format(PyExc_TypeError,"nvstrings.ltos(): %s",dbvalues.get_error_text());
+        Py_RETURN_NONE;
+    }
+    if( dbvalues.get_type_width()!=sizeof(long) )
+    {
+        PyErr_Format(PyExc_TypeError,"nvstrings.ltos(): values must be of type int64");
         Py_RETURN_NONE;
     }
 
@@ -469,17 +555,23 @@ static PyObject* n_createFromInt64s( PyObject* self, PyObject* args )
 
     NVStrings* rtn = 0;
     if( pynulls == Py_None )
-            rtn = NVStrings::ltos(values,count,0,bdevmem);
+    {
+        Py_BEGIN_ALLOW_THREADS
+        rtn = NVStrings::ltos(values,count,0,bdevmem);
+        Py_END_ALLOW_THREADS
+    }
     else
     {   // get the nulls
         DataBuffer<unsigned char> dbnulls(pynulls);
         if( dbnulls.is_error() )
         {
-            PyErr_Format(PyExc_TypeError,"nvstrings.ltos(): unknown type %s",dbnulls.get_name());
+            PyErr_Format(PyExc_TypeError,"nvstrings.ltos(): %s",dbnulls.get_error_text());
             Py_RETURN_NONE;
         }
         unsigned char* nulls = dbnulls.get_values();
+        Py_BEGIN_ALLOW_THREADS
         rtn = NVStrings::ltos(values,count,nulls,bdevmem);
+        Py_END_ALLOW_THREADS
     }
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
@@ -498,7 +590,12 @@ static PyObject* n_createFromFloat32s( PyObject* self, PyObject* args )
     DataBuffer<float> dbvalues(pyvals);
     if( dbvalues.is_error() )
     {
-        PyErr_Format(PyExc_TypeError,"nvstrings.ftos(): unknown type %s",dbvalues.get_name());
+        PyErr_Format(PyExc_TypeError,"nvstrings.ftos(): %s",dbvalues.get_error_text());
+        Py_RETURN_NONE;
+    }
+    if( dbvalues.get_type_width()!=sizeof(float) )
+    {
+        PyErr_Format(PyExc_TypeError,"nvstrings.ftos(): values must be of type float32");
         Py_RETURN_NONE;
     }
 
@@ -509,17 +606,23 @@ static PyObject* n_createFromFloat32s( PyObject* self, PyObject* args )
 
     NVStrings* rtn = 0;
     if( pynulls == Py_None )
+    {
+        Py_BEGIN_ALLOW_THREADS
         rtn = NVStrings::ftos(values,count,0,bdevmem);
+        Py_END_ALLOW_THREADS
+    }
     else
     {   // get the nulls
         DataBuffer<unsigned char> dbnulls(pynulls);
         if( dbnulls.is_error() )
         {
-            PyErr_Format(PyExc_TypeError,"nvstrings.ftos(): unknown type %s",dbnulls.get_name());
+            PyErr_Format(PyExc_TypeError,"nvstrings.ftos(): %s",dbnulls.get_error_text());
             Py_RETURN_NONE;
         }
         unsigned char* nulls = dbnulls.get_values();
+        Py_BEGIN_ALLOW_THREADS
         rtn = NVStrings::ftos(values,count,nulls,bdevmem);
+        Py_END_ALLOW_THREADS
     }
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
@@ -538,7 +641,12 @@ static PyObject* n_createFromFloat64s( PyObject* self, PyObject* args )
     DataBuffer<double> dbvalues(pyvals);
     if( dbvalues.is_error() )
     {
-        PyErr_Format(PyExc_TypeError,"nvstrings.dtos(): unknown type %s",dbvalues.get_name());
+        PyErr_Format(PyExc_TypeError,"nvstrings.dtos(): %s",dbvalues.get_error_text());
+        Py_RETURN_NONE;
+    }
+    if( dbvalues.get_type_width()!=sizeof(double) )
+    {
+        PyErr_Format(PyExc_TypeError,"nvstrings.dtos(): values must be of type float64");
         Py_RETURN_NONE;
     }
 
@@ -549,17 +657,23 @@ static PyObject* n_createFromFloat64s( PyObject* self, PyObject* args )
 
     NVStrings* rtn = 0;
     if( pynulls == Py_None )
+    {
+        Py_BEGIN_ALLOW_THREADS
         rtn = NVStrings::dtos((double*)values,count,0,bdevmem);
+        Py_END_ALLOW_THREADS
+    }
     else
     {   // get the nulls
         DataBuffer<unsigned char> dbnulls(pynulls);
         if( dbnulls.is_error() )
         {
-            PyErr_Format(PyExc_TypeError,"nvstrings.ftos(): unknown type %s",dbnulls.get_name());
+            PyErr_Format(PyExc_TypeError,"nvstrings.ftos(): %s",dbnulls.get_error_text());
             Py_RETURN_NONE;
         }
         unsigned char* nulls = dbnulls.get_values();
+        Py_BEGIN_ALLOW_THREADS
         rtn = NVStrings::dtos((double*)values,count,nulls,bdevmem);
+        Py_END_ALLOW_THREADS
     }
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
@@ -577,9 +691,15 @@ static PyObject* n_createFromIPv4Integers( PyObject* self, PyObject* args )
     DataBuffer<unsigned int> dbvalues(pyvals);
     if( dbvalues.is_error() )
     {
-        PyErr_Format(PyExc_TypeError,"nvstrings.int2ip(): unknown type %s",dbvalues.get_name());
+        PyErr_Format(PyExc_TypeError,"nvstrings.int2ip(): %s",dbvalues.get_error_text());
         Py_RETURN_NONE;
     }
+    if( dbvalues.get_type_width()!=sizeof(int) )
+    {
+        PyErr_Format(PyExc_TypeError,"nvstrings.int2ip(): values must be of type int32");
+        Py_RETURN_NONE;
+    }
+
     unsigned int* values = dbvalues.get_values();
     unsigned int count = dbvalues.get_count();
     if( count==0 )
@@ -588,17 +708,23 @@ static PyObject* n_createFromIPv4Integers( PyObject* self, PyObject* args )
 
     NVStrings* rtn = 0;
     if( pynulls == Py_None )
+    {
+        Py_BEGIN_ALLOW_THREADS
         rtn = NVStrings::int2ip(values,count,0,bdevmem);
+        Py_END_ALLOW_THREADS
+    }
     else
     {   // get the nulls
         DataBuffer<unsigned char> dbnulls(pynulls);
         if( dbnulls.is_error() )
         {
-            PyErr_Format(PyExc_TypeError,"nvstrings.int2ip(): unknown type %s",dbnulls.get_name());
+            PyErr_Format(PyExc_TypeError,"nvstrings.int2ip(): %s",dbnulls.get_error_text());
             Py_RETURN_NONE;
         }
         unsigned char* nulls = dbnulls.get_values();
+        Py_BEGIN_ALLOW_THREADS
         rtn = NVStrings::int2ip(values,count,nulls,bdevmem);
+        Py_END_ALLOW_THREADS
     }
     //
     if( rtn )
@@ -631,9 +757,15 @@ static PyObject* n_createFromTimestamp( PyObject* self, PyObject* args )
     DataBuffer<unsigned long> dbvalues(pyvals);
     if( dbvalues.is_error() )
     {
-        PyErr_Format(PyExc_TypeError,"nvstrings.int2timestamp(): unknown type %s",dbvalues.get_name());
+        PyErr_Format(PyExc_TypeError,"nvstrings.int2timestamp(): %s",dbvalues.get_error_text());
         Py_RETURN_NONE;
     }
+    if( dbvalues.get_type_width()!=sizeof(long) )
+    {
+        PyErr_Format(PyExc_TypeError,"nvstrings.int2timestamp(): values must be of type int64");
+        Py_RETURN_NONE;
+    }
+
     unsigned long* values = dbvalues.get_values();
     unsigned int count = dbvalues.get_count();
     if( count==0 )
@@ -642,17 +774,23 @@ static PyObject* n_createFromTimestamp( PyObject* self, PyObject* args )
 
     NVStrings* rtn = 0;
     if( pynulls == Py_None )
+    {
+        Py_BEGIN_ALLOW_THREADS
         rtn = NVStrings::long2timestamp(values,count,tu,0,bdevmem);
+        Py_END_ALLOW_THREADS
+    }
     else
     {   // get the nulls
         DataBuffer<unsigned char> dbnulls(pynulls);
         if( dbnulls.is_error() )
         {
-            PyErr_Format(PyExc_TypeError,"nvstrings.int2timestamp(): unknown type %s",dbnulls.get_name());
+            PyErr_Format(PyExc_TypeError,"nvstrings.int2timestamp(): %s",dbnulls.get_error_text());
             Py_RETURN_NONE;
         }
         unsigned char* nulls = dbnulls.get_values();
+        Py_BEGIN_ALLOW_THREADS
         rtn = NVStrings::long2timestamp(values,count,tu,nulls,bdevmem);
+        Py_END_ALLOW_THREADS
     }
 
     if( rtn )
@@ -673,7 +811,7 @@ static PyObject* n_createFromBools( PyObject* self, PyObject* args )
     DataBuffer<bool> dbvalues(pyvals);
     if( dbvalues.is_error() )
     {
-        PyErr_Format(PyExc_TypeError,"nvstrings.from_bools(): unknown type %s",dbvalues.get_name());
+        PyErr_Format(PyExc_TypeError,"nvstrings.from_bools(): %s",dbvalues.get_error_text());
         Py_RETURN_NONE;
     }
     if( pytstr==Py_None )
@@ -696,17 +834,23 @@ static PyObject* n_createFromBools( PyObject* self, PyObject* args )
 
     NVStrings* rtn = 0;
     if( pynulls == Py_None )
+    {
+        Py_BEGIN_ALLOW_THREADS
         rtn = NVStrings::create_from_bools(values,count,tstr,fstr,0,bdevmem);
+        Py_END_ALLOW_THREADS
+    }
     else
     {   // get the nulls
         DataBuffer<unsigned char> dbnulls(pynulls);
         if( dbnulls.is_error() )
         {
-            PyErr_Format(PyExc_TypeError,"nvstrings.from_bools(): unknown type %s",dbnulls.get_name());
+            PyErr_Format(PyExc_TypeError,"nvstrings.from_bools(): %s",dbnulls.get_error_text());
             Py_RETURN_NONE;
         }
         unsigned char* nulls = dbnulls.get_values();
+        Py_BEGIN_ALLOW_THREADS
         rtn = NVStrings::create_from_bools(values,count,tstr,fstr,nulls,bdevmem);
+        Py_END_ALLOW_THREADS
     }
     //
     if( rtn )
@@ -762,7 +906,9 @@ static PyObject* n_create_offsets( PyObject* self, PyObject* args )
     bool bdevmem = (bool)PyObject_IsTrue(pybmem);
 
     // create strings object from these buffers
+    Py_BEGIN_ALLOW_THREADS
     tptr->create_offsets(sbuffer,obuffer,nbuffer,bdevmem);
+    Py_END_ALLOW_THREADS
 
     if( PyObject_CheckBuffer(pysbuf) )
         PyBuffer_Release(&sbuf);
@@ -788,7 +934,9 @@ static PyObject* n_len( PyObject* self, PyObject* args )
     int* devptr = (int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,1));
     if( devptr )
     {
+        Py_BEGIN_ALLOW_THREADS
         tptr->len(devptr);
+        Py_END_ALLOW_THREADS
         return PyLong_FromVoidPtr((void*)devptr);
     }
 
@@ -798,7 +946,9 @@ static PyObject* n_len( PyObject* self, PyObject* args )
     if( count==0 )
         return ret;
     int* rtn = new int[count];
+    Py_BEGIN_ALLOW_THREADS
     tptr->len(rtn,false);
+    Py_END_ALLOW_THREADS
     for(unsigned int idx=0; idx < count; idx++)
     {
         int val = rtn[idx];
@@ -819,8 +969,10 @@ static PyObject* n_byte_count( PyObject* self, PyObject* args )
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     int* memptr = (int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,1));
     bool bdevmem = (bool)PyObject_IsTrue(PyTuple_GetItem(args,2));
-
-    size_t rtn = tptr->byte_count(memptr,bdevmem);
+    size_t rtn = 0;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->byte_count(memptr,bdevmem);
+    Py_END_ALLOW_THREADS
     return PyLong_FromLong((long)rtn);
 }
 
@@ -829,7 +981,10 @@ static PyObject* n_null_count( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     bool ben = (bool)PyObject_IsTrue(PyTuple_GetItem(args,1));
-    unsigned int nulls = tptr->get_nulls(0,ben,false);
+    unsigned int nulls = 0;
+    Py_BEGIN_ALLOW_THREADS
+    nulls = tptr->get_nulls(0,ben,false);
+    Py_END_ALLOW_THREADS
     return PyLong_FromLong((long)nulls);
 }
 
@@ -850,13 +1005,17 @@ static PyObject* n_set_null_bitmask( PyObject* self, PyObject* args )
         Py_buffer nbuf;
         PyObject_GetBuffer(pynbuf,&nbuf,PyBUF_SIMPLE);
         unsigned char* nbuffer = (unsigned char*)nbuf.buf;
+        Py_BEGIN_ALLOW_THREADS
         tptr->set_null_bitarray(nbuffer,false,bdevmem);
+        Py_END_ALLOW_THREADS
         PyBuffer_Release(&nbuf);
     }
     else
     {
         unsigned char* nbuffer = (unsigned char*)PyLong_AsVoidPtr(pynbuf);
+        Py_BEGIN_ALLOW_THREADS
         tptr->set_null_bitarray(nbuffer,false,bdevmem);
+        Py_END_ALLOW_THREADS
     }
     Py_RETURN_NONE;
 }
@@ -875,14 +1034,21 @@ static PyObject* n_compare( PyObject* self, PyObject* args )
     int* devptr = (int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,2));
     if( devptr )
     {
+        Py_BEGIN_ALLOW_THREADS
         tptr->compare(str,devptr);
+        Py_END_ALLOW_THREADS
         return PyLong_FromVoidPtr((void*)devptr);
     }
     //
     int* rtn = new int[count];
+    Py_BEGIN_ALLOW_THREADS
     tptr->compare(str,rtn,false);
+    Py_END_ALLOW_THREADS
     std::vector<unsigned char> nulls(((count+7)/8),0);
-    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    unsigned int ncount = 0;
+    Py_BEGIN_ALLOW_THREADS
+    ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    Py_END_ALLOW_THREADS
     for(size_t idx=0; idx < count; idx++)
     {
         if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
@@ -908,15 +1074,22 @@ static PyObject* n_hash( PyObject* self, PyObject* args )
     unsigned int* devptr = (unsigned int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,1));
     if( devptr )
     {
+        Py_BEGIN_ALLOW_THREADS
         tptr->hash(devptr);
+        Py_END_ALLOW_THREADS
         return PyLong_FromVoidPtr((void*)devptr);
     }
 
     // copy to host option
     unsigned int* rtn = new unsigned int[count];
+    Py_BEGIN_ALLOW_THREADS
     tptr->hash(rtn,false);
+    Py_END_ALLOW_THREADS
     std::vector<unsigned char> nulls(((count+7)/8),0);
-    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    unsigned int ncount = 0;
+    Py_BEGIN_ALLOW_THREADS
+    ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    Py_END_ALLOW_THREADS
     for(size_t idx=0; idx < count; idx++)
     {
         if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
@@ -943,15 +1116,22 @@ static PyObject* n_stoi( PyObject* self, PyObject* args )
     int* devptr = (int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,1));
     if( devptr )
     {
+        Py_BEGIN_ALLOW_THREADS
         tptr->stoi(devptr);
+        Py_END_ALLOW_THREADS
         return PyLong_FromVoidPtr((void*)devptr);
     }
 
     // copy to host option
     int* rtn = new int[count];
+    Py_BEGIN_ALLOW_THREADS
     tptr->stoi(rtn,false);
+    Py_END_ALLOW_THREADS
     std::vector<unsigned char> nulls(((count+7)/8),0);
-    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    unsigned int ncount = 0;
+    Py_BEGIN_ALLOW_THREADS
+    ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    Py_END_ALLOW_THREADS
     for(size_t idx=0; idx < count; idx++)
     {
         if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
@@ -978,15 +1158,22 @@ static PyObject* n_stol( PyObject* self, PyObject* args )
     long* devptr = (long*)PyLong_AsVoidPtr(PyTuple_GetItem(args,1));
     if( devptr )
     {
+        Py_BEGIN_ALLOW_THREADS
         tptr->stol(devptr);
+        Py_END_ALLOW_THREADS
         return PyLong_FromVoidPtr((void*)devptr);
     }
 
     // copy to host option
     long* rtn = new long[count];
+    Py_BEGIN_ALLOW_THREADS
     tptr->stol(rtn,false);
+    Py_END_ALLOW_THREADS
     std::vector<unsigned char> nulls(((count+7)/8),0);
-    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    unsigned int ncount = 0;
+    Py_BEGIN_ALLOW_THREADS
+    ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    Py_END_ALLOW_THREADS
     for(size_t idx=0; idx < count; idx++)
     {
         if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
@@ -1013,13 +1200,20 @@ static PyObject* n_stof( PyObject* self, PyObject* args )
     float* devptr = (float*)PyLong_AsVoidPtr(PyTuple_GetItem(args,1));
     if( devptr )
     {
+        Py_BEGIN_ALLOW_THREADS
         tptr->stof(devptr);
+        Py_END_ALLOW_THREADS
         return PyLong_FromVoidPtr((void*)devptr);
     }
     float* rtn = new float[count];
+    Py_BEGIN_ALLOW_THREADS
     tptr->stof(rtn,false);
+    Py_END_ALLOW_THREADS
     std::vector<unsigned char> nulls(((count+7)/8),0);
-    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    unsigned int ncount = 0;
+    Py_BEGIN_ALLOW_THREADS
+    ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    Py_END_ALLOW_THREADS
     for(size_t idx=0; idx < count; idx++)
     {
         if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
@@ -1046,13 +1240,20 @@ static PyObject* n_stod( PyObject* self, PyObject* args )
     double* devptr = (double*)PyLong_AsVoidPtr(PyTuple_GetItem(args,1));
     if( devptr )
     {
+        Py_BEGIN_ALLOW_THREADS
         tptr->stod(devptr);
+        Py_END_ALLOW_THREADS
         return PyLong_FromVoidPtr((void*)devptr);
     }
     double* rtn = new double[count];
+    Py_BEGIN_ALLOW_THREADS
     tptr->stod(rtn,false);
+    Py_END_ALLOW_THREADS
     std::vector<unsigned char> nulls(((count+7)/8),0);
-    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    unsigned int ncount = 0;
+    Py_BEGIN_ALLOW_THREADS
+    ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    Py_END_ALLOW_THREADS
     for(size_t idx=0; idx < count; idx++)
     {
         if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
@@ -1079,15 +1280,22 @@ static PyObject* n_htoi( PyObject* self, PyObject* args )
     unsigned int* devptr = (unsigned int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,1));
     if( devptr )
     {
+        Py_BEGIN_ALLOW_THREADS
         tptr->htoi(devptr);
+        Py_END_ALLOW_THREADS
         return PyLong_FromVoidPtr((void*)devptr);
     }
 
     // copy to host option
     unsigned int* rtn = new unsigned int[count];
+    Py_BEGIN_ALLOW_THREADS
     tptr->htoi(rtn,false);
+    Py_END_ALLOW_THREADS
     std::vector<unsigned char> nulls(((count+7)/8),0);
-    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    unsigned int ncount = 0;
+    Py_BEGIN_ALLOW_THREADS
+    ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    Py_END_ALLOW_THREADS
     for(size_t idx=0; idx < count; idx++)
     {
         if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
@@ -1114,15 +1322,22 @@ static PyObject* n_ip2int( PyObject* self, PyObject* args )
     unsigned int* devptr = (unsigned int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,1));
     if( devptr )
     {
+        Py_BEGIN_ALLOW_THREADS
         tptr->ip2int(devptr);
+        Py_END_ALLOW_THREADS
         return PyLong_FromVoidPtr((void*)devptr);
     }
 
     // copy to host option
     unsigned int* rtn = new unsigned int[count];
+    Py_BEGIN_ALLOW_THREADS
     tptr->ip2int(rtn,false);
+    Py_END_ALLOW_THREADS
     std::vector<unsigned char> nulls(((count+7)/8),0);
-    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    unsigned int ncount = 0;
+    Py_BEGIN_ALLOW_THREADS
+    ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    Py_END_ALLOW_THREADS
     for(size_t idx=0; idx < count; idx++)
     {
         if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
@@ -1163,15 +1378,22 @@ static PyObject* n_timestamp2int( PyObject* self, PyObject* args )
     unsigned long* devptr = (unsigned long*)PyLong_AsVoidPtr(PyTuple_GetItem(args,2));
     if( devptr )
     {
+        Py_BEGIN_ALLOW_THREADS
         tptr->timestamp2long(devptr,tu);
+        Py_END_ALLOW_THREADS
         return PyLong_FromVoidPtr((void*)devptr);
     }
 
     // copy to host option
     unsigned long* rtn = new unsigned long[count];
+    Py_BEGIN_ALLOW_THREADS
     tptr->timestamp2long(rtn,tu,false);
+    Py_END_ALLOW_THREADS
     std::vector<unsigned char> nulls(((count+7)/8),0);
-    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    unsigned int ncount = 0;
+    Py_BEGIN_ALLOW_THREADS
+    ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    Py_END_ALLOW_THREADS
     for(size_t idx=0; idx < count; idx++)
     {
         if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
@@ -1203,15 +1425,22 @@ static PyObject* n_to_bools( PyObject* self, PyObject* args )
     bool* devptr = (bool*)PyLong_AsVoidPtr(PyTuple_GetItem(args,2));
     if( devptr )
     {
+        Py_BEGIN_ALLOW_THREADS
         tptr->to_bools(devptr,tstr);
+        Py_END_ALLOW_THREADS
         return PyLong_FromVoidPtr((void*)devptr);
     }
 
     // copy to host option
     bool* rtn = new bool[count];
+    Py_BEGIN_ALLOW_THREADS
     tptr->to_bools(rtn,tstr,false);
+    Py_END_ALLOW_THREADS
     std::vector<unsigned char> nulls(((count+7)/8),0);
-    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    unsigned int ncount = 0;
+    Py_BEGIN_ALLOW_THREADS
+    ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    Py_END_ALLOW_THREADS
     for(size_t idx=0; idx < count; idx++)
     {
         if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
@@ -1255,7 +1484,10 @@ static PyObject* n_cat( PyObject* self, PyObject* args )
     if( argOthers == Py_None )
     {
         // this is just a join -- need to account for the other parms too
-        NVStrings* rtn = tptr->join(sep,narep);
+        NVStrings* rtn = nullptr;
+        Py_BEGIN_ALLOW_THREADS
+        rtn = tptr->join(sep,narep);
+        Py_END_ALLOW_THREADS
         if( rtn )
             return PyLong_FromVoidPtr((void*)rtn);
         Py_RETURN_NONE;
@@ -1289,7 +1521,9 @@ static PyObject* n_cat( PyObject* self, PyObject* args )
             else
                 list[idx] = PyUnicode_AsUTF8(pystr);
         }
+        Py_BEGIN_ALLOW_THREADS
         others = NVStrings::create_from_array(list,count);
+        Py_END_ALLOW_THREADS
         delete list;
     }
     //
@@ -1302,7 +1536,7 @@ static PyObject* n_cat( PyObject* self, PyObject* args )
             Py_RETURN_NONE;
         }
         //printf("others count=%d\n",others->size());
-        if( others->size() != tptr->size() )
+        if( others->size() != tptr->size() ) //Consider releasing the GIL here?
         {
             PyErr_Format(PyExc_ValueError,"nvstrings.cat list size must match");
             Py_RETURN_NONE;
@@ -1313,9 +1547,15 @@ static PyObject* n_cat( PyObject* self, PyObject* args )
     NVStrings* rtn = 0;
     if( others )
     {
+        Py_BEGIN_ALLOW_THREADS
         rtn = tptr->cat(others,sep,narep);
+        Py_END_ALLOW_THREADS
         if( cname.compare("list")==0 )
+        {
+            Py_BEGIN_ALLOW_THREADS
             NVStrings::destroy(others); // destroy it if we made it (above)
+            Py_END_ALLOW_THREADS
+        }
     }
 
     if( rtn )
@@ -1338,7 +1578,9 @@ static PyObject* n_split_record( PyObject* self, PyObject* args )
         maxsplit = (int)PyLong_AsLong(argOpt);
 
     std::vector<NVStrings*> results;
+    Py_BEGIN_ALLOW_THREADS
     tptr->split_record(delimiter,maxsplit,results);
+    Py_END_ALLOW_THREADS
     //
     PyObject* ret = PyList_New(tptr->size());
     int idx=0;
@@ -1361,7 +1603,9 @@ static PyObject* n_rsplit_record( PyObject* self, PyObject* args )
         maxsplit = (int)PyLong_AsLong(argOpt);
 
     std::vector<NVStrings*> results;
+    Py_BEGIN_ALLOW_THREADS
     tptr->rsplit_record(delimiter,maxsplit,results);
+    Py_END_ALLOW_THREADS
     //
     PyObject* ret = PyList_New(tptr->size());
     int idx=0;
@@ -1377,7 +1621,9 @@ static PyObject* n_partition( PyObject* self, PyObject* args )
     const char* delimiter = PyUnicode_AsUTF8(PyTuple_GetItem(args,1));
     //
     std::vector<NVStrings*> results;
+    Py_BEGIN_ALLOW_THREADS
     tptr->partition(delimiter,results);
+    Py_END_ALLOW_THREADS
     //
     PyObject* ret = PyList_New(tptr->size());
     int idx=0;
@@ -1393,7 +1639,9 @@ static PyObject* n_rpartition( PyObject* self, PyObject* args )
     const char* delimiter = PyUnicode_AsUTF8(PyTuple_GetItem(args,1));
     //
     std::vector<NVStrings*> results;
+    Py_BEGIN_ALLOW_THREADS
     tptr->rpartition(delimiter,results);
+    Py_END_ALLOW_THREADS
     //
     PyObject* ret = PyList_New(tptr->size());
     int idx=0;
@@ -1415,7 +1663,10 @@ static PyObject* n_split( PyObject* self, PyObject* args )
         maxsplit = (int)PyLong_AsLong(argOpt);
 
     std::vector<NVStrings*> results;
-    int columns = (int)tptr->split(delimiter,maxsplit,results);
+    int columns = 0;
+    Py_BEGIN_ALLOW_THREADS
+    columns = (int)tptr->split(delimiter,maxsplit,results);
+    Py_END_ALLOW_THREADS
     //
     PyObject* ret = PyList_New(columns);
     int idx=0;
@@ -1437,7 +1688,10 @@ static PyObject* n_rsplit( PyObject* self, PyObject* args )
         maxsplit = (int)PyLong_AsLong(argOpt);
 
     std::vector<NVStrings*> results;
-    int columns = (int)tptr->rsplit(delimiter,maxsplit,results);
+    int columns = 0;
+    Py_BEGIN_ALLOW_THREADS
+    columns = (int)tptr->rsplit(delimiter,maxsplit,results);
+    Py_END_ALLOW_THREADS
     //
     PyObject* ret = PyList_New(columns);
     int idx=0;
@@ -1452,7 +1706,11 @@ static PyObject* n_get( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     unsigned int position = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,1));
-    NVStrings* rtn = tptr->get(position);
+
+    NVStrings* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->get(position);
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -1466,7 +1724,10 @@ static PyObject* n_repeat( PyObject* self, PyObject* args )
     if( !parse_args("repeat",args,"OI",&vo,&count) )
         Py_RETURN_NONE;
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
-    NVStrings* rtn = tptr->repeat(count);
+    NVStrings* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->repeat(count);
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -1488,7 +1749,11 @@ static PyObject* n_pad( PyObject* self, PyObject* args )
         ps = NVStrings::right;
     else if( sside.compare("both")==0 )
         ps = NVStrings::both;
-    NVStrings* rtn = tptr->pad(width,ps,fillchar);
+
+    NVStrings* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->pad(width,ps,fillchar);
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -1503,7 +1768,10 @@ static PyObject* n_ljust( PyObject* self, PyObject* args )
     if( !parse_args("ljust",args,"OIz",&vo,&width,&fillchar) )
         Py_RETURN_NONE;
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
-    NVStrings* rtn = tptr->ljust(width,fillchar);
+    NVStrings* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->ljust(width,fillchar);
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -1518,7 +1786,10 @@ static PyObject* n_center( PyObject* self, PyObject* args )
     if( !parse_args("ljust",args,"OIz",&vo,&width,&fillchar) )
         Py_RETURN_NONE;
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
-    NVStrings* rtn = tptr->center(width,fillchar);
+    NVStrings* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->center(width,fillchar);
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -1533,7 +1804,10 @@ static PyObject* n_rjust( PyObject* self, PyObject* args )
     if( !parse_args("ljust",args,"OIz",&vo,&width,&fillchar) )
         Py_RETURN_NONE;
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
-    NVStrings* rtn = tptr->rjust(width,fillchar);
+    NVStrings* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->rjust(width,fillchar);
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -1547,7 +1821,10 @@ static PyObject* n_zfill( PyObject* self, PyObject* args )
     if( !parse_args("zfill",args,"OI",&vo,&width) )
         Py_RETURN_NONE;
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
-    NVStrings* rtn = tptr->zfill(width);
+    NVStrings* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->zfill(width);
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -1561,7 +1838,10 @@ static PyObject* n_wrap( PyObject* self, PyObject* args )
     if( !parse_args("wrap",args,"OI",&vo,&width) )
         Py_RETURN_NONE;
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
-    NVStrings* rtn = tptr->wrap(width);
+    NVStrings* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->wrap(width);
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -1579,7 +1859,10 @@ static PyObject* n_slice( PyObject* self, PyObject* args )
     argOpt = PyTuple_GetItem(args,3);
     if( argOpt != Py_None )
         step = (int)PyLong_AsLong(argOpt);
-    NVStrings* rtn = tptr->slice(start,end,step);
+    NVStrings* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->slice(start,end,step);
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -1591,7 +1874,10 @@ static PyObject* n_slice_from( PyObject* self, PyObject* args )
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     int* starts = (int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,1));
     int* ends = (int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,2));
-    NVStrings* rtn = tptr->slice_from(starts,ends);
+    NVStrings* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->slice_from(starts,ends);
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -1613,7 +1899,10 @@ static PyObject* n_slice_replace( PyObject* self, PyObject* args )
     if( argOpt != Py_None )
         repl = PyUnicode_AsUTF8(argOpt);
     //
-    NVStrings* rtn = tptr->slice_replace(repl,start,end);
+    NVStrings* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->slice_replace(repl,start,end);
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -1631,10 +1920,12 @@ static PyObject* n_replace( PyObject* self, PyObject* args )
         Py_RETURN_NONE;
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
     NVStrings* rtn = 0;
+    Py_BEGIN_ALLOW_THREADS
     if( bregex )
         rtn = tptr->replace_re(pat,repl,(int)maxrepl);
     else
         rtn = tptr->replace(pat,repl,(int)maxrepl);
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -1648,7 +1939,9 @@ static PyObject* n_fillna( PyObject* self, PyObject* args )
         Py_RETURN_NONE;
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
     NVStrings* rtn = 0;
+    Py_BEGIN_ALLOW_THREADS
     rtn = tptr->fillna(repl);
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -1664,7 +1957,9 @@ static PyObject* n_replace_with_backrefs( PyObject* self, PyObject* args )
         Py_RETURN_NONE;
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
     NVStrings* rtn = 0;
+    Py_BEGIN_ALLOW_THREADS
     rtn = tptr->replace_with_backrefs(pat,repl);
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -1678,7 +1973,10 @@ static PyObject* n_lstrip( PyObject* self, PyObject* args )
     PyObject* argOpt = PyTuple_GetItem(args,1);
     if( argOpt != Py_None )
         to_strip = PyUnicode_AsUTF8(argOpt);
-    NVStrings* rtn = tptr->lstrip(to_strip);
+    NVStrings* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->lstrip(to_strip);
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -1692,7 +1990,10 @@ static PyObject* n_strip( PyObject* self, PyObject* args )
     PyObject* argOpt = PyTuple_GetItem(args,1);
     if( argOpt != Py_None )
         to_strip = PyUnicode_AsUTF8(argOpt);
-    NVStrings* rtn = tptr->strip(to_strip);
+    NVStrings* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->strip(to_strip);
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -1706,7 +2007,10 @@ static PyObject* n_rstrip( PyObject* self, PyObject* args )
     PyObject* argOpt = PyTuple_GetItem(args,1);
     if( argOpt != Py_None )
         to_strip = PyUnicode_AsUTF8(argOpt);
-    NVStrings* rtn = tptr->rstrip(to_strip);
+    NVStrings* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->rstrip(to_strip);
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -1716,7 +2020,10 @@ static PyObject* n_rstrip( PyObject* self, PyObject* args )
 static PyObject* n_lower( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    NVStrings* rtn = tptr->lower();
+    NVStrings* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->lower();
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -1726,7 +2033,10 @@ static PyObject* n_lower( PyObject* self, PyObject* args )
 static PyObject* n_upper( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    NVStrings* rtn = tptr->upper();
+    NVStrings* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->upper();
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -1736,7 +2046,10 @@ static PyObject* n_upper( PyObject* self, PyObject* args )
 static PyObject* n_capitalize( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    NVStrings* rtn = tptr->capitalize();
+    NVStrings* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->capitalize();
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -1746,7 +2059,10 @@ static PyObject* n_capitalize( PyObject* self, PyObject* args )
 static PyObject* n_swapcase( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    NVStrings* rtn = tptr->swapcase();
+    NVStrings* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->swapcase();
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -1756,7 +2072,10 @@ static PyObject* n_swapcase( PyObject* self, PyObject* args )
 static PyObject* n_title( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    NVStrings* rtn = tptr->title();
+    NVStrings* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->title();
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -1776,7 +2095,9 @@ static PyObject* n_find( PyObject* self, PyObject* args )
     int* devptr = (int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,4));
     if( devptr )
     {
+        Py_BEGIN_ALLOW_THREADS
         tptr->find(str,start,end,devptr);
+        Py_END_ALLOW_THREADS
         return PyLong_FromVoidPtr((void*)devptr);
     }
     // copy to host option
@@ -1785,7 +2106,9 @@ static PyObject* n_find( PyObject* self, PyObject* args )
     if( count==0 )
         return ret;
     int* rtn = new int[count];
+    Py_BEGIN_ALLOW_THREADS
     tptr->find(str,start,end,rtn,false);
+    Py_END_ALLOW_THREADS
     for(unsigned int idx=0; idx < count; idx++)
     {
         int val = rtn[idx];
@@ -1812,7 +2135,9 @@ static PyObject* n_find_from( PyObject* self, PyObject* args )
     int* devptr = (int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,4));
     if( devptr )
     {
+        Py_BEGIN_ALLOW_THREADS
         tptr->find_from(str,starts,ends,devptr);
+        Py_END_ALLOW_THREADS
         return PyLong_FromVoidPtr((void*)devptr);
     }
     // copy to host option
@@ -1821,7 +2146,9 @@ static PyObject* n_find_from( PyObject* self, PyObject* args )
     if( count==0 )
         return ret;
     int* rtn = new int[count];
+    Py_BEGIN_ALLOW_THREADS
     tptr->find_from(str,starts,ends,rtn,false);
+    Py_END_ALLOW_THREADS
     for(unsigned int idx=0; idx < count; idx++)
     {
         int val = rtn[idx];
@@ -1853,7 +2180,9 @@ static PyObject* n_rfind( PyObject* self, PyObject* args )
     int* devptr = (int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,4));
     if( devptr )
     {
+        Py_BEGIN_ALLOW_THREADS
         tptr->rfind(str,start,end,devptr);
+        Py_END_ALLOW_THREADS
         return PyLong_FromVoidPtr((void*)devptr);
     }
     // copy to host option
@@ -1861,7 +2190,9 @@ static PyObject* n_rfind( PyObject* self, PyObject* args )
     if( count==0 )
         return ret;
     int* rtn = new int[count];
+    Py_BEGIN_ALLOW_THREADS
     tptr->rfind(str,start,end,rtn,false);
+    Py_END_ALLOW_THREADS
     for(unsigned int idx=0; idx < count; idx++)
     {
         int val = rtn[idx];
@@ -1905,7 +2236,9 @@ static PyObject* n_find_multiple( PyObject* self, PyObject* args )
                 else
                     list[idx] = PyUnicode_AsUTF8(pystr);
             }
+            Py_BEGIN_ALLOW_THREADS
             strs = NVStrings::create_from_array(list,count);
+            Py_END_ALLOW_THREADS
             delete list;
         }
     }
@@ -1925,9 +2258,15 @@ static PyObject* n_find_multiple( PyObject* self, PyObject* args )
     int* devptr = (int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,2));
     if( devptr )
     {
+        Py_BEGIN_ALLOW_THREADS
         tptr->find_multiple(*strs,devptr);
+        Py_END_ALLOW_THREADS
         if( cname.compare("list")==0 )
+        {
+            Py_BEGIN_ALLOW_THREADS
             NVStrings::destroy(strs); // destroy it if we made it (above)
+            Py_END_ALLOW_THREADS
+        }
         return PyLong_FromVoidPtr((void*)devptr);
     }
     // copy to host option
@@ -1936,13 +2275,19 @@ static PyObject* n_find_multiple( PyObject* self, PyObject* args )
     if( rows==0 )
     {
         if( cname.compare("list")==0 )
+        {
+            Py_BEGIN_ALLOW_THREADS
             NVStrings::destroy(strs); // destroy it if we made it (above)
+            Py_END_ALLOW_THREADS
+        }
         return ret;
     }
     //
     unsigned int columns = strs->size();
     int* rtn = new int[rows*columns];
+    Py_BEGIN_ALLOW_THREADS
     tptr->find_multiple(*strs,rtn,false);
+    Py_END_ALLOW_THREADS
     for(unsigned int idx=0; idx < rows; ++idx)
     {
         PyObject* row = PyList_New(columns);
@@ -1962,7 +2307,11 @@ static PyObject* n_find_multiple( PyObject* self, PyObject* args )
     delete rtn;
     //
     if( cname.compare("list")==0 )
+    {
+        Py_BEGIN_ALLOW_THREADS
         NVStrings::destroy(strs); // destroy it if we made it (above)
+        Py_END_ALLOW_THREADS
+    }
     return ret;
 }
 
@@ -1983,7 +2332,10 @@ static PyObject* n_index( PyObject* self, PyObject* args )
     int* devptr = (int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,4));
     if( devptr )
     {
-        unsigned int success = tptr->find(str,start,end,devptr);
+        unsigned int success = 0;
+        Py_BEGIN_ALLOW_THREADS
+        success = tptr->find(str,start,end,devptr);
+        Py_END_ALLOW_THREADS
         if( success != count )
             PyErr_Format(PyExc_ValueError,"nvstrings.index: [%s] not found in %d elements",str,(int)(count-success));
         return PyLong_FromVoidPtr((void*)devptr);
@@ -1993,7 +2345,9 @@ static PyObject* n_index( PyObject* self, PyObject* args )
     if( count==0 )
         return ret;
     int* rtn = new int[count];
+    Py_BEGIN_ALLOW_THREADS
     tptr->find(str,start,end,rtn,false);
+    Py_END_ALLOW_THREADS
     for(unsigned int idx=0; idx < count; idx++)
     {
         int val = rtn[idx];
@@ -2030,7 +2384,10 @@ static PyObject* n_rindex( PyObject* self, PyObject* args )
     int* devptr = (int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,4));
     if( devptr )
     {
-        size_t success = tptr->rfind(str,start,end,devptr);
+        size_t success = 0;
+        Py_BEGIN_ALLOW_THREADS
+        success = tptr->rfind(str,start,end,devptr);
+        Py_END_ALLOW_THREADS
         if( success != count )
             PyErr_Format(PyExc_ValueError,"nvstrings.rindex: [%s] not found in %d elements",str,(int)(count-success));
         return PyLong_FromVoidPtr((void*)devptr);
@@ -2040,7 +2397,9 @@ static PyObject* n_rindex( PyObject* self, PyObject* args )
     if( count==0 )
         return ret;
     int* rtn = new int[count];
+    Py_BEGIN_ALLOW_THREADS
     tptr->rfind(str,start,end,rtn,false);
+    Py_END_ALLOW_THREADS
     for(unsigned int idx=0; idx < count; idx++)
     {
         int val = rtn[idx];
@@ -2068,7 +2427,9 @@ static PyObject* n_findall_record( PyObject* self, PyObject* args )
     const char* pat = PyUnicode_AsUTF8(PyTuple_GetItem(args,1));
 
     std::vector<NVStrings*> results;
+    Py_BEGIN_ALLOW_THREADS
     tptr->findall_record(pat,results);
+    Py_END_ALLOW_THREADS
     //
     PyObject* ret = PyList_New(results.size());
     int idx=0;
@@ -2084,7 +2445,9 @@ static PyObject* n_findall( PyObject* self, PyObject* args )
     const char* pat = PyUnicode_AsUTF8(PyTuple_GetItem(args,1));
 
     std::vector<NVStrings*> results;
+    Py_BEGIN_ALLOW_THREADS
     tptr->findall(pat,results);
+    Py_END_ALLOW_THREADS
     //
     PyObject* ret = PyList_New(results.size());
     int idx=0;
@@ -2106,10 +2469,15 @@ static PyObject* n_contains( PyObject* self, PyObject* args )
     int rc = 0;
     if( devptr )
     {
+        //Save thread state and release the GIL as we do not operate on PyObjects
+        Py_BEGIN_ALLOW_THREADS
         if( bregex )
             rc = tptr->contains_re(str,devptr);
         else
             rc = tptr->contains(str,devptr);
+        //Restore thread state and acquire the GIL again.
+        Py_END_ALLOW_THREADS
+
         if( rc < 0 )
             Py_RETURN_NONE;
         return PyLong_FromVoidPtr((void*)devptr);
@@ -2119,10 +2487,14 @@ static PyObject* n_contains( PyObject* self, PyObject* args )
     if( count==0 )
         return PyList_New(0);
     bool* rtn = new bool[count];
+
+    Py_BEGIN_ALLOW_THREADS
     if( bregex )
         rc = tptr->contains_re(str,rtn,false);
     else
         rc = tptr->contains(str,rtn,false);
+    Py_END_ALLOW_THREADS
+
     if( rc < 0 )
     {
         delete rtn;
@@ -2130,7 +2502,10 @@ static PyObject* n_contains( PyObject* self, PyObject* args )
     }
     PyObject* ret = PyList_New(count);
     std::vector<unsigned char> nulls(((count+7)/8),0);
-    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    unsigned int ncount = 0;
+    Py_BEGIN_ALLOW_THREADS
+    ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    Py_END_ALLOW_THREADS
     for(size_t idx=0; idx < count; idx++)
     {
         if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
@@ -2154,7 +2529,9 @@ static PyObject* n_match( PyObject* self, PyObject* args )
     int rc = 0;
     if( devptr )
     {
+        Py_BEGIN_ALLOW_THREADS
         rc = tptr->match(str,devptr);
+        Py_END_ALLOW_THREADS
         if( rc < 0 )
             Py_RETURN_NONE;
         return PyLong_FromVoidPtr((void*)devptr);
@@ -2164,7 +2541,9 @@ static PyObject* n_match( PyObject* self, PyObject* args )
     if( count==0 )
         return PyList_New(0);
     bool* rtn = new bool[count];
+    Py_BEGIN_ALLOW_THREADS
     rc = tptr->match(str,rtn,false);
+    Py_END_ALLOW_THREADS
     if( rc < 0 )
     {
         delete rtn;
@@ -2172,7 +2551,10 @@ static PyObject* n_match( PyObject* self, PyObject* args )
     }
     PyObject* ret = PyList_New(count);
     std::vector<unsigned char> nulls(((count+7)/8),0);
-    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    unsigned int ncount = 0;
+    Py_BEGIN_ALLOW_THREADS
+    ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    Py_END_ALLOW_THREADS
     for(size_t idx=0; idx < count; idx++)
     {
         if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
@@ -2220,7 +2602,9 @@ static PyObject* n_match_strings( PyObject* self, PyObject* args )
             else
                 list[idx] = PyUnicode_AsUTF8(pystr);
         }
+        Py_BEGIN_ALLOW_THREADS
         strs = NVStrings::create_from_array(list,count);
+        Py_END_ALLOW_THREADS
         delete list;
     }
     // or a single nvstrings instance
@@ -2244,9 +2628,15 @@ static PyObject* n_match_strings( PyObject* self, PyObject* args )
     int rc = 0;
     if( devptr )
     {
+        Py_BEGIN_ALLOW_THREADS
         rc = tptr->match_strings(*strs,devptr);
+        Py_END_ALLOW_THREADS
         if( cname.compare("list")==0 )
+        {
+            Py_BEGIN_ALLOW_THREADS
             NVStrings::destroy(strs); // destroy it if we made it (above)
+            Py_END_ALLOW_THREADS
+        }
         if( rc < 0 )
             Py_RETURN_NONE;
         return PyLong_FromVoidPtr((void*)devptr);
@@ -2256,9 +2646,15 @@ static PyObject* n_match_strings( PyObject* self, PyObject* args )
     if( count==0 )
         return PyList_New(0);
     bool* rtn = new bool[count];
+    Py_BEGIN_ALLOW_THREADS
     rc = tptr->match_strings(*strs,rtn,false);
+    Py_END_ALLOW_THREADS
     if( cname.compare("list")==0 )
+    {
+        Py_BEGIN_ALLOW_THREADS
         NVStrings::destroy(strs); // destroy it if we made it (above)
+        Py_END_ALLOW_THREADS
+    }
     if( rc < 0 )
     {
         delete rtn;
@@ -2279,7 +2675,9 @@ static PyObject* n_startswith( PyObject* self, PyObject* args )
     bool* devptr = (bool*)PyLong_AsVoidPtr(PyTuple_GetItem(args,2));
     if( devptr )
     {
+        Py_BEGIN_ALLOW_THREADS
         tptr->startswith(str,devptr);
+        Py_END_ALLOW_THREADS
         return PyLong_FromVoidPtr((void*)devptr);
     }
     // copy to host option
@@ -2288,9 +2686,14 @@ static PyObject* n_startswith( PyObject* self, PyObject* args )
     if( count==0 )
         return ret;
     bool* rtn = new bool[count];
+    Py_BEGIN_ALLOW_THREADS
     tptr->startswith(str,rtn,false);
+    Py_END_ALLOW_THREADS
     std::vector<unsigned char> nulls(((count+7)/8),0);
-    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    unsigned int ncount = 0;
+    Py_BEGIN_ALLOW_THREADS
+    ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    Py_END_ALLOW_THREADS
     for(size_t idx=0; idx < count; idx++)
     {
         if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
@@ -2313,7 +2716,9 @@ static PyObject* n_endswith( PyObject* self, PyObject* args )
     bool* devptr = (bool*)PyLong_AsVoidPtr(PyTuple_GetItem(args,2));
     if( devptr )
     {
+        Py_BEGIN_ALLOW_THREADS
         tptr->endswith(str,devptr);
+        Py_END_ALLOW_THREADS
         return PyLong_FromVoidPtr((void*)devptr);
     }
     // copy to host option
@@ -2322,9 +2727,14 @@ static PyObject* n_endswith( PyObject* self, PyObject* args )
     if( count==0 )
         return ret;
     bool* rtn = new bool[count];
+    Py_BEGIN_ALLOW_THREADS
     tptr->endswith(str,rtn,false);
+    Py_END_ALLOW_THREADS
     std::vector<unsigned char> nulls(((count+7)/8),0);
-    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    unsigned int ncount = 0;
+    Py_BEGIN_ALLOW_THREADS
+    ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    Py_END_ALLOW_THREADS
     for(size_t idx=0; idx < count; idx++)
     {
         if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
@@ -2347,7 +2757,10 @@ static PyObject* n_count( PyObject* self, PyObject* args )
     int* devptr = (int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,2));
     if( devptr )
     {
-        int rc = tptr->count_re(str,devptr);
+        int rc  = 0;
+        Py_BEGIN_ALLOW_THREADS
+        rc = tptr->count_re(str,devptr);
+        Py_END_ALLOW_THREADS
         if( rc < 0 )
             Py_RETURN_NONE;
         return PyLong_FromVoidPtr((void*)devptr);
@@ -2357,7 +2770,10 @@ static PyObject* n_count( PyObject* self, PyObject* args )
     if( count==0 )
         return PyList_New(0);
     int* rtn = new int[count];
-    int rc = tptr->count_re(str,rtn,false);
+    int rc = 0;
+    Py_BEGIN_ALLOW_THREADS
+    rc = tptr->count_re(str,rtn,false);
+    Py_END_ALLOW_THREADS
     if( rc < 0 )
     {
         delete rtn;
@@ -2387,7 +2803,9 @@ static PyObject* n_extract_record( PyObject* self, PyObject* args )
     const char* pat = PyUnicode_AsUTF8(PyTuple_GetItem(args,1));
 
     std::vector<NVStrings*> results;
+    Py_BEGIN_ALLOW_THREADS
     tptr->extract_record(pat,results);
+    Py_END_ALLOW_THREADS
     //
     PyObject* ret = PyList_New(results.size());
     int idx=0;
@@ -2403,7 +2821,9 @@ static PyObject* n_extract( PyObject* self, PyObject* args )
     const char* pat = PyUnicode_AsUTF8(PyTuple_GetItem(args,1));
 
     std::vector<NVStrings*> results;
+    Py_BEGIN_ALLOW_THREADS
     tptr->extract(pat,results);
+    Py_END_ALLOW_THREADS
     //
     PyObject* ret = PyList_New(results.size());
     int idx=0;
@@ -2467,7 +2887,10 @@ static PyObject* n_translate( PyObject* self, PyObject* args )
         Py_RETURN_NONE;
     }
     //
-    NVStrings* rtn = tptr->translate(table.data(),count);
+    NVStrings* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->translate(table.data(),count);
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -2481,7 +2904,10 @@ static PyObject* n_join( PyObject* self, PyObject* args )
     PyObject* argOpt = PyTuple_GetItem(args,1);
     if( argOpt != Py_None )
         delim = PyUnicode_AsUTF8(argOpt);
-    NVStrings* rtn = tptr->join(delim);
+    NVStrings* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->join(delim);
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -2494,7 +2920,10 @@ static PyObject* n_sort( PyObject* self, PyObject* args )
     NVStrings::sorttype stype = (NVStrings::sorttype)PyLong_AsLong(PyTuple_GetItem(args,1));
     bool asc = (bool)PyObject_IsTrue(PyTuple_GetItem(args,2));
     bool nullfirst = (bool)PyObject_IsTrue(PyTuple_GetItem(args,3));
-    NVStrings* rtn = tptr->sort(stype,asc,nullfirst);
+    NVStrings* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->sort(stype,asc,nullfirst);
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -2510,7 +2939,9 @@ static PyObject* n_order( PyObject* self, PyObject* args )
     unsigned int* devptr = (unsigned int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,4));
     if( devptr )
     {
+        Py_BEGIN_ALLOW_THREADS
         tptr->order(stype,asc,devptr,nullfirst);
+        Py_END_ALLOW_THREADS
         return PyLong_FromVoidPtr((void*)devptr);
     }
 
@@ -2520,7 +2951,9 @@ static PyObject* n_order( PyObject* self, PyObject* args )
     if( count==0 )
         return ret;
     unsigned int* rtn = new unsigned int[count];
+    Py_BEGIN_ALLOW_THREADS
     tptr->order(stype,asc,rtn,nullfirst,false);
+    Py_END_ALLOW_THREADS
     for(unsigned int idx=0; idx < count; idx++)
         PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));
     delete rtn;
@@ -2532,56 +2965,36 @@ static PyObject* n_gather( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     PyObject* pyidxs = PyTuple_GetItem(args,1);
-    std::string cname = pyidxs->ob_type->tp_name;
+    //std::string cname = pyidxs->ob_type->tp_name;
+
+    DataBuffer<int> dbvalues(pyidxs);
+    if( dbvalues.is_error() )
+    {
+        PyErr_Format(PyExc_TypeError,"nvstrings.n_gather(): %s",dbvalues.get_error_text());
+        Py_RETURN_NONE;
+    }
+    if( dbvalues.is_blist() )
+    {
+        PyErr_Format(PyExc_TypeError,"nvstrings.n_gather(): list of bools is not supported");
+        Py_RETURN_NONE;
+    }
+    if( dbvalues.get_type_width()!=sizeof(int) )
+    {
+        PyErr_Format(PyExc_TypeError,"nvstrings.n_gather(): values must be of type int32");
+        Py_RETURN_NONE;
+    }
+    bool bdevmem = dbvalues.is_device_type();
+    int* indexes = dbvalues.get_values();
+    unsigned int count = dbvalues.get_count();
+    if( count==0 )
+        count = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,2));
+
     NVStrings* rtn = 0;
     try
     {
-        if( cname.compare("list")==0 )
-        {
-            unsigned int count = (unsigned int)PyList_Size(pyidxs);
-            int* indexes = new int[count];
-            for( unsigned int idx=0; idx < count; ++idx )
-            {
-                PyObject* pyidx = PyList_GetItem(pyidxs,idx);
-                indexes[idx] = (int)PyLong_AsLong(pyidx);
-            }
-            //
-            rtn = tptr->gather(indexes,count,false);
-            delete indexes;
-        }
-        else if( cname.compare("DeviceNDArray")==0 )
-        {
-            PyObject* pysize = PyObject_GetAttr(pyidxs,PyUnicode_FromString("alloc_size"));
-            PyObject* pydcp = PyObject_GetAttr(pyidxs,PyUnicode_FromString("device_ctypes_pointer"));
-            PyObject* pyptr = PyObject_GetAttr(pydcp,PyUnicode_FromString("value"));
-            unsigned int count = (unsigned int)(PyLong_AsLong(pysize)/sizeof(int));
-            int* indexes = 0;
-            if( pyptr != Py_None )
-                indexes = (int*)PyLong_AsVoidPtr(pyptr);
-            //printf("device-array: %p,%u\n",indexes,count);
-            rtn = tptr->gather(indexes,count);
-        }
-        else if( PyObject_CheckBuffer(pyidxs) )
-        {
-            Py_buffer pybuf;
-            PyObject_GetBuffer(pyidxs,&pybuf,PyBUF_SIMPLE);
-            int* indexes = (int*)pybuf.buf;
-            unsigned int count = (unsigned int)(pybuf.len/sizeof(int));
-            //printf("buffer: %p,%u\n",indexes,count);
-            rtn = tptr->gather(indexes,count,false);
-            PyBuffer_Release(&pybuf);
-        }
-        else if( cname.compare("int")==0 ) // device pointer directly
-        {                                  // for consistency with other methods
-            int* indexes = (int*)PyLong_AsVoidPtr(pyidxs);
-            unsigned int count = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,2));
-            rtn = tptr->gather(indexes,count);
-        }
-        else
-        {
-            //printf("%s\n",cname.c_str());
-            PyErr_Format(PyExc_TypeError,"nvstrings: unknown type %s",cname.c_str());
-        }
+        Py_BEGIN_ALLOW_THREADS
+        rtn = tptr->gather(indexes,count,bdevmem);
+        Py_END_ALLOW_THREADS
     }
     catch(const std::out_of_range& eor)
     {
@@ -2608,7 +3021,10 @@ static PyObject* n_sublist( PyObject* self, PyObject* args )
     if( argOpt != Py_None )
         step = (unsigned int)PyLong_AsLong(argOpt);
     //
-    NVStrings* rtn = tptr->sublist(start,end,step);
+    NVStrings* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->sublist(start,end,step);
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -2630,7 +3046,9 @@ static PyObject* n_remove_strings( PyObject* self, PyObject* args )
             PyObject* pyidx = PyList_GetItem(pyidxs,idx);
             indexes[idx] = (int)PyLong_AsLong(pyidx);
         }
+        Py_BEGIN_ALLOW_THREADS
         rtn = tptr->remove_strings(indexes,count,false);
+        Py_END_ALLOW_THREADS
         delete indexes;
     }
     else // device pointer is expected
@@ -2640,7 +3058,9 @@ static PyObject* n_remove_strings( PyObject* self, PyObject* args )
         if( !parse_args("remove_strings",args,"OOI",&vo,&dptr,&count) )
             Py_RETURN_NONE;
         const int* indexes = (const int*)PyLong_AsVoidPtr(dptr);
+        Py_BEGIN_ALLOW_THREADS
         rtn = tptr->remove_strings(indexes,count);
+        Py_END_ALLOW_THREADS
     }
     //
     if( rtn )
@@ -2672,7 +3092,10 @@ static PyObject* n_add_strings( PyObject* self, PyObject* args )
         strslist.push_back(strs);
     }
     //
-    NVStrings* rtn = NVStrings::create_from_strings(strslist);
+    NVStrings* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = NVStrings::create_from_strings(strslist);
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -2681,7 +3104,10 @@ static PyObject* n_add_strings( PyObject* self, PyObject* args )
 static PyObject* n_copy( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    NVStrings* rtn = tptr->copy();
+    NVStrings* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->copy();
+    Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -2693,7 +3119,9 @@ static PyObject* n_isalnum( PyObject* self, PyObject* args )
     bool* devptr = (bool*)PyLong_AsVoidPtr(PyTuple_GetItem(args,1));
     if( devptr )
     {
+        Py_BEGIN_ALLOW_THREADS
         tptr->isalnum(devptr);
+        Py_END_ALLOW_THREADS
         return PyLong_FromVoidPtr((void*)devptr);
     }
     // copy to host option
@@ -2702,9 +3130,14 @@ static PyObject* n_isalnum( PyObject* self, PyObject* args )
     if( count==0 )
         return ret;
     bool* rtn = new bool[count];
+    Py_BEGIN_ALLOW_THREADS
     tptr->isalnum(rtn,false);
+    Py_END_ALLOW_THREADS
     std::vector<unsigned char> nulls(((count+7)/8),0);
-    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    unsigned int ncount = 0;
+    Py_BEGIN_ALLOW_THREADS
+    ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    Py_END_ALLOW_THREADS
     for(size_t idx=0; idx < count; idx++)
     {
         if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
@@ -2725,7 +3158,9 @@ static PyObject* n_isalpha( PyObject* self, PyObject* args )
     bool* devptr = (bool*)PyLong_AsVoidPtr(PyTuple_GetItem(args,1));
     if( devptr )
     {
+        Py_BEGIN_ALLOW_THREADS
         tptr->isalpha(devptr);
+        Py_END_ALLOW_THREADS
         return PyLong_FromVoidPtr((void*)devptr);
     }
     // copy to host option
@@ -2734,9 +3169,14 @@ static PyObject* n_isalpha( PyObject* self, PyObject* args )
     if( count==0 )
         return ret;
     bool* rtn = new bool[count];
+    Py_BEGIN_ALLOW_THREADS
     tptr->isalpha(rtn,false);
+    Py_END_ALLOW_THREADS
     std::vector<unsigned char> nulls(((count+7)/8),0);
-    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    unsigned int ncount = 0;
+    Py_BEGIN_ALLOW_THREADS
+    ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    Py_END_ALLOW_THREADS
     for(size_t idx=0; idx < count; idx++)
     {
         if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
@@ -2757,7 +3197,9 @@ static PyObject* n_isdigit( PyObject* self, PyObject* args )
     bool* devptr = (bool*)PyLong_AsVoidPtr(PyTuple_GetItem(args,1));
     if( devptr )
     {
+        Py_BEGIN_ALLOW_THREADS
         tptr->isdigit(devptr);
+        Py_END_ALLOW_THREADS
         return PyLong_FromVoidPtr((void*)devptr);
     }
     // copy to host option
@@ -2766,9 +3208,14 @@ static PyObject* n_isdigit( PyObject* self, PyObject* args )
     if( count==0 )
         return ret;
     bool* rtn = new bool[count];
+    Py_BEGIN_ALLOW_THREADS
     tptr->isdigit(rtn,false);
+    Py_END_ALLOW_THREADS
     std::vector<unsigned char> nulls(((count+7)/8),0);
-    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    unsigned int ncount = 0;
+    Py_BEGIN_ALLOW_THREADS
+    ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    Py_END_ALLOW_THREADS
     for(size_t idx=0; idx < count; idx++)
     {
         if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
@@ -2789,7 +3236,9 @@ static PyObject* n_isspace( PyObject* self, PyObject* args )
     bool* devptr = (bool*)PyLong_AsVoidPtr(PyTuple_GetItem(args,1));
     if( devptr )
     {
+        Py_BEGIN_ALLOW_THREADS
         tptr->isspace(devptr);
+        Py_END_ALLOW_THREADS
         return PyLong_FromVoidPtr((void*)devptr);
     }
     // copy to host option
@@ -2798,9 +3247,14 @@ static PyObject* n_isspace( PyObject* self, PyObject* args )
     if( count==0 )
         return ret;
     bool* rtn = new bool[count];
+    Py_BEGIN_ALLOW_THREADS
     tptr->isspace(rtn,false);
+    Py_END_ALLOW_THREADS
     std::vector<unsigned char> nulls(((count+7)/8),0);
-    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    unsigned int ncount = 0;
+    Py_BEGIN_ALLOW_THREADS
+    ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    Py_END_ALLOW_THREADS
     for(size_t idx=0; idx < count; idx++)
     {
         if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
@@ -2821,7 +3275,9 @@ static PyObject* n_isdecimal( PyObject* self, PyObject* args )
     bool* devptr = (bool*)PyLong_AsVoidPtr(PyTuple_GetItem(args,1));
     if( devptr )
     {
+        Py_BEGIN_ALLOW_THREADS
         tptr->isdecimal(devptr);
+        Py_END_ALLOW_THREADS
         return PyLong_FromVoidPtr((void*)devptr);
     }
     // copy to host option
@@ -2830,9 +3286,14 @@ static PyObject* n_isdecimal( PyObject* self, PyObject* args )
     if( count==0 )
         return ret;
     bool* rtn = new bool[count];
+    Py_BEGIN_ALLOW_THREADS
     tptr->isdecimal(rtn,false);
+    Py_END_ALLOW_THREADS
     std::vector<unsigned char> nulls(((count+7)/8),0);
-    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    unsigned int ncount = 0;
+    Py_BEGIN_ALLOW_THREADS
+    ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    Py_END_ALLOW_THREADS
     for(size_t idx=0; idx < count; idx++)
     {
         if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
@@ -2853,7 +3314,9 @@ static PyObject* n_isnumeric( PyObject* self, PyObject* args )
     bool* devptr = (bool*)PyLong_AsVoidPtr(PyTuple_GetItem(args,1));
     if( devptr )
     {
+        Py_BEGIN_ALLOW_THREADS
         tptr->isnumeric(devptr);
+        Py_END_ALLOW_THREADS
         return PyLong_FromVoidPtr((void*)devptr);
     }
     // copy to host option
@@ -2862,9 +3325,14 @@ static PyObject* n_isnumeric( PyObject* self, PyObject* args )
     if( count==0 )
         return ret;
     bool* rtn = new bool[count];
+    Py_BEGIN_ALLOW_THREADS
     tptr->isnumeric(rtn,false);
+    Py_END_ALLOW_THREADS
     std::vector<unsigned char> nulls(((count+7)/8),0);
-    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    unsigned int ncount = 0;
+    Py_BEGIN_ALLOW_THREADS
+    ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    Py_END_ALLOW_THREADS
     for(size_t idx=0; idx < count; idx++)
     {
         if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
@@ -2885,7 +3353,9 @@ static PyObject* n_islower( PyObject* self, PyObject* args )
     bool* devptr = (bool*)PyLong_AsVoidPtr(PyTuple_GetItem(args,1));
     if( devptr )
     {
+        Py_BEGIN_ALLOW_THREADS
         tptr->islower(devptr);
+        Py_END_ALLOW_THREADS
         return PyLong_FromVoidPtr((void*)devptr);
     }
     // copy to host option
@@ -2894,9 +3364,14 @@ static PyObject* n_islower( PyObject* self, PyObject* args )
     if( count==0 )
         return ret;
     bool* rtn = new bool[count];
+    Py_BEGIN_ALLOW_THREADS
     tptr->islower(rtn,false);
+    Py_END_ALLOW_THREADS
     std::vector<unsigned char> nulls(((count+7)/8),0);
-    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    unsigned int ncount = 0;
+    Py_BEGIN_ALLOW_THREADS
+    ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    Py_END_ALLOW_THREADS
     for(size_t idx=0; idx < count; idx++)
     {
         if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
@@ -2917,7 +3392,9 @@ static PyObject* n_isupper( PyObject* self, PyObject* args )
     bool* devptr = (bool*)PyLong_AsVoidPtr(PyTuple_GetItem(args,1));
     if( devptr )
     {
+        Py_BEGIN_ALLOW_THREADS
         tptr->isupper(devptr);
+        Py_END_ALLOW_THREADS
         return PyLong_FromVoidPtr((void*)devptr);
     }
     // copy to host option
@@ -2926,9 +3403,14 @@ static PyObject* n_isupper( PyObject* self, PyObject* args )
     if( count==0 )
         return ret;
     bool* rtn = new bool[count];
+    Py_BEGIN_ALLOW_THREADS
     tptr->isupper(rtn,false);
+    Py_END_ALLOW_THREADS
     std::vector<unsigned char> nulls(((count+7)/8),0);
-    unsigned int ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    unsigned int ncount = 0;
+    Py_BEGIN_ALLOW_THREADS
+    ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    Py_END_ALLOW_THREADS
     for(size_t idx=0; idx < count; idx++)
     {
         if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )

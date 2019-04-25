@@ -1647,10 +1647,10 @@ class nvstrings:
         sub : str
             String to find
         start : int
-            Beginning of section to replace.
-            Default is beginning of each string.
+            Beginning of section to search from.
+            Default is 0 (beginning of each string).
         end : int
-            End of section to replace. Default is end of each string.
+            End of section to search. Default is end of each string.
         devptr : GPU memory pointer
             Optional device memory pointer to hold the results.
             Memory size must be able to hold at least size() of int32 values.
@@ -1675,10 +1675,10 @@ class nvstrings:
         sub : str
             String to find
         start : int
-            Beginning of section to replace.
-            Default is beginning of each string.
+            Beginning of section to search from.
+            Default is 0 (beginning of each string).
         end : int
-            End of section to replace. Default is end of each string.
+            End of section to search. Default is end of each string.
         devptr : GPU memory pointer
             Optional device memory pointer to hold the results.
             Memory size must be able to hold at least size() of int32 values.
@@ -1704,10 +1704,10 @@ class nvstrings:
         sub : str
             String to find
         start : int
-            Beginning of section to replace.
-            Default is beginning of each string.
+            Beginning of section to search from.
+            Default is 0 (beginning of each string).
         end : int
-            End of section to replace. Default is end of each string.
+            End of section to find. Default is end of each string.
         devptr : GPU memory pointer
             Optional device memory pointer to hold the results.
             Memory size must be able to hold at least size() of int32 values.
@@ -1771,10 +1771,10 @@ class nvstrings:
         sub : str
             String to find
         start : int
-            Beginning of section to replace.
-            Default is beginning of each string.
+            Beginning of section to find.
+            Default is 0(beginning of each string).
         end : int
-            End of section to replace. Default is end of each string.
+            End of section to find. Default is end of each string.
         devptr : GPU memory pointer
             Optional device memory pointer to hold the results.
 
@@ -2283,7 +2283,8 @@ class nvstrings:
         Parameters
         ----------
         indexes : List of ints or GPU memory pointer
-            0-based indexes of strings to return from an nvstrings object
+            0-based indexes of strings to return from an nvstrings object.
+            Values must be of type in32.
         count : int
             Number of ints if indexes parm is a device pointer.
             Otherwise it is ignored.

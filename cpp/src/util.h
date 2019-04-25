@@ -15,10 +15,23 @@
 */
 #pragma once
 
+#include <cuda_runtime.h>
+#include <string>
+
+class NVStrings;
+
 // csv parser flags
 #define CSV_SORT_LENGTH    1
 #define CSV_SORT_NAME      2
 #define CSV_NULL_IS_EMPTY  8
-
 // this has become a thing
 NVStrings* createFromCSV(std::string csvfile, unsigned int column, unsigned int lines=0, unsigned int flags=0);
+
+__host__ __device__ inline unsigned int u2u8( unsigned int unchr );
+__host__ __device__ inline unsigned int u82u( unsigned int utf8 );
+
+// copies and moves dest pointer
+__device__ inline char* copy_and_incr( char*& dest, char* src, unsigned int bytes );
+__device__ inline char* copy_and_incr_both( char*& dest, char*& src, unsigned int bytes );
+
+#include "util.inl"

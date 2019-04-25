@@ -17,11 +17,9 @@
 
 #include <cuda_runtime.h>
 #include <rmm/thrust_rmm_allocator.h>
-#include <map>
 
 class custring_view;
 typedef custring_view** custring_view_array;
-struct timing_record;
 
 //
 class NVStringsImpl
@@ -32,7 +30,6 @@ public:
     rmm::device_vector<custring_view*>* pList;
     char* memoryBuffer;
     size_t bufferSize; // size of memoryBuffer only
-    std::map<std::string,timing_record> mapTimes;
     cudaStream_t stream_id;
     bool bIpcHandle; // whether memoryBuffer is ipc-handle or not
 
@@ -55,21 +52,15 @@ public:
         setMemoryBuffer(ptr,memSize);
         bIpcHandle = true;
     }
-
-    void addOpTimes( const char* op, double sizeTime, double opTime );
-    void printTimingRecords();
 };
 
-#define ALIGN_SIZE(v)  (((v+7)/8)*8)
+//#define ALIGN_SIZE(v)  (((v+7)/8)*8)
 
 
 void printCudaError( cudaError_t err, const char* prefix="\t" );
 char32_t* to_char32( const char* ca );
 unsigned char* get_unicode_flags();
 unsigned short* get_charcases();
-// defined in util.cu
-__host__ __device__ unsigned int u2u8( unsigned int unchr );
-__host__ __device__ unsigned int u82u( unsigned int utf8 );
 
 //
 int NVStrings_init_from_strings(NVStringsImpl* pImpl, const char** strs, unsigned int count );

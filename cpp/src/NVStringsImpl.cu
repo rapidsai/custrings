@@ -14,7 +14,6 @@
 * limitations under the License.
 */
 
-#include <stdlib.h>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #include <thrust/device_vector.h>
@@ -23,8 +22,8 @@
 #include <thrust/for_each.h>
 #include <thrust/extrema.h>
 #include <thrust/sort.h>
-#include <locale.h>
-#include <map>
+//#include <locale.h>
+//#include <map>
 #include <rmm/rmm.h>
 #include <rmm/thrust_rmm_allocator.h>
 #include "NVStrings.h"
@@ -33,22 +32,16 @@
 #include "custring.cuh"
 #include "unicode/unicode_flags.h"
 #include "unicode/charcases.h"
-#include "Timing.h"
-
-
-struct timing_record
-{
-    double compute_size_times;
-    double operation_times;
-    timing_record() : compute_size_times(0.0), operation_times(0.0) {}
-    void add_time(double st, double ot) { compute_size_times += st; operation_times += ot; }
-};
 
 //
 void printCudaError( cudaError_t err, const char* prefix )
 {
-    if( err != cudaSuccess )
-        fprintf(stderr,"%s: %s(%d):%s\n",prefix,cudaGetErrorName(err),(int)err,cudaGetErrorString(err));
+    if( err == cudaSuccess )
+        return;
+    fprintf(stderr,"%s: %s(%d):%s\n",prefix,cudaGetErrorName(err),(int)err,cudaGetErrorString(err));
+    //cudaError_t err2 = cudaGetLastError(); // clears the error too
+    //if( err != err2 )
+    //    fprintf(stderr,"  %s:(%d):%s\n",cudaGetErrorName(err2),(int)err2,cudaGetErrorString(err2));
 }
 
 //
@@ -72,7 +65,7 @@ char32_t* to_char32( const char* ca )
 }
 
 //
-static unsigned char* d_unicode_flags = 0;
+static unsigned char* d_unicode_flags = nullptr;
 unsigned char* get_unicode_flags()
 {
     if( !d_unicode_flags )
@@ -84,7 +77,7 @@ unsigned char* get_unicode_flags()
     return d_unicode_flags;
 }
 
-static unsigned short* d_charcases = 0;
+static unsigned short* d_charcases = nullptr;
 unsigned short* get_charcases()
 {
     if( !d_charcases )
@@ -98,7 +91,7 @@ unsigned short* get_charcases()
 
 //
 NVStringsImpl::NVStringsImpl(unsigned int count)
-              : bufferSize(0), memoryBuffer(0), bIpcHandle(false), stream_id(0)
+              : bufferSize(0), memoryBuffer(nullptr), bIpcHandle(false), stream_id(0)
 {
     pList = new rmm::device_vector<custring_view*>(count,nullptr);
 }
@@ -110,9 +103,9 @@ NVStringsImpl::~NVStringsImpl()
     if( bIpcHandle )
         cudaIpcCloseMemHandle(memoryBuffer);
 
-    memoryBuffer = 0;
+    memoryBuffer = nullptr;
     delete pList;
-    pList = 0;
+    pList = nullptr;
     bufferSize = 0;
 }
 
@@ -128,40 +121,11 @@ char* NVStringsImpl::createMemoryFor( size_t* d_lengths )
     return memoryBuffer;
 }
 
-void NVStringsImpl::addOpTimes( const char* op, double sizeTime, double opTime )
-{
-    std::string name = op;
-    if( mapTimes.find(name)==mapTimes.end() )
-        mapTimes[name] = timing_record();
-    mapTimes[name].add_time(sizeTime,opTime);
-}
-
-void NVStringsImpl::printTimingRecords()
-{
-    size_t count = pList->size();
-    if( !count )
-        return;
-    for( auto itr = mapTimes.begin(); itr != mapTimes.end(); itr++ )
-    {
-        std::string opname = itr->first;
-        timing_record tr = itr->second;
-        double otavg = (tr.operation_times / (double)count) * 1000.0;
-        printf("%s: ",opname.c_str());
-        if( tr.compute_size_times )
-        {
-            double ctavg = (tr.compute_size_times / (double)count) * 1000.0;
-            printf("avg compute size time = %g; ",ctavg);
-        }
-        printf("avg operation time = %g\n",otavg);
-    }
-}
-
 //
 int NVStrings_init_from_strings(NVStringsImpl* pImpl, const char** strs, unsigned int count )
 {
     cudaError_t err = cudaSuccess;
     auto execpol = rmm::exec_policy(0);
-    setlocale(LC_NUMERIC, "");
     // first compute the size of each string
     size_t nbytes = 0;
     thrust::host_vector<size_t> hoffsets(count+1,0);
@@ -184,7 +148,7 @@ int NVStrings_init_from_strings(NVStringsImpl* pImpl, const char** strs, unsigne
     }
     // check if they are all null
     if( nbytes==0 )
-        return 0;
+        return (int)err;
 
     // Host serialization
     unsigned int cheat = 0;//sizeof(custring_view);
@@ -193,7 +157,7 @@ int NVStrings_init_from_strings(NVStringsImpl* pImpl, const char** strs, unsigne
         memcpy(h_flatstrs + hoffsets[idx] + cheat, strs[idx], hlengths[idx]);
 
     // copy to device memory
-    char* d_flatstrs = 0;
+    char* d_flatstrs = nullptr;
     rmmError_t rerr = RMM_ALLOC(&d_flatstrs,nbytes,0);
     if( rerr == RMM_SUCCESS )
         err = cudaMemcpy(d_flatstrs, h_flatstrs, nbytes, cudaMemcpyHostToDevice);
@@ -224,51 +188,59 @@ int NVStrings_init_from_strings(NVStringsImpl* pImpl, const char** strs, unsigne
             d_strings[idx] = custring_view::create_from(ptr,str,(int)len-1);
         });
     //
-    err = cudaDeviceSynchronize();
-    if( err!=cudaSuccess )
-    {
-        fprintf(stderr,"nvs-sts: sync=%d copy %'u strings\n",(int)err,count);
-        printCudaError(err);
-    }
+    //err = cudaDeviceSynchronize();
+    //if( err!=cudaSuccess )
+    //{
+    //    fprintf(stderr,"nvs-sts: sync=%d copy %'u strings\n",(int)err,count);
+    //    printCudaError(err);
+    //}
 
     pImpl->setMemoryBuffer(d_flatstrs,nbytes);
-
-#if STR_STATS
-    if( err==cudaSuccess )
-    {
-        size_t memSize = nbytes + (count * sizeof(custring_view*));
-        // lengths are +1 the size of the string so readjust
-        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-            [d_lengths] __device__ (unsigned int idx) {
-                size_t val = d_lengths[idx];
-                val = (val ? val-1 : 0);
-                d_lengths[idx] = val;
-            });
-        //size_t max = thrust::transform_reduce(execpol->on(0),d_dstLengths,d_dstLengths+count,thrust::identity<size_t>(),0,thrust::maximum<size_t>());
-        size_t max = *thrust::max_element(execpol->on(0), lengths.begin(), lengths.end());
-        size_t sum = thrust::reduce(execpol->on(0), lengths.begin(), lengths.end());
-        size_t avg = 0;
-        if( count > 0 )
-            avg =sum / count;
-        printf("nvs-sts: created %'u strings in device memory(%p) = %'lu bytes\n",count,d_flatstrs,memSize);
-        printf("nvs-sts: largest string is %lu bytes, average string length is %lu bytes\n",max,avg);
-    }
-#endif
-
     return (int)err;
 }
 
 // build strings from array of device pointers and sizes
 int NVStrings_init_from_indexes( NVStringsImpl* pImpl, std::pair<const char*,size_t>* indexes, unsigned int count, bool bdevmem, NVStrings::sorttype stype )
 {
-    setlocale(LC_NUMERIC, "");
     cudaError_t err = cudaSuccess;
     auto execpol = rmm::exec_policy(0);
     thrust::pair<const char*,size_t>* d_indexes = (thrust::pair<const char*,size_t>*)indexes;
     if( !bdevmem )
     {
         RMM_ALLOC(&d_indexes,sizeof(std::pair<const char*,size_t>)*count,0);
-        cudaMemcpy(d_indexes,indexes,sizeof(std::pair<const char*,size_t>)*count,cudaMemcpyHostToDevice);
+        err = cudaMemcpy(d_indexes,indexes,sizeof(std::pair<const char*,size_t>)*count,cudaMemcpyHostToDevice);
+    }
+    else
+    {
+        // Lets check what we got from the caller by reading all the memory once.
+        // This is wasteful but I cannot keep people from passing bad data:
+        //   https://github.com/rapidsai/custrings/issues/191
+        // This check cannot be done inline below because libraries like thrust may terminate the process
+        // when illegal pointers are passed in. Here we do a pre-check, handle the error and return it.
+        // Do not put any other thrust calls before this line in this method.
+        try
+        {
+            thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+                [d_indexes] __device__ (unsigned int idx) {
+                    const char* str = d_indexes[idx].first;
+                    size_t bytes = d_indexes[idx].second;
+                    if( str )
+                        custring_view::chars_in_string(str,(unsigned int)bytes);
+            });
+            err = cudaDeviceSynchronize(); // do not remove this
+        }
+        catch( thrust::system_error& exc )
+        {
+            err = (cudaError_t)exc.code().value();
+            //printf("exception: %d: %s\n", (int)err, e.what());
+        }
+    }
+    if( err != cudaSuccess )
+    {
+        printCudaError(err,"nvs-idx: checking parms");
+        if( !bdevmem )
+            RMM_FREE(d_indexes,0);
+        return (int)err;
     }
 
     // sort the list - helps reduce divergence
@@ -285,14 +257,6 @@ int NVStrings_init_from_indexes( NVStringsImpl* pImpl, std::pair<const char*,siz
                     diff = custr::compare(lhs.first,(unsigned int)lhs.second,rhs.first,(unsigned int)rhs.second);
                 return (diff < 0);
             });
-        err = cudaDeviceSynchronize();
-        if( err != cudaSuccess )
-        {
-            printCudaError(err,"nvs-idx: sorting");
-            if( !bdevmem )
-                RMM_FREE(d_indexes,0);
-            return (int)err;
-        }
     }
 
     // first get the size we need to store these strings
@@ -305,21 +269,13 @@ int NVStrings_init_from_indexes( NVStringsImpl* pImpl, std::pair<const char*,siz
             if( str )
                 d_sizes[idx] = ALIGN_SIZE(custring_view::alloc_size((char*)str,(int)bytes));
         });
-    err = cudaDeviceSynchronize();
-    if( err != cudaSuccess )
-    {
-        printCudaError(err,"nvs-idx: computing sizes");
-        if( !bdevmem )
-            RMM_FREE(d_indexes,0);
-        return (int)err;
-    }
 
     // allocate device memory
     size_t nbytes = thrust::reduce(execpol->on(0),sizes.begin(),sizes.end());
     //printf("nvs-idx: %'lu bytes\n",nbytes);
     if( nbytes==0 )
         return 0;  // done, all the strings were null
-    char* d_flatdstrs = 0;
+    char* d_flatdstrs = nullptr;
     rmmError_t rerr = RMM_ALLOC(&d_flatdstrs,nbytes,0);
     if( rerr != RMM_SUCCESS )
     {
@@ -351,32 +307,7 @@ int NVStrings_init_from_indexes( NVStringsImpl* pImpl, std::pair<const char*,siz
             d_sizes[idx] = bytes;
         });
     //
-    err = cudaDeviceSynchronize();
-    if( err != cudaSuccess )
-    {
-        fprintf(stderr,"nvs-idx: sync=%d copying %'u strings\n",(int)err,count);
-        printCudaError(err);
-    }
-
     pImpl->setMemoryBuffer(d_flatdstrs,nbytes);
-
-#ifdef STR_STATS
-    if( err == cudaSuccess )
-    {
-        size_t memSize = nbytes + (count * sizeof(custring_view*)); // flat memory plus device_vector<custring_view*>
-        //size_t max = thrust::transform_reduce(execpol->on(0),d_sizes,d_sizes+count,thrust::identity<size_t>(),0,thrust::maximum<size_t>());
-        size_t max = *thrust::max_element(execpol->on(0), sizes.begin(), sizes.end());
-        size_t sum = thrust::reduce(execpol->on(0), sizes.begin(), sizes.end());
-        size_t avg = 0;
-        if( count > 0 )
-            avg =sum / count;
-        //
-        printf("nvs-idx: created %'u strings in device memory(%p) = %'lu bytes\n",count,d_flatdstrs,memSize);
-        printf("nvs-idx: largest string is %lu bytes, average string length is %lu bytes\n",max,avg);
-    }
-#endif
-    //printf("nvs-idx: processed %'u strings\n",count);
-
     if( !bdevmem )
         RMM_FREE(d_indexes,0);
     return (int)err;
@@ -418,7 +349,7 @@ int NVStrings_init_from_offsets( NVStringsImpl* pImpl, const char* strs, int cou
         memcpy(h_flatstrs + hoffsets[idx] + cheat, strs + offsets[idx], hlengths[idx]);
 
     // copy whole thing to device memory
-    char* d_flatstrs = 0;
+    char* d_flatstrs = nullptr;
     rmmError_t rerr = RMM_ALLOC(&d_flatstrs,nbytes,0);
     if( rerr == RMM_SUCCESS )
         err = cudaMemcpy(d_flatstrs, h_flatstrs, nbytes, cudaMemcpyHostToDevice);
@@ -450,37 +381,7 @@ int NVStrings_init_from_offsets( NVStringsImpl* pImpl, const char* strs, int cou
             d_strings[idx] = custring_view::create_from(ptr,str,len);
         });
     //
-    err = cudaDeviceSynchronize();
-    if( err!=cudaSuccess )
-    {
-        fprintf(stderr,"nvs-ofs: sync=%d copy %'u strings\n",(int)err,count);
-        printCudaError(err);
-    }
-
     pImpl->setMemoryBuffer(d_flatstrs,nbytes);
-
-#if STR_STATS
-    if( err==cudaSuccess )
-    {
-        size_t memSize = nbytes + (count * sizeof(custring_view*));
-        // lengths are +1 the size of the string so readjust
-        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-            [d_lengths] __device__ (unsigned int idx) {
-                size_t val = d_lengths[idx];
-                val = (val ? val-1 : 0);
-                d_lengths[idx] = val;
-            });
-        //size_t max = thrust::transform_reduce(execpol->on(0),d_dstLengths,d_dstLengths+count,thrust::identity<size_t>(),0,thrust::maximum<size_t>());
-        size_t max = *thrust::max_element(execpol->on(0), lengths.begin(), lengths.end());
-        size_t sum = thrust::reduce(execpol->on(0), lengths.begin(), lengths.end());
-        size_t avg = 0;
-        if( count > 0 )
-            avg =sum / count;
-        printf("nvs-ofs: created %'u strings in device memory(%p) = %'lu bytes\n",count,d_flatstrs,memSize);
-        printf("nvs-ofs: largest string is %lu bytes, average string length is %lu bytes\n",max,avg);
-    }
-#endif
-
     return (int)err;;
 }
 
@@ -494,7 +395,7 @@ int NVStrings_copy_strings( NVStringsImpl* pImpl, std::vector<NVStrings*>& strsl
         nbytes += (*itr)->memsize();
 
     custring_view_array d_results = pList->data().get();
-    char* d_buffer = 0;
+    char* d_buffer = nullptr;
     RMM_ALLOC(&d_buffer,nbytes,0);
     size_t offset = 0;
     size_t memoffset = 0;
@@ -516,7 +417,7 @@ int NVStrings_copy_strings( NVStringsImpl* pImpl, std::vector<NVStrings*>& strsl
                 [] __device__ (custring_view* lhs, custring_view* rhs) {
                     return (lhs && rhs) ? (lhs < rhs) : rhs==0;
                 });
-            char* baseaddr = 0;
+            char* baseaddr = nullptr;
             cudaError_t err = cudaMemcpy(&baseaddr,first,sizeof(custring_view*),cudaMemcpyDeviceToHost);
             if( err!=cudaSuccess )
                 fprintf(stderr, "copy-strings: cudaMemcpy(%p,%p,%d)=%d\n",&baseaddr,first,(int)sizeof(custring_view*),(int)err);
@@ -540,9 +441,7 @@ int NVStrings_copy_strings( NVStringsImpl* pImpl, std::vector<NVStrings*>& strsl
         offset += size;
         memoffset += memsize;
     }
-    cudaError_t err = cudaDeviceSynchronize();
-    if( err!=cudaSuccess )
-        printCudaError(err,"nvs-cs");
+    //
     pImpl->setMemoryBuffer(d_buffer,nbytes);
     return count;
 }
@@ -574,8 +473,8 @@ int NVStrings_fixup_pointers( NVStringsImpl* pImpl, char* baseaddr )
             char* newaddr = buffer + diff;
             d_strings[idx] = (custring_view*)newaddr;
         });
-    cudaError_t err = cudaDeviceSynchronize();
-    if( err!=cudaSuccess )
-        printCudaError(err,"nvs-fixup");
+    //cudaError_t err = cudaDeviceSynchronize();
+    //if( err!=cudaSuccess )
+    //    printCudaError(err,"nvs-fixup");
     return count;
 }

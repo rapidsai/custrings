@@ -3,7 +3,7 @@
 ###########################################
 # cuStrings CPU conda build script for CI #
 ###########################################
-set -ex
+set -e
 
 # Logger function for build status output
 function logger() {
@@ -36,7 +36,6 @@ env
 
 logger "Activate conda env..."
 source activate gdf
-pip install cmake_setuptools
 
 logger "Check versions..."
 python --version
@@ -65,15 +64,18 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   cuda-drivers=${DRIVER_VER} libcuda1-${LIBCUDA_VER}
 
 ################################################################################
-# BUILD - Conda package builds (conda deps: libcuml <- cuml)
+# BUILD - Conda package builds (conda deps: libcustrings <- custrings)
 ################################################################################
 
-logger "Build conda pkg for custrings..."
-source ci/cpu/custrings/build_custrings.sh
+logger "Build conda pkgs for libcustrings..."
+conda build --python=${PYTHON} conda/recipes/libcustrings
+
+logger "Build conda pkgs for custrings..."
+conda build --python=${PYTHON} conda/recipes/custrings
 
 ################################################################################
 # UPLOAD - Conda packages
 ################################################################################
 
-logger "Upload conda pkgs for custrings..."
-source ci/cpu/custrings/upload_anaconda.sh
+logger "Upload conda pkgs for libcustrings and custrings..."
+source ci/cpu/upload_anaconda.sh

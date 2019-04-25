@@ -14,7 +14,6 @@
 * limitations under the License.
 */
 
-#include <stdlib.h>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #include <thrust/device_vector.h>
@@ -28,7 +27,6 @@
 #include "NVStringsImpl.h"
 #include "custring_view.cuh"
 #include "regex/regex.cuh"
-#include "Timing.h"
 
 #ifdef __INTELLISENSE__
 void __syncthreads();
@@ -45,7 +43,7 @@ unsigned int NVStrings::compare( const char* str, int* results, bool todevice )
         return 0;
 
     auto execpol = rmm::exec_policy(0);
-    char* d_str = 0;
+    char* d_str = nullptr;
     RMM_ALLOC(&d_str,bytes,0);
     cudaMemcpy(d_str,str,bytes,cudaMemcpyHostToDevice);
 
@@ -53,7 +51,6 @@ unsigned int NVStrings::compare( const char* str, int* results, bool todevice )
     if( !todevice )
         RMM_ALLOC(&d_rtn,sizeof(int)*count,0);
 
-    double st = GetTime();
     custring_view** d_strings = pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_str, bytes, d_rtn] __device__(unsigned int idx){
@@ -64,23 +61,14 @@ unsigned int NVStrings::compare( const char* str, int* results, bool todevice )
                 d_rtn[idx] = (d_str ? -1: 0);
         });
     //
-    cudaError_t err = cudaDeviceSynchronize();
-    double et = GetTime();
-    if( err != cudaSuccess )
-    {
-        fprintf(stderr,"nvs-compare(%s,%p,%d)\n",str,results,(int)todevice);
-        printCudaError(err);
-    }
-    pImpl->addOpTimes("compare",0.0,(et-st));
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, 0);
-
-    RMM_FREE(d_str,0);
     //
     if( !todevice )
     {   // copy result back to host
         cudaMemcpy(results,d_rtn,sizeof(int)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
+    RMM_FREE(d_str,0);
     return (unsigned int)matches;
 }
 
@@ -95,7 +83,7 @@ unsigned int NVStrings::find( const char* str, int start, int end, int* results,
         start = 0;
 
     auto execpol = rmm::exec_policy(0);
-    char* d_str = 0;
+    char* d_str = nullptr;
     RMM_ALLOC(&d_str,bytes,0);
     cudaMemcpy(d_str,str,bytes,cudaMemcpyHostToDevice);
 
@@ -104,7 +92,6 @@ unsigned int NVStrings::find( const char* str, int start, int end, int* results,
         RMM_ALLOC(&d_rtn,count*sizeof(int),0);
 
     custring_view** d_strings = pImpl->getStringsPtr();
-    double st = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_str, bytes, start, end, d_rtn] __device__(unsigned int idx){
             //__shared__ char tgt[24];
@@ -123,16 +110,6 @@ unsigned int NVStrings::find( const char* str, int start, int end, int* results,
                 d_rtn[idx] = -2; // indicate null to caller
         });
     //
-    cudaError_t err = cudaDeviceSynchronize();
-    double et = GetTime();
-    if( err != cudaSuccess )
-    {
-        fprintf(stderr,"nvs-find(%s,%d,%d,%p,%d)\n",str,start,end,results,(int)todevice);
-        printCudaError(err);
-    }
-    pImpl->addOpTimes("find",0.0,(et-st));
-
-    RMM_FREE(d_str,0);
     // count the number of successful finds
     unsigned int rtn = thrust::count_if(execpol->on(0), d_rtn, d_rtn+count, [] __device__(int val){ return val!=-1; });
     if( !todevice )
@@ -140,6 +117,7 @@ unsigned int NVStrings::find( const char* str, int start, int end, int* results,
         cudaMemcpy(results,d_rtn,sizeof(int)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
+    RMM_FREE(d_str,0);
     return rtn;
 }
 
@@ -152,7 +130,7 @@ unsigned int NVStrings::find_from( const char* str, int* starts, int* ends, int*
     unsigned int bytes = (unsigned int)strlen(str)+1; // the +1 allows searching for empty string
 
     auto execpol = rmm::exec_policy(0);
-    char* d_str = 0;
+    char* d_str = nullptr;
     RMM_ALLOC(&d_str,bytes,0);
     cudaMemcpy(d_str,str,bytes,cudaMemcpyHostToDevice);
 
@@ -161,7 +139,6 @@ unsigned int NVStrings::find_from( const char* str, int* starts, int* ends, int*
         RMM_ALLOC(&d_rtn,count*sizeof(int),0);
 
     custring_view_array d_strings = pImpl->getStringsPtr();
-    double st = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_str, bytes, starts, ends, d_rtn] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -174,17 +151,6 @@ unsigned int NVStrings::find_from( const char* str, int* starts, int* ends, int*
             else
                 d_rtn[idx] = -2; // indicate null to caller
         });
-    //
-    cudaError_t err = cudaDeviceSynchronize();
-    double et = GetTime();
-    if( err != cudaSuccess )
-    {
-        fprintf(stderr,"nvs-find_from(%s,%p,%p,%p,%d)\n",str,starts,ends,results,(int)todevice);
-        printCudaError(err);
-    }
-    pImpl->addOpTimes("find_from",0.0,(et-st));
-
-    RMM_FREE(d_str,0);
     // count the number of successful finds
     unsigned int rtn = thrust::count_if(execpol->on(0), d_rtn, d_rtn+count, [] __device__(int val){ return val!=-1; });
     if( !todevice )
@@ -192,6 +158,7 @@ unsigned int NVStrings::find_from( const char* str, int* starts, int* ends, int*
         cudaMemcpy(results,d_rtn,sizeof(int)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
+    RMM_FREE(d_str,0);
     return rtn;
 }
 
@@ -206,7 +173,7 @@ unsigned int NVStrings::rfind( const char* str, int start, int end, int* results
         start = 0;
 
     auto execpol = rmm::exec_policy(0);
-    char* d_str = 0;
+    char* d_str = nullptr;
     RMM_ALLOC(&d_str,bytes,0);
     cudaMemcpy(d_str,str,bytes,cudaMemcpyHostToDevice);
 
@@ -215,7 +182,6 @@ unsigned int NVStrings::rfind( const char* str, int start, int end, int* results
         RMM_ALLOC(&d_rtn,count*sizeof(int),0);
 
     custring_view** d_strings = pImpl->getStringsPtr();
-    double st = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_str, bytes, start, end, d_rtn] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -225,15 +191,6 @@ unsigned int NVStrings::rfind( const char* str, int start, int end, int* results
                 d_rtn[idx] = -2; // indicate null to caller
         });
     //
-    cudaError_t err = cudaDeviceSynchronize();
-    double et = GetTime();
-    if( err != cudaSuccess )
-    {
-        fprintf(stderr,"nvs-rfind(%s,%d,%d,%p,%d)\n",str,start,end,results,(int)todevice);
-        printCudaError(err);
-    }
-    pImpl->addOpTimes("rfind",0.0,(et-st));
-    RMM_FREE(d_str,0);
     // count the number of successful finds
     unsigned int rtn = thrust::count_if(execpol->on(0), d_rtn, d_rtn+count, [] __device__(int val){ return val!=-1; });
     if( !todevice )
@@ -241,6 +198,7 @@ unsigned int NVStrings::rfind( const char* str, int start, int end, int* results
         cudaMemcpy(results,d_rtn,sizeof(int)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
+    RMM_FREE(d_str,0);
     return rtn;
 }
 
@@ -259,7 +217,6 @@ unsigned int NVStrings::find_multiple( NVStrings& strs, int* results, bool todev
     //
     custring_view_array d_strings = pImpl->getStringsPtr();
     custring_view_array d_targets = strs.pImpl->getStringsPtr();
-    double st = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_targets, tcount, d_rtn] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -269,15 +226,6 @@ unsigned int NVStrings::find_multiple( NVStrings& strs, int* results, bool todev
                 d_rtn[(idx*tcount)+jdx] = ( (dstr && dtgt) ? dstr->find(*dtgt) : -2 );
             }
         });
-    //
-    cudaError_t err = cudaDeviceSynchronize();
-    double et = GetTime();
-    if( err != cudaSuccess )
-    {
-        fprintf(stderr,"nvs-find_multiple(%u,%p,%d)\n",tcount,results,(int)todevice);
-        printCudaError(err);
-    }
-    pImpl->addOpTimes("find_multiple",0.0,(et-st));
     //
     unsigned int rtn = thrust::count_if(execpol->on(0), d_rtn, d_rtn+count, [] __device__(int val){ return val!=-1; });
     if( !todevice )
@@ -309,7 +257,6 @@ int NVStrings::findall_record( const char* pattern, std::vector<NVStrings*>& res
     int* d_sizes = sizes.data().get();
     rmm::device_vector<int> counts(count,0);
     int* d_counts = counts.data().get();
-    double st1 = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [prog, d_strings, d_counts, d_sizes] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -349,7 +296,7 @@ int NVStrings::findall_record( const char* pattern, std::vector<NVStrings*>& res
             continue;
         hrows[idx] = row->pImpl->getStringsPtr();
         int size = sizes[idx];
-        char* d_buffer = 0;
+        char* d_buffer = nullptr;
         RMM_ALLOC(&d_buffer,size,0);
         row->pImpl->setMemoryBuffer(d_buffer,size);
         hbuffers[idx] = d_buffer;
@@ -404,7 +351,6 @@ int NVStrings::findall( const char* pattern, std::vector<NVStrings*>& results )
     custring_view_array d_strings = pImpl->getStringsPtr();
     rmm::device_vector<int> counts(count,0);
     int* d_counts = counts.data().get();
-    double st1 = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [prog, d_strings, d_counts] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -437,8 +383,8 @@ int NVStrings::findall( const char* pattern, std::vector<NVStrings*>& results )
         thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
             [prog, d_strings, d_counts, col, d_indexes] __device__(unsigned int idx){
                 custring_view* dstr = d_strings[idx];
-                d_indexes[idx].first = 0;   // initialize to
-                d_indexes[idx].second = 0;  // null string
+                d_indexes[idx].first = nullptr;   // initialize to
+                d_indexes[idx].second = 0;        // null string
                 if( !dstr || (col >= d_counts[idx]) )
                     return;
                 int spos = 0, nchars = (int)dstr->chars_count();
@@ -464,12 +410,12 @@ int NVStrings::findall( const char* pattern, std::vector<NVStrings*>& results )
                 }
 
             });
-        cudaError_t err = cudaDeviceSynchronize();
-        if( err != cudaSuccess )
-        {
-            fprintf(stderr,"nvs-findall(%s): col=%d\n",pattern,col);
-            printCudaError(err);
-        }
+        //cudaError_t err = cudaDeviceSynchronize();
+        //if( err != cudaSuccess )
+        //{
+        //    fprintf(stderr,"nvs-findall(%s): col=%d\n",pattern,col);
+        //    printCudaError(err);
+        //}
         // build new instance from the index
         NVStrings* column = NVStrings::create_from_index((std::pair<const char*,size_t>*)d_indexes,count);
         results.push_back(column);
@@ -489,7 +435,7 @@ int NVStrings::contains( const char* str, bool* results, bool todevice )
     unsigned int bytes = (unsigned int)strlen(str)+1; // the +1 allows searching for empty string
 
     auto execpol = rmm::exec_policy(0);
-    char* d_str = 0;
+    char* d_str = nullptr;
     RMM_ALLOC(&d_str,bytes,0);
     cudaMemcpy(d_str,str,bytes,cudaMemcpyHostToDevice);
 
@@ -498,7 +444,6 @@ int NVStrings::contains( const char* str, bool* results, bool todevice )
         RMM_ALLOC(&d_rtn,count*sizeof(bool),0);
 
     custring_view_array d_strings = pImpl->getStringsPtr();
-    double st = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_str, bytes, d_rtn] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -507,17 +452,6 @@ int NVStrings::contains( const char* str, bool* results, bool todevice )
             else
                 d_rtn[idx] = false;
         });
-    //
-    cudaError_t err = cudaDeviceSynchronize();
-    double et = GetTime();
-    if( err != cudaSuccess )
-    {
-        fprintf(stderr,"nvs-contains(%s,%p,%d)\n",str,results,(int)todevice);
-        printCudaError(err);
-    }
-    pImpl->addOpTimes("contains",0.0,(et-st));
-
-    RMM_FREE(d_str,0);
     // count the number of successful finds
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
@@ -525,6 +459,7 @@ int NVStrings::contains( const char* str, bool* results, bool todevice )
         cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
+    RMM_FREE(d_str,0);
     return matches;
 }
 
@@ -548,7 +483,6 @@ int NVStrings::contains_re( const char* pattern, bool* results, bool todevice )
         RMM_ALLOC(&d_rtn,count*sizeof(bool),0);
 
     custring_view_array d_strings = pImpl->getStringsPtr();
-    double st = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, prog, d_rtn] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -557,18 +491,6 @@ int NVStrings::contains_re( const char* pattern, bool* results, bool todevice )
             else
                 d_rtn[idx] = false;
         });
-    //
-    cudaError_t err = cudaDeviceSynchronize();
-    double et = GetTime();
-    if( err != cudaSuccess )
-    {
-        fprintf(stderr,"nvs-contains_re(%s,%p,%d)\n",pattern,results,(int)todevice);
-        printCudaError(err);
-    }
-    pImpl->addOpTimes("contains_re",0.0,(et-st));
-    // destroy compiled regex
-    dreprog::destroy(prog);
-
     // count the number of successful finds
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
@@ -576,6 +498,7 @@ int NVStrings::contains_re( const char* pattern, bool* results, bool todevice )
         cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
+    dreprog::destroy(prog);
     return matches;
 }
 
@@ -599,7 +522,6 @@ int NVStrings::match( const char* pattern, bool* results, bool bdevmem )
         RMM_ALLOC(&d_rtn,count*sizeof(bool),0);
 
     custring_view_array d_strings = pImpl->getStringsPtr();
-    double st = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, prog, d_rtn] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -608,18 +530,6 @@ int NVStrings::match( const char* pattern, bool* results, bool bdevmem )
             else
                 d_rtn[idx] = false;
         });
-    //
-    cudaError_t err = cudaDeviceSynchronize();
-    double et = GetTime();
-    if( err != cudaSuccess )
-    {
-        fprintf(stderr,"nvs-match(%s,%p,%d)\n",pattern,results,(int)bdevmem);
-        printCudaError(err);
-    }
-    pImpl->addOpTimes("match",0.0,(et-st));
-
-    dreprog::destroy(prog);
-
     // count the number of successful finds
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !bdevmem )
@@ -627,6 +537,7 @@ int NVStrings::match( const char* pattern, bool* results, bool bdevmem )
         cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
+    dreprog::destroy(prog);
     return matches;
 }
 
@@ -651,7 +562,6 @@ int NVStrings::match_strings( NVStrings& strs, bool* results, bool bdevmem )
     if( !bdevmem )
         RMM_ALLOC(&d_rtn,count*sizeof(bool),0);
 
-    double st = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings1, d_strings2, d_rtn] __device__(unsigned int idx){
             custring_view* dstr1 = d_strings1[idx];
@@ -661,16 +571,6 @@ int NVStrings::match_strings( NVStrings& strs, bool* results, bool bdevmem )
             else
                 d_rtn[idx] = dstr1==dstr2;
         });
-    //
-    cudaError_t err = cudaDeviceSynchronize();
-    double et = GetTime();
-    if( err != cudaSuccess )
-    {
-        fprintf(stderr,"nvs-match_strings(..,%p,%d)\n",results,(int)bdevmem);
-        printCudaError(err);
-    }
-    pImpl->addOpTimes("match_strings",0.0,(et-st));
-
     // count the number of successful finds
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !bdevmem )
@@ -701,7 +601,6 @@ int NVStrings::count_re( const char* pattern, int* results, bool todevice )
         RMM_ALLOC(&d_rtn,count*sizeof(int),0);
 
     custring_view_array d_strings = pImpl->getStringsPtr();
-    double st = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, prog, d_rtn] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -723,18 +622,6 @@ int NVStrings::count_re( const char* pattern, int* results, bool todevice )
             }
             d_rtn[idx] = fnd;
         });
-    //
-    cudaError_t err = cudaDeviceSynchronize();
-    double et = GetTime();
-    if( err != cudaSuccess )
-    {
-        fprintf(stderr,"nvs-count_re(%s,%p,%d)\n",pattern,results,(int)todevice);
-        printCudaError(err);
-    }
-    pImpl->addOpTimes("count_re",0.0,(et-st));
-
-    dreprog::destroy(prog);
-
     // count the number of successful finds
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
@@ -742,6 +629,7 @@ int NVStrings::count_re( const char* pattern, int* results, bool todevice )
         cudaMemcpy(results,d_rtn,sizeof(int)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
+    dreprog::destroy(prog);
     return matches;
 }
 
@@ -754,7 +642,7 @@ unsigned int NVStrings::startswith( const char* str, bool* results, bool todevic
     unsigned int bytes = (unsigned int)strlen(str)+1; // the +1 allows searching for empty string
 
     auto execpol = rmm::exec_policy(0);
-    char* d_str = 0;
+    char* d_str = nullptr;
     RMM_ALLOC(&d_str,bytes,0);
     cudaMemcpy(d_str,str,bytes,cudaMemcpyHostToDevice);
 
@@ -763,7 +651,6 @@ unsigned int NVStrings::startswith( const char* str, bool* results, bool todevic
         RMM_ALLOC(&d_rtn,count*sizeof(bool),0);
 
     custring_view_array d_strings = pImpl->getStringsPtr();
-    double st = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_str, bytes, d_rtn] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -773,16 +660,6 @@ unsigned int NVStrings::startswith( const char* str, bool* results, bool todevic
                 d_rtn[idx] = false;
         });
     //
-    cudaError_t err = cudaDeviceSynchronize();
-    double et = GetTime();
-    if( err != cudaSuccess )
-    {
-        fprintf(stderr,"nvs-startswith(%s,%p,%d)\n",str,results,(int)todevice);
-        printCudaError(err);
-    }
-    pImpl->addOpTimes("startswith",0.0,(et-st));
-
-    RMM_FREE(d_str,0);
     // count the number of successful finds
     unsigned int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true );
     if( !todevice )
@@ -790,6 +667,7 @@ unsigned int NVStrings::startswith( const char* str, bool* results, bool todevic
         cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
+    RMM_FREE(d_str,0);
     return matches;
 }
 
@@ -802,7 +680,7 @@ unsigned int NVStrings::endswith( const char* str, bool* results, bool todevice 
     unsigned int bytes = (unsigned int)strlen(str)+1; // the +1 allows searching for empty string
 
     auto execpol = rmm::exec_policy(0);
-    char* d_str = 0;
+    char* d_str = nullptr;
     RMM_ALLOC(&d_str,bytes,0);
     cudaMemcpy(d_str,str,bytes,cudaMemcpyHostToDevice);
 
@@ -811,7 +689,6 @@ unsigned int NVStrings::endswith( const char* str, bool* results, bool todevice 
         RMM_ALLOC(&d_rtn,count*sizeof(bool),0);
 
     custring_view_array d_strings = pImpl->getStringsPtr();
-    double st = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_str, bytes, d_rtn] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -821,16 +698,6 @@ unsigned int NVStrings::endswith( const char* str, bool* results, bool todevice 
                 d_rtn[idx] = false;
         });
     //
-    cudaError_t err = cudaDeviceSynchronize();
-    double et = GetTime();
-    if( err != cudaSuccess )
-    {
-        fprintf(stderr,"nvs-endswith(%s,%p,%d)\n",str,results,(int)todevice);
-        printCudaError(err);
-    }
-    pImpl->addOpTimes("endswith",0.0,(et-st));
-
-    RMM_FREE(d_str,0);
     // count the number of successful finds
     unsigned int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true );
     if( !todevice )
@@ -838,5 +705,6 @@ unsigned int NVStrings::endswith( const char* str, bool* results, bool todevice 
         cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
         RMM_FREE(d_rtn,0);
     }
+    RMM_FREE(d_str,0);
     return matches;
 }

@@ -13,9 +13,13 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 - PR #176 Added match_strings to nvstrings
 - PR #172 Added to/from boolean conversion methods
 - PR #171 Added conversion to/from subset of ISO8601 format
+- PR #230 Add ngrams function to nvtext module
 
 ## Improvements
 
+- PR #256 Convert device-only custring_view to header-only
+- PR #255 Removed unnecessary cudaDeviceSync calls
+- PR #237 Removed internal util.h from include dir
 - PR #216 Fixed build instructions and removed obsolete doc/build files
 - PR #178 Added compute_statistics to C++ interface
 - PR #173 Added flake8 checks to for /python files
@@ -24,9 +28,15 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 - PR #192 Rework CMakeLists and separate RMM, update conda recipe and setup.py
 - PR #181 Update python docstrings to numpydoc style
 - PR #196 Include nvtext in python module setup
+- PR #221 Create separate conda packages for libnvstrings and nvstrings
+- PR #247 Release Python GIl while calling underlying C++ API from python
 
 ## Bug Fixes
 
+- PR #248 Fixed docstring for index,rindex,find,rfind
+- PR #245 Fixed backref to continue replacing
+- PR #234 Added more type-checking to gather method
+- PR #226 Added data pre-check to create_from_index
 - PR #218 Parameter check corrected for pad methods
 - PR #217 Corrected custring.cu method signatures
 - PR #213 Fixing README link to Python API docs
@@ -35,6 +45,9 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 - PR #202 Allow insert on start=stop in replace
 - PR #201 Fixed some pad examples in nvstrings.py doc comments
 - PR #186 Fixed memory error in booleans to strings method
+- PR #235 Fix anaconda upload script for new conda recipe
+- PR #239 Fix definitions of upload files for conda packages
+- PR #241 Revert split package to individual recipes to avoid run_exports bug
 
 
 # cuStrings/nvStrings 0.3.0 (15 Mar 2019)

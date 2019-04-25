@@ -89,6 +89,12 @@ print("(\\d)(\\d),'\\1-\\2'",strs.replace_with_backrefs('(\\d)(\\d)', '\\1-\\2')
 print("(\\d)(\\d),'V\\2-\\1'",strs.replace_with_backrefs('(\\d)(\\d)', 'V\\2-\\1'))
 print("(\\d)(\\d),'V\\1-\\3'",strs.replace_with_backrefs('(\\d)(\\d)', 'V\\1-\\3'))
 print("(\\d)(\\d),'V\\3-\\2'",strs.replace_with_backrefs('(\\d)(\\d)', 'V\\3-\\2'))
+strs = nvstrings.to_device(['tést-string','two-thréé four-fivé','abcd-éfgh','tést-string-again'])
+print(strs)
+print(strs.replace_with_backrefs("([a-z])-([a-z])","\\1 \\2"))
+print(strs.replace_with_backrefs("([a-z])-([a-zé])","\\2 \\1"))
+print(strs.replace_with_backrefs("([a-z])-([a-z])","X\\1+\\2Z"))
+print(strs.replace_with_backrefs("([a-z])-([a-zé])","X\\1+\\2Z"))
 
 strs = None
 strs1 = None

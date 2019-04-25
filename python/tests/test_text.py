@@ -1,4 +1,6 @@
+# Copyright (c) 2019, NVIDIA CORPORATION.
 
+import pytest
 import numpy as np
 import nvstrings, nvtext
 
@@ -50,3 +52,34 @@ strs2 = None
 
 strs = None
 tokens = None
+
+
+def test_ngrams():
+    # bigrams
+    strings = ['this is my favorite', 'book on my bookshelf']
+    dstrings = nvstrings.to_device(strings)
+    expected = [
+        'this_is',
+        'is_my',
+        'my_favorite',
+        'favorite_book',
+        'book_on',
+        'on_my',
+        'my_bookshelf'
+    ]
+    outcome = nvtext.ngrams(dstrings, N=2, sep='_')
+    assert outcome.to_host() == expected
+
+    # trigrams
+    strings = ['this is my favorite', 'book on my bookshelf']
+    dstrings = nvstrings.to_device(strings)
+    expected = [
+        'this-is-my',
+        'is-my-favorite',
+        'my-favorite-book',
+        'favorite-book-on',
+        'book-on-my',
+        'on-my-bookshelf'
+    ]
+    outcome = nvtext.ngrams(dstrings, N=3, sep='-')
+    assert outcome.to_host() == expected

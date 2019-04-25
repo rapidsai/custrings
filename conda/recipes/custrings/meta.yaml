@@ -2,7 +2,6 @@
 
 {% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') %}
 {% set git_revision_count=environ.get('GIT_DESCRIBE_NUMBER', 0) %}
-{% set cuda_version='.'.join(environ.get('CUDA_VERSION', 'unknown').split('.')[:2]) %}
 {% set py_version=environ.get('CONDA_PY', 35) %}
 package:
   name: nvstrings
@@ -13,7 +12,7 @@ source:
 
 build:
   number: {{ git_revision_count }}
-  string: cuda{{ cuda_version }}_py{{ py_version }}_{{ git_revision_count }}
+  string: py{{ py_version }}_{{ git_revision_count }}
   script_env:
     - CC
     - CXX
@@ -28,19 +27,19 @@ requirements:
     - python
     - setuptools
     - cmake_setuptools 0.1.3.*
-    - librmm 0.7.*
+    - libnvstrings {{ version }}
   run:
     - python
-    - {{ pin_compatible('librmm') }}
 
 test:
-  requires:
-    - pytest
-  imports:
-    - nvstrings
+  commands:
+    - python -c "import nvstrings"
+    - python -c "import nvcategory"
+    - python -c "import nvtext"
 
 about:
-  home: http://nvidia.com/
-  license: LICENSE AGREEMENT FOR NVIDIA SOFTWARE DEVELOPMENT KITS
+  home: https://rapids.ai
+  license: Apache-2.0
+  license_family: Apache
   license_file: LICENSE
   summary: nvstrings Library

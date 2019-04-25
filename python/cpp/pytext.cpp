@@ -20,7 +20,6 @@
 #include <stdio.h>
 #include <nvstrings/NVStrings.h>
 #include <nvstrings/NVText.h>
-#include <nvstrings/util.h>
 
 // utility to deference NVStrings instance from nvstrings instance
 // caller should never dextroy the return object
@@ -60,7 +59,10 @@ NVStrings* strings_from_list(PyObject* listObj)
         else
             list[idx] = PyUnicode_AsUTF8(pystr);
     }
-    NVStrings* strs = NVStrings::create_from_array(list,count);
+    NVStrings* strs = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    strs = NVStrings::create_from_array(list,count);
+    Py_END_ALLOW_THREADS
     delete list;
     return strs;
 }
@@ -79,7 +81,9 @@ static PyObject* n_unique_tokens( PyObject* self, PyObject* args )
     if( argDelim != Py_None )
         delimiter = PyUnicode_AsUTF8(argDelim);
 
+    Py_BEGIN_ALLOW_THREADS
     strs = NVText::unique_tokens(*strs,delimiter);
+    Py_END_ALLOW_THREADS
     if( strs==0 )
         Py_RETURN_NONE;
     return PyLong_FromVoidPtr((void*)strs);
@@ -101,7 +105,10 @@ static PyObject* n_token_count( PyObject* self, PyObject* args )
     unsigned int* devptr = (unsigned int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,2));
     if( devptr )
     {
-        unsigned int rtn = NVText::token_count(*strs,delimiter,devptr);
+        unsigned int rtn = 0;
+        Py_BEGIN_ALLOW_THREADS
+        rtn = NVText::token_count(*strs,delimiter,devptr);
+        Py_END_ALLOW_THREADS
         return PyLong_FromLong((long)rtn);
     }
     //
@@ -110,7 +117,9 @@ static PyObject* n_token_count( PyObject* self, PyObject* args )
     if( count==0 )
         return ret;
     unsigned int* rtn = new unsigned int[count];
+    Py_BEGIN_ALLOW_THREADS
     NVText::token_count(*strs,delimiter,rtn,false);
+    Py_END_ALLOW_THREADS
     for(unsigned int idx=0; idx < count; idx++)
         PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));
     delete rtn;
@@ -146,7 +155,11 @@ static PyObject* n_contains_strings( PyObject* self, PyObject* args )
     if( tgts->size()==0 )
     {
         if( cname.compare("list")==0 )
+        {
+            Py_BEGIN_ALLOW_THREADS
             NVStrings::destroy(tgts);
+            Py_END_ALLOW_THREADS
+        }
         PyErr_Format(PyExc_ValueError,"tgts argument is empty");
         Py_RETURN_NONE;
     }
@@ -154,9 +167,16 @@ static PyObject* n_contains_strings( PyObject* self, PyObject* args )
     bool* devptr = (bool*)PyLong_AsVoidPtr(PyTuple_GetItem(args,2));
     if( devptr )
     {
-        unsigned int rtn = NVText::contains_strings(*strs,*tgts,devptr);
+        unsigned int rtn = 0;
+        Py_BEGIN_ALLOW_THREADS
+        rtn = NVText::contains_strings(*strs,*tgts,devptr);
+        Py_END_ALLOW_THREADS
         if( cname.compare("list")==0 )
+        {
+            Py_BEGIN_ALLOW_THREADS
             NVStrings::destroy(tgts);
+            Py_END_ALLOW_THREADS
+        }
         return PyLong_FromLong((long)rtn);
     }
     //
@@ -166,11 +186,17 @@ static PyObject* n_contains_strings( PyObject* self, PyObject* args )
     if( rows==0 )
     {
         if( cname.compare("list")==0 )
+        {
+            Py_BEGIN_ALLOW_THREADS
             NVStrings::destroy(tgts);
+            Py_END_ALLOW_THREADS
+        }
         return ret;
     }
     bool* rtn = new bool[rows*columns];
+    Py_BEGIN_ALLOW_THREADS
     NVText::contains_strings(*strs,*tgts,rtn,false);
+    Py_END_ALLOW_THREADS
     for(unsigned int idx=0; idx < rows; idx++)
     {
         PyObject* row = PyList_New(columns);
@@ -180,7 +206,11 @@ static PyObject* n_contains_strings( PyObject* self, PyObject* args )
     }
     delete rtn;
     if( cname.compare("list")==0 )
+    {
+        Py_BEGIN_ALLOW_THREADS
         NVStrings::destroy(tgts);
+        Py_END_ALLOW_THREADS
+    }
     return ret;
 }
 
@@ -212,7 +242,11 @@ static PyObject* n_strings_counts( PyObject* self, PyObject* args )
     if( tgts->size()==0 )
     {
         if( cname.compare("list")==0 )
+        {
+            Py_BEGIN_ALLOW_THREADS
             NVStrings::destroy(tgts);
+            Py_END_ALLOW_THREADS
+        }
         PyErr_Format(PyExc_ValueError,"tgts argument is empty");
         Py_RETURN_NONE;
     }
@@ -221,9 +255,16 @@ static PyObject* n_strings_counts( PyObject* self, PyObject* args )
     unsigned int* devptr = (unsigned int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,2));
     if( devptr )
     {
-        unsigned int rtn = NVText::strings_counts(*strs,*tgts,devptr);
+        unsigned int rtn = 0;
+        Py_BEGIN_ALLOW_THREADS
+        rtn = NVText::strings_counts(*strs,*tgts,devptr);
+        Py_END_ALLOW_THREADS
         if( cname.compare("list")==0 )
+        {
+            Py_BEGIN_ALLOW_THREADS
             NVStrings::destroy(tgts);
+            Py_END_ALLOW_THREADS
+        }
         return PyLong_FromLong((long)rtn);
     }
     // or fill in python list with host memory
@@ -233,11 +274,17 @@ static PyObject* n_strings_counts( PyObject* self, PyObject* args )
     if( rows==0 )
     {
         if( cname.compare("list")==0 )
+        {
+            Py_BEGIN_ALLOW_THREADS
             NVStrings::destroy(tgts);
+            Py_END_ALLOW_THREADS
+        }
         return ret;
     }
     unsigned int* rtn = new unsigned int[rows*columns];
+    Py_BEGIN_ALLOW_THREADS
     NVText::strings_counts(*strs,*tgts,rtn,false);
+    Py_END_ALLOW_THREADS
     for(unsigned int idx=0; idx < rows; idx++)
     {
         PyObject* row = PyList_New(columns);
@@ -247,7 +294,11 @@ static PyObject* n_strings_counts( PyObject* self, PyObject* args )
     }
     delete rtn;
     if( cname.compare("list")==0 )
+    {
+        Py_BEGIN_ALLOW_THREADS
         NVStrings::destroy(tgts);
+        Py_END_ALLOW_THREADS
+    }
     return ret;
 }
 
@@ -273,7 +324,9 @@ static PyObject* n_edit_distance( PyObject* self, PyObject* args )
         const char* tgt = PyUnicode_AsUTF8(pytgts);
         if( devptr )
         {
+            Py_BEGIN_ALLOW_THREADS
             NVText::edit_distance(NVText::levenshtein,*strs,tgt,devptr);
+            Py_END_ALLOW_THREADS
             Py_RETURN_NONE;
         }
         // or fill in python list with host memory
@@ -281,7 +334,9 @@ static PyObject* n_edit_distance( PyObject* self, PyObject* args )
         if( count==0 )
             return ret;
         std::vector<unsigned int> rtn(count);
+        Py_BEGIN_ALLOW_THREADS
         NVText::edit_distance(NVText::levenshtein,*strs,tgt,rtn.data(),false);
+        Py_END_ALLOW_THREADS
         for(unsigned int idx=0; idx < count; idx++)
             PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));
         return ret;
@@ -303,20 +358,32 @@ static PyObject* n_edit_distance( PyObject* self, PyObject* args )
     }
     if( devptr )
     {
+        Py_BEGIN_ALLOW_THREADS
         NVText::edit_distance(NVText::levenshtein,*strs,*tgts,devptr);
+        Py_END_ALLOW_THREADS
         if( cname.compare("list")==0 )
+        {
+            Py_BEGIN_ALLOW_THREADS
             NVStrings::destroy(tgts);
+            Py_END_ALLOW_THREADS
+        }
         Py_RETURN_NONE;
     }
     PyObject* ret = PyList_New(count);
     if( count==0 )
         return ret;
     std::vector<unsigned int> rtn(count);
+    Py_BEGIN_ALLOW_THREADS
     NVText::edit_distance(NVText::levenshtein,*strs,*tgts,rtn.data(),false);
+    Py_END_ALLOW_THREADS
     for(unsigned int idx=0; idx < count; idx++)
         PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));
     if( cname.compare("list")==0 )
+    {
+        Py_BEGIN_ALLOW_THREADS
         NVStrings::destroy(tgts);
+        Py_END_ALLOW_THREADS
+    }
     return ret;
 }
 
@@ -336,4 +403,3 @@ PyMODINIT_FUNC PyInit_pyniNVText(void)
 {
     return PyModule_Create(&cModPyDem);
 }
-

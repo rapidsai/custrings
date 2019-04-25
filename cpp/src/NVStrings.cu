@@ -14,7 +14,7 @@
 * limitations under the License.
 */
 
-#include <stdlib.h>
+#include <exception>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #include <thrust/device_vector.h>
@@ -34,6 +34,7 @@
 #include "custring_view.cuh"
 #include "StringsStatistics.h"
 #include "unicode/is_flags.h"
+#include "util.h"
 
 #ifdef __INTELLISENSE__
 unsigned int atomicAdd(unsigned int* address, unsigned int val);
@@ -95,8 +96,21 @@ NVStrings* NVStrings::create_from_array( const char** strs, unsigned int count)
 NVStrings* NVStrings::create_from_index(std::pair<const char*,size_t>* strs, unsigned int count, bool devmem, sorttype stype)
 {
     NVStrings* rtn = new NVStrings(count);
-    if( count )
-        NVStrings_init_from_indexes(rtn->pImpl,strs,count,devmem,stype);
+    if( !count )
+        return rtn;
+
+    int rc = NVStrings_init_from_indexes(rtn->pImpl,strs,count,devmem,stype);
+    if( rc )
+    {
+        // cannot make any other CUDA calls if IllegalAddress error occurs
+        if( rc==(int)cudaErrorIllegalAddress )
+            throw std::invalid_argument("nvstrings::create_from_index bad_device_ptr");
+        else
+        {
+            delete rtn;
+            throw std::runtime_error("nvstrings::create_from_index runtime_error");
+        }
+    }
     return rtn;
 }
 
@@ -137,6 +151,17 @@ NVStrings* NVStrings::create_from_ipc( nvstrings_ipc_transfer& ipc )
     return rtn;
 }
 
+NVStrings* NVStrings::create_from_csv( const char* csvfile, unsigned int column, unsigned int lines, sorttype stype, bool nullIsEmpty)
+{
+    unsigned int flags = nullIsEmpty ? CSV_NULL_IS_EMPTY : 0;
+    if( stype & NVStrings::length )
+        flags |= CSV_SORT_LENGTH;
+    if( stype & NVStrings::name )
+        flags |= CSV_SORT_NAME;
+    std::string fpath = csvfile;
+    return createFromCSV(fpath,column,lines,flags);
+}
+
 void NVStrings::destroy(NVStrings* inst)
 {
     delete inst;
@@ -145,11 +170,6 @@ void NVStrings::destroy(NVStrings* inst)
 size_t NVStrings::memsize() const
 {
     return pImpl->bufferSize;
-}
-
-void NVStrings::printTimingRecords()
-{
-    pImpl->printTimingRecords();
 }
 
 NVStrings* NVStrings::copy()
@@ -199,7 +219,7 @@ void NVStrings::print( int start, int end, int maxwidth, const char* delimiter )
         printf("all %d strings are null\n",count);
         return;
     }
-    char* d_buffer = 0;
+    char* d_buffer = nullptr;
     RMM_ALLOC(&d_buffer,msize,0);
     // convert lengths to offsets
     rmm::device_vector<size_t> offsets(count,0);
@@ -220,7 +240,7 @@ void NVStrings::print( int start, int end, int maxwidth, const char* delimiter )
             }
         });
     //
-    cudaDeviceSynchronize();
+    //cudaDeviceSynchronize();
     // copy strings to host
     char* h_buffer = new char[msize];
     cudaMemcpy(h_buffer, d_buffer, msize, cudaMemcpyDeviceToHost);
@@ -273,7 +293,7 @@ int NVStrings::to_host(char** list, int start, int end)
     }
 
     // allocate device memory to copy strings temporarily
-    char* d_buffer = 0;
+    char* d_buffer = nullptr;
     rmmError_t rerr = RMM_ALLOC(&d_buffer,msize,0);
     if( rerr != RMM_SUCCESS )
     {
@@ -299,13 +319,13 @@ int NVStrings::to_host(char** list, int start, int end)
             }
         });
     //
-    err = cudaDeviceSynchronize();
-    if( err != cudaSuccess )
-    {
-        printCudaError(err,"nvs-to_host: copying strings device to device");
-        RMM_FREE(d_buffer,0);
-        return (int)err;
-    }
+    //err = cudaDeviceSynchronize();
+    //if( err != cudaSuccess )
+    //{
+    //    printCudaError(err,"nvs-to_host: copying strings device to device");
+    //    RMM_FREE(d_buffer,0);
+    //    return (int)err;
+    //}
 
     // copy strings to host
     char* h_buffer = new char[msize];
@@ -364,21 +384,21 @@ int NVStrings::create_index(std::pair<const char*,size_t>* strs, bool bdevmem )
             }
             else
             {
-                d_indexes[idx].first = 0;
+                d_indexes[idx].first = nullptr;
                 d_indexes[idx].second = 0;
             }
         });
 
-    cudaError_t err = cudaDeviceSynchronize();
+    cudaError_t err = cudaSuccess; //cudaDeviceSynchronize();
+    if( bdevmem )
+        err = cudaMemcpy( strs, indexes.data().get(), count * sizeof(std::pair<const char*,size_t>), cudaMemcpyDeviceToDevice );
+    else
+        err = cudaMemcpy( strs, indexes.data().get(), count * sizeof(std::pair<const char*,size_t>), cudaMemcpyDeviceToHost );
     if( err != cudaSuccess )
     {
         printCudaError(err,"nvs-create_index");
         return (int)err;
     }
-    if( bdevmem )
-        cudaMemcpy( strs, indexes.data().get(), count * sizeof(std::pair<const char*,size_t>), cudaMemcpyDeviceToDevice );
-    else
-        cudaMemcpy( strs, indexes.data().get(), count * sizeof(std::pair<const char*,size_t>), cudaMemcpyDeviceToHost );
     return 0;
 }
 
@@ -521,12 +541,12 @@ unsigned int NVStrings::set_null_bitarray( unsigned char* bitarray, bool emptyIs
             d_bitarray[byteIdx] = byte;
         });
     //
-    cudaError_t err = cudaDeviceSynchronize();
-    if( err != cudaSuccess )
-    {
-        fprintf(stderr,"nvs-set_null_bitarray(%p,%d,%d) size=%u\n",bitarray,(int)emptyIsNull,(int)devmem,count);
-        printCudaError(err);
-    }
+    //cudaError_t err = cudaDeviceSynchronize();
+    //if( err != cudaSuccess )
+    //{
+    //    fprintf(stderr,"nvs-set_null_bitarray(%p,%d,%d) size=%u\n",bitarray,(int)emptyIsNull,(int)devmem,count);
+    //    printCudaError(err);
+    //}
     //
     if( !devmem )
     {
@@ -561,23 +581,29 @@ unsigned int NVStrings::get_nulls( unsigned int* array, bool emptyIsNull, bool d
                 d_array[idx] = idx;  // null
         });
     //
-    cudaError_t err = cudaDeviceSynchronize();
-    if( err != cudaSuccess )
-    {
-        fprintf(stderr,"nvs-get_nulls(%p,%d,%d) size=%u\n",array,(int)emptyIsNull,(int)devmem,count);
-        printCudaError(err);
-    }
+    //cudaError_t err = cudaDeviceSynchronize();
+    //if( err != cudaSuccess )
+    //{
+    //    fprintf(stderr,"nvs-get_nulls(%p,%d,%d) size=%u\n",array,(int)emptyIsNull,(int)devmem,count);
+    //    printCudaError(err);
+    //}
     // compact out the negative values
     int* newend = thrust::remove_if(execpol->on(0), d_array, d_array + count, [] __device__ (int val) {return val<0;});
     unsigned int ncount = (unsigned int)(newend - d_array);
 
     //
+    cudaError_t err = cudaSuccess;
     if( array )
     {
         if( devmem )
-            cudaMemcpy(array,d_array,sizeof(int)*ncount,cudaMemcpyDeviceToDevice);
+            err = cudaMemcpy(array,d_array,sizeof(int)*ncount,cudaMemcpyDeviceToDevice);
         else
-            cudaMemcpy(array,d_array,sizeof(int)*ncount,cudaMemcpyDeviceToHost);
+            err = cudaMemcpy(array,d_array,sizeof(int)*ncount,cudaMemcpyDeviceToHost);
+    }
+    if( err != cudaSuccess )
+    {
+        fprintf(stderr,"nvs-get_nulls(%p,%d,%d) size=%u\n",array,(int)emptyIsNull,(int)devmem,count);
+        printCudaError(err);
     }
     return ncount;
 }
