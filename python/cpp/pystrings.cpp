@@ -16,6 +16,7 @@
 
 #include <Python.h>
 #include <vector>
+#include <map>
 #include <string>
 #include <stdio.h>
 #include <exception>
@@ -699,27 +700,35 @@ static PyObject* n_createFromIPv4Integers( PyObject* self, PyObject* args )
     Py_RETURN_NONE;
 }
 
+// map parameter string to units
+std::map<std::string,NVStrings::timestamp_units> name_units = {
+    {"Y",NVStrings::timestamp_units::years}, {"M",NVStrings::timestamp_units::months}, {"D",NVStrings::timestamp_units::days},
+    {"h",NVStrings::timestamp_units::hours}, {"m",NVStrings::timestamp_units::minutes}, {"s",NVStrings::timestamp_units::seconds},
+    {"ms",NVStrings::timestamp_units::ms}, {"us",NVStrings::timestamp_units::us}, {"ns",NVStrings::timestamp_units::ns} };
+
 static PyObject* n_createFromTimestamp( PyObject* self, PyObject* args )
 {
     PyObject* pyvals = PyTuple_GetItem(args,0);
     PyObject* pycount = PyTuple_GetItem(args,1);
     PyObject* pynulls = PyTuple_GetItem(args,2);
-    //
-    PyObject* argUnits = PyTuple_GetItem(args,3);
+    PyObject* argFormat = PyTuple_GetItem(args,3);
+    PyObject* argUnits = PyTuple_GetItem(args,4);
+
+    const char* format = nullptr;
+    if( argFormat != Py_None )
+        format = PyUnicode_AsUTF8(argFormat);
+
     const char* unitsz = PyUnicode_AsUTF8(argUnits);
-    std::string units = unitsz;
-    NVStrings::timestamp_units tu;
-    if( units.compare("seconds")==0 )
-        tu = NVStrings::seconds;
-    else if( units.compare("milliseconds")==0 )
-        tu = NVStrings::milliseconds;
-    else
+    std::string str_units = unitsz;
+
+    if( name_units.find(str_units)==name_units.end() )
     {
         PyErr_Format(PyExc_ValueError,"nvstrings: units parameter value unrecognized");
         Py_RETURN_NONE;
     }
 
-    PyObject* pybmem = PyTuple_GetItem(args,4);
+    NVStrings::timestamp_units units = (NVStrings::timestamp_units)name_units[str_units];
+    PyObject* pybmem = PyTuple_GetItem(args,5);
     bool bdevmem = (bool)PyObject_IsTrue(pybmem);
     DataBuffer<unsigned long> dbvalues(pyvals);
     if( dbvalues.is_error() )
@@ -743,7 +752,7 @@ static PyObject* n_createFromTimestamp( PyObject* self, PyObject* args )
     if( pynulls == Py_None )
     {
         Py_BEGIN_ALLOW_THREADS
-        rtn = NVStrings::long2timestamp(values,count,tu,0,bdevmem);
+        rtn = NVStrings::long2timestamp(values,count,units,format,0,bdevmem);
         Py_END_ALLOW_THREADS
     }
     else
@@ -756,7 +765,7 @@ static PyObject* n_createFromTimestamp( PyObject* self, PyObject* args )
         }
         unsigned char* nulls = dbnulls.get_values();
         Py_BEGIN_ALLOW_THREADS
-        rtn = NVStrings::long2timestamp(values,count,tu,nulls,bdevmem);
+        rtn = NVStrings::long2timestamp(values,count,units,format,nulls,bdevmem);
         Py_END_ALLOW_THREADS
     }
 
@@ -1328,25 +1337,24 @@ static PyObject* n_timestamp2int( PyObject* self, PyObject* args )
     if( count==0 )
         return ret;
     //
-    PyObject* argUnits = PyTuple_GetItem(args,1);
+    PyObject* argFormat = PyTuple_GetItem(args,1);
+    const char* format = 0;
+    if( argFormat != Py_None )
+        format = PyUnicode_AsUTF8(argFormat);
+    PyObject* argUnits = PyTuple_GetItem(args,2);
     const char* unitsz = PyUnicode_AsUTF8(argUnits);
-    std::string units = unitsz;
-    NVStrings::timestamp_units tu;
-    if( units.compare("seconds")==0 )
-        tu = NVStrings::seconds;
-    else if( units.compare("milliseconds")==0 )
-        tu = NVStrings::milliseconds;
-    else
+    std::string str_units = unitsz;
+    if( name_units.find(str_units)==name_units.end() )
     {
         PyErr_Format(PyExc_ValueError,"nvstrings: units parameter value unrecognized");
         Py_RETURN_NONE;
     }
-
-    unsigned long* devptr = (unsigned long*)PyLong_AsVoidPtr(PyTuple_GetItem(args,2));
+    NVStrings::timestamp_units units = name_units[str_units];
+    unsigned long* devptr = (unsigned long*)PyLong_AsVoidPtr(PyTuple_GetItem(args,3));
     if( devptr )
     {
         Py_BEGIN_ALLOW_THREADS
-        tptr->timestamp2long(devptr,tu);
+        tptr->timestamp2long(format,units,devptr);
         Py_END_ALLOW_THREADS
         return PyLong_FromVoidPtr((void*)devptr);
     }
@@ -1354,7 +1362,7 @@ static PyObject* n_timestamp2int( PyObject* self, PyObject* args )
     // copy to host option
     unsigned long* rtn = new unsigned long[count];
     Py_BEGIN_ALLOW_THREADS
-    tptr->timestamp2long(rtn,tu,false);
+    tptr->timestamp2long(format,units,rtn,false);
     Py_END_ALLOW_THREADS
     std::vector<unsigned char> nulls(((count+7)/8),0);
     unsigned int ncount = 0;

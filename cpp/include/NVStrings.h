@@ -130,8 +130,6 @@ public:
      * @return Instance with data provided.
      */
     static NVStrings* create_from_ipc( nvstrings_ipc_transfer& ipc );
-    ///@}
-
     /**
      * @brief Create an instance from a specific column in a CSV file.
      *
@@ -145,6 +143,7 @@ public:
      * @param[in] nullIsEmpty   How to handle null entries. Set to true to treat nulls as empty strings.
      */
     static NVStrings* create_from_csv( const char* csvfile, unsigned int column, unsigned int lines=0, sorttype stype=none, bool nullIsEmpty=false);
+    ///@}
 
     /**
      * @brief Use this method to free any instance created by methods in this class.
@@ -1023,21 +1022,29 @@ public:
      * @brief  Units for timestamp conversion.
      */
     enum timestamp_units {
-        seconds=0,       ///< precision is seconds
-        milliseconds=1   ///< precision is milliseconds
+        years,           ///< precision is years
+        months,          ///< precision is months
+        days,            ///< precision is days
+        hours,           ///< precision is hours
+        minutes,         ///< precision is minutes
+        seconds,         ///< precision is seconds
+        ms,              ///< precision is milliseconds
+        us,              ///< precision is microseconds
+        ns               ///< precision is nanoseconds
     };
     /**
-     * @brief Returns integer representation ISO-8601 string.
+     * @brief Returns integer representation date-time string.
      *
-     * Format must be YYYY-MM-DDThh:mm:ss.sss±hh:ss though separators are optional.
-     * Timezone shortcut 'Z' in place of '±hh:ss' is also allowed.
+     * @param[in] format Format must include strptime format specifiers though only the following are
+     *                   supported: %Y,%y,%m,%d,%H,%I,%p,%M,%S,%f,%z
+     *                   Default format is "%Y-%m-%dT%H:%M:%SZ"
+     * @param[in] units The values will be created in these units.
      * @param[in,out] results Array this method will fill in with the results.
      *                        This must point to memory able to hold size() values.
-     * @param units The values will be created in these units.
-     * @param devmem Indicates whether results points to device memory or CPU memory.
+     * @param[in] devmem Indicates whether results points to device memory or CPU memory.
      * @return Number of non-zero values.
      */
-    int timestamp2long( unsigned long* results, timestamp_units units, bool devmem=true );
+    int timestamp2long( const char* format, timestamp_units units, unsigned long* results, bool devmem=true );
     /**
      * @brief Returns string representation of UTC timestamp in milliseconds from Epoch time.
      *
@@ -1046,13 +1053,16 @@ public:
      * @param[in] values Array of integers to convert to strings.
      * @param count The number of integers in the values parameter.
      * @param units Time units of the values array.
+     * @param[in] format Format must include strftime format specifiers though only the following are
+     *                   supported: %Y,%y,%m,%d,%H,%I,%p,%M,%S,%f,%z
+     *                   Default format is "%Y-%m-%dT%H:%M:%SZ"
      * @param[in] nullbitmask Indicates which entries should result in a null string.
      *                        If specified, this array should be at least (count+7)/8 bytes.
      *                        The bits are expected to be organized in Arrow format.
      * @param devmem Indicates whether results points to device memory or CPU memory.
      * @return New instance with string representation of the integers as appropriate.
      */
-    static NVStrings* long2timestamp( const unsigned long* values, unsigned int count, timestamp_units units, const unsigned char* nullbitmask=0, bool devmem=true);
+    static NVStrings* long2timestamp( const unsigned long* values, unsigned int count, timestamp_units units, const char* format, const unsigned char* nullbitmask=0, bool devmem=true);
 
     /**
      * @brief Output strings to stdout.
