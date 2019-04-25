@@ -34,6 +34,7 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 
 ## Bug Fixes
 
+- PR #261 Fixed doxygen formatting and updated to 0.7
 - PR #248 Fixed docstring for index,rindex,find,rfind
 - PR #245 Fixed backref to continue replacing
 - PR #234 Added more type-checking to gather method

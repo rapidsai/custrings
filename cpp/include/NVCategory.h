@@ -18,8 +18,8 @@
 #include <vector>
 
 /**
- * @file NVStrings.h
- * @brief Class definition for NVStrings.
+ * @file NVCategory.h
+ * @brief Class definition for NVCategory.
  */
 
 struct nvcategory_ipc_transfer;
@@ -35,17 +35,13 @@ class NVCategoryImpl;
  * from a list of strings.
  * @par
  * The methods are meant to match more or less directly with its python
- * counterpart, @p nvstrings.py. And the operations strive to mimic the
+ * counterpart, @p nvcategory.py. And the operations strive to mimic the
  * behavoir of the equivalent Pandas strings methods.
  * @par
  * An instance of this class is immutable and operations that modify
  * or modify keys or values will return a new instance.
  * @par
  * All methods accept and return only UTF-8 encoded strings.
- * @par
- * You can use the static \p create methods to instantiate from
- * host strings -- those that are stored in CPU memory.
- * Use the \p destroy() method to free an instance of this class.
  * @nosubgrouping
  */
 class NVCategory
@@ -122,7 +118,7 @@ public:
      */
     static NVCategory* create_from_categories(std::vector<NVCategory*>& cats);
     /**
-     * @brief Create an instance from an IPC-transfer object built from create_ipc_transfer.
+     * @brief Create an instance from an IPC-transfer object built from nvcategory_ipc_transfer.
      *
      * @param[in] ipc Data needed to create a new instance.
      * @return Instance with data provided.
