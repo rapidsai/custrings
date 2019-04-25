@@ -93,8 +93,7 @@ public:
      * @param count The number of pairs in the \p strs array.
      * @param devmem Set to true (default) if pointers are to device memory.
      * @param stype Optionally sort the strings accordingly.
-     *
-      @return Instance with the strings copied into device memory.
+     * @return Instance with the strings copied into device memory.
      */
     static NVStrings* create_from_index(std::pair<const char*,size_t>* strs, unsigned int count, bool devmem=true, sorttype stype=none );
     /**
@@ -124,7 +123,7 @@ public:
      */
     static NVStrings* create_from_strings( std::vector<NVStrings*> strs );
     /**
-     * @brief Create an instance from an IPC-transfer object built from create_ipc_transfer.
+     * @brief Create an instance from an IPC-transfer object built from nvstrings_ipc_transfer.
      *
      * @param[in] ipc Data needed to create a new instance.
      * @return Instance with data provided.
@@ -141,6 +140,7 @@ public:
      * @param[in] lines   Limit the number of lines read from the file. Default is all lines.
      * @param[in] stype   Whether to sort the strings or not.
      * @param[in] nullIsEmpty   How to handle null entries. Set to true to treat nulls as empty strings.
+     * @return Instance of strings for the specified column.
      */
     static NVStrings* create_from_csv( const char* csvfile, unsigned int column, unsigned int lines=0, sorttype stype=none, bool nullIsEmpty=false);
     ///@}
