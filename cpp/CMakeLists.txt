@@ -127,6 +127,7 @@ add_library(NVStrings SHARED
             src/NVStrings_case.cu
             src/NVStrings_find.cu
             src/NVStrings_convert.cu
+            src/NVStrings_datetime.cu
             src/util.cu
             src/regex/regexec.cpp
             src/regex/regcomp.cpp)

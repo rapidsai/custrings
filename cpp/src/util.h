@@ -34,4 +34,5 @@ __host__ __device__ inline unsigned int u82u( unsigned int utf8 );
 __device__ inline char* copy_and_incr( char*& dest, char* src, unsigned int bytes );
 __device__ inline char* copy_and_incr_both( char*& dest, char*& src, unsigned int bytes );
 
+//
 #include "util.inl"
