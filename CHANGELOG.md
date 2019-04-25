@@ -4,6 +4,7 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 
 ## New Features
 
+- PR #260 Support for format-specified date-time to/from string conversion
 - PR #195 Added IPC python bindings
 - PR #204 Added stol/ltos and stod/dtos number converters
 - PR #194 Added method to create strings from array of floats
