@@ -224,10 +224,11 @@ static PyObject* n_getIPCData( PyObject* self, PyObject* args )
 
     nvstrings_ipc_transfer ipc;
 
+    PyObject* ipc_data = PyList_New(5);
+
     Py_BEGIN_ALLOW_THREADS
     tptr->create_ipc_transfer(ipc);
 
-    PyObject* ipc_data = PyList_New(5);
     PyList_SetItem(ipc_data, 0, PyByteArray_FromStringAndSize(ConvertCudaIpcMemHandler(ipc.hstrs).data(), sizeof(cudaIpcMemHandle_t))); //custrings_views
     PyList_SetItem(ipc_data, 1, PyLong_FromLong(ipc.count)); //custrings_views_count
     PyList_SetItem(ipc_data, 2, PyByteArray_FromStringAndSize(ConvertCudaIpcMemHandler(ipc.hmem).data(), sizeof(cudaIpcMemHandle_t))); //custrings_membuffer
