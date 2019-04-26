@@ -28,5 +28,8 @@ print(".replace(3,++):",strs.replace('3','++'))
 print(".replace(c,):",strs.replace('c',''))
 
 print(".fillna(''):",strs.fillna(''))
+repl = nvstrings.to_device(["null1","null2","null3","null4","null5","null6"])
+print(".fillna(nvs):",strs.fillna(repl))
 
 strs = None
+repl = None

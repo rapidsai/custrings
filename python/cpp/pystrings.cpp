@@ -1908,15 +1908,36 @@ static PyObject* n_replace( PyObject* self, PyObject* args )
 
 static PyObject* n_fillna( PyObject* self, PyObject* args )
 {
-    PyObject* vo = 0;      // self pointer   = O
-    const char* repl = 0;  // cannot be null = s
-    if( !parse_args("replace",args,"Os",&vo,&repl) )
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    //if( !parse_args("fillna",args,"Os",&vo,&repl) )
+    //    Py_RETURN_NONE;
+    PyObject* pyrepl = PyTuple_GetItem(args,1);
+    if( pyrepl == Py_None )
+    {
+        PyErr_Format(PyExc_ValueError,"nvstrings.fillna repl argument must be specified");
         Py_RETURN_NONE;
-    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
-    NVStrings* rtn = 0;
-    Py_BEGIN_ALLOW_THREADS
-    rtn = tptr->fillna(repl);
-    Py_END_ALLOW_THREADS
+    }
+    NVStrings* rtn = nullptr;
+    std::string cname = pyrepl->ob_type->tp_name;
+    if( cname.compare("nvstrings")==0 )
+    {
+        NVStrings* trepl = (NVStrings*)PyLong_AsVoidPtr(PyObject_GetAttrString(pyrepl,"m_cptr"));
+        if( trepl->size() != tptr->size() )
+        {
+            PyErr_Format(PyExc_ValueError,"nvstrings.fillna repl argument must be same size");
+            Py_RETURN_NONE;
+        }
+        Py_BEGIN_ALLOW_THREADS
+        rtn = tptr->fillna(*trepl);
+        Py_END_ALLOW_THREADS
+    }
+    else if( cname.compare("str")==0 )
+    {
+        const char* repl = PyUnicode_AsUTF8(pyrepl);
+        Py_BEGIN_ALLOW_THREADS
+        rtn = tptr->fillna(repl);
+        Py_END_ALLOW_THREADS
+    }
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -1928,7 +1949,7 @@ static PyObject* n_replace_with_backrefs( PyObject* self, PyObject* args )
     PyObject* vo = 0;      // self pointer   = O
     const char* pat = 0;   // cannot be null = s
     const char* repl = 0;  // can be null    = z
-    if( !parse_args("replace",args,"Osz",&vo,&pat,&repl) )
+    if( !parse_args("replace_with_backrefs",args,"Osz",&vo,&pat,&repl) )
         Py_RETURN_NONE;
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
     NVStrings* rtn = 0;
