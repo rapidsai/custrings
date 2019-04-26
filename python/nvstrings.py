@@ -1473,13 +1473,15 @@ class nvstrings:
 
     def fillna(self, repl):
         """
-        Create new instance, replacing all nulls with the given string.
+        Create new instance, replacing all nulls with the given string(s).
 
         Parameters
         ----------
-        repl : str
+        repl : str or nvstrings
             String to be used in place of nulls.
             This may be an empty string but may not be None.
+            This may also be another nvstrings instance with the size.
+            Corresponding strings are replaced only if null.
 
         Examples
         --------

@@ -688,6 +688,14 @@ public:
      * @return Copy of this instance with null strings replaced.
      */
     NVStrings* fillna( const char* str );
+    /**
+     * @brief Replace null strings with corresponding strings from the parameter.
+     *
+     * Strings are matched by index. Strings that are not null are not replaced.
+     * @param[in] strs Strings to replace nulls. The number of strings must match this instance.
+     * @return Copy of this instance with null strings replaced.
+     */
+    NVStrings* fillna( NVStrings& strs );
 
     // NVStrings_strip.cu
     /**

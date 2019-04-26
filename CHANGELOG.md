@@ -18,6 +18,7 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 
 ## Improvements
 
+- PR #264 Allow nvstrings parameter to fillna
 - PR #256 Convert device-only custring_view to header-only
 - PR #255 Removed unnecessary cudaDeviceSync calls
 - PR #237 Removed internal util.h from include dir

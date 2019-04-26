@@ -575,3 +575,53 @@ NVStrings* NVStrings::fillna( const char* str )
     RMM_FREE(d_str,0);
     return rtn;
 }
+
+
+// This will create a new instance replacing any nulls with the provided strings.
+// The strings are matched by index. Non-null strings are not replaced.
+NVStrings* NVStrings::fillna( NVStrings& strs )
+{
+    if( strs.size()!=size() )
+        throw std::invalid_argument("nvstrings::fillna parameter must have the same number of strings");
+    auto execpol = rmm::exec_policy(0);
+
+    // compute size of the output
+    auto count = size();
+    custring_view** d_strings = pImpl->getStringsPtr();
+    custring_view** d_repls = strs.pImpl->getStringsPtr();
+    rmm::device_vector<size_t> sizes(count,0);
+    size_t* d_sizes = sizes.data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_strings, d_repls, d_sizes] __device__(unsigned int idx){
+            custring_view* dstr = d_strings[idx];
+            custring_view* drepl = d_repls[idx];
+            unsigned int size = 0;
+            if( dstr )
+                size = dstr->alloc_size();
+            else if( drepl )
+                size = drepl->alloc_size();
+            else
+                return; // both are null
+            d_sizes[idx] = ALIGN_SIZE(size);
+        });
+    //
+    NVStrings* rtn = new NVStrings(count); // create output object
+    char* d_buffer = rtn->pImpl->createMemoryFor(d_sizes);
+    rmm::device_vector<size_t> offsets(count,0); // create offsets
+    thrust::exclusive_scan(execpol->on(0),sizes.begin(),sizes.end(),offsets.begin());
+    // do the thing
+    custring_view_array d_results = rtn->pImpl->getStringsPtr();
+    size_t* d_offsets = offsets.data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_strings, d_repls, d_buffer, d_offsets, d_results] __device__(unsigned int idx){
+            custring_view* dstr = d_strings[idx];
+            custring_view* drepl = d_repls[idx];
+            char* buffer = d_buffer + d_offsets[idx];
+            if( dstr )
+                d_results[idx] = custring_view::create_from(buffer,*dstr);
+            else if( drepl )
+                d_results[idx] = custring_view::create_from(buffer,*drepl);
+        });
+    //
+    return rtn;
+}
