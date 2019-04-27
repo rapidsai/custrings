@@ -2200,6 +2200,22 @@ class nvstrings:
         rtn = pyniNVStrings.n_isupper(self.m_cptr, devptr)
         return rtn
 
+    def is_empty(self, devptr=0):
+        """
+        Return array of boolean values with True for strings that contain
+        at least one character.
+
+        Examples
+        --------
+        >>> import nvstrings
+        >>> s = nvstrings.to_device(['hello', 'goodbye', '', None])
+        >>> print(s.isempty())
+        [True, True,False,False]
+
+        """
+        rtn = pyniNVStrings.n_is_empty(self.m_cptr, devptr)
+        return rtn
+
     def translate(self, table):
         """
         Translate individual characters to new characters using

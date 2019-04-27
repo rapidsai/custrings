@@ -125,6 +125,6 @@ s = nvstrings.to_device(["true","false",None,"","true"])
 print(s)
 print(".to_booleans()",s.to_booleans(true="true"))
 print("from_booleans",nvstrings.from_booleans([True,False,False,True],nulls=[11]))
-
+print("is_empty()",s.is_empty())
 
 s = None

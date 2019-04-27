@@ -3421,6 +3421,46 @@ static PyObject* n_isupper( PyObject* self, PyObject* args )
     return ret;
 }
 
+static PyObject* n_is_empty( PyObject* self, PyObject* args )
+{
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    bool* devptr = (bool*)PyLong_AsVoidPtr(PyTuple_GetItem(args,1));
+    if( devptr )
+    {
+        Py_BEGIN_ALLOW_THREADS
+        tptr->is_empty(devptr);
+        Py_END_ALLOW_THREADS
+        return PyLong_FromVoidPtr((void*)devptr);
+    }
+    // copy to host option
+    unsigned int count = tptr->size();
+    PyObject* ret = PyList_New(count);
+    if( count==0 )
+        return ret;
+    bool* rtn = new bool[count];
+    Py_BEGIN_ALLOW_THREADS
+    tptr->is_empty(rtn,false);
+    Py_END_ALLOW_THREADS
+    std::vector<unsigned char> nulls(((count+7)/8),0);
+    unsigned int ncount = 0;
+    Py_BEGIN_ALLOW_THREADS
+    ncount = tptr->set_null_bitarray(nulls.data(),false,false);
+    Py_END_ALLOW_THREADS
+    for(size_t idx=0; idx < count; idx++)
+    {
+        if( ncount && ((nulls[idx/8] & (1 << (idx % 8)))==0) )
+        {
+            Py_INCREF(Py_None);
+            PyList_SetItem(ret, idx, Py_None);
+            continue;
+        }
+        PyList_SetItem(ret, idx, PyBool_FromLong((long)rtn[idx]));
+    }
+    delete rtn;
+    printf("count=%d,ncount=%d,ret=%p\n",count,ncount,ret);
+    return ret;
+}
+
 // Version 0.1, 0.1.1, 0.2, 0.2.1 features
 static PyMethodDef s_Methods[] = {
     { "n_createFromHostStrings", n_createFromHostStrings, METH_VARARGS, "" },
@@ -3517,6 +3557,7 @@ static PyMethodDef s_Methods[] = {
     { "n_isnumeric", n_isnumeric, METH_VARARGS, "" },
     { "n_islower", n_islower, METH_VARARGS, "" },
     { "n_isupper", n_isupper, METH_VARARGS, "" },
+    { "n_is_empty", n_is_empty, METH_VARARGS, "" },
     { NULL, NULL, 0, NULL }
 };
 

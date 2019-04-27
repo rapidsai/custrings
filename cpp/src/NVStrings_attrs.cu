@@ -139,7 +139,7 @@ unsigned int NVStrings::isalnum( bool* results, bool todevice )
             }
             d_rtn[idx] = brc;
         });
-    // count the number of successful finds
+    // count the number of trues
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true );
     if( !todevice )
     {   // copy result back to host
@@ -176,7 +176,7 @@ unsigned int NVStrings::isalpha( bool* results, bool todevice )
             }
             d_rtn[idx] = brc;
         });
-    // count the number of successful finds
+    // count the number of trues
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
@@ -214,7 +214,7 @@ unsigned int NVStrings::isdigit( bool* results, bool todevice )
             }
             d_rtn[idx] = brc;
         });
-    // count the number of successful finds
+    // count the number of trues
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
@@ -251,7 +251,7 @@ unsigned int NVStrings::isspace( bool* results, bool todevice )
             }
             d_rtn[idx] = brc;
         });
-    // count the number of successful finds
+    // count the number of trues
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
@@ -288,7 +288,7 @@ unsigned int NVStrings::isdecimal( bool* results, bool todevice )
             }
             d_rtn[idx] = brc;
         });
-    // count the number of successful finds
+    // count the number of trues
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
@@ -325,7 +325,7 @@ unsigned int NVStrings::isnumeric( bool* results, bool todevice )
             }
             d_rtn[idx] = brc;
         });
-    // count the number of successful finds
+    // count the number of trues
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
@@ -362,7 +362,7 @@ unsigned int NVStrings::islower( bool* results, bool todevice )
             }
             d_rtn[idx] = brc;
         });
-    // count the number of successful finds
+    // count the number of trues
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
@@ -399,7 +399,7 @@ unsigned int NVStrings::isupper( bool* results, bool todevice )
             }
             d_rtn[idx] = brc;
         });
-    // count the number of successful finds
+    // count the number of trues
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
@@ -408,3 +408,32 @@ unsigned int NVStrings::isupper( bool* results, bool todevice )
     }
     return (unsigned int)matches;
 }
+
+unsigned int NVStrings::is_empty( bool* results, bool todevice )
+{
+    unsigned int count = size();
+    if( count==0 || results==0 )
+        return 0;
+    auto execpol = rmm::exec_policy(0);
+    bool* d_rtn = results;
+    if( !todevice )
+        RMM_ALLOC(&d_rtn,count*sizeof(bool),0);
+    custring_view_array d_strings = pImpl->getStringsPtr();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_strings, d_rtn] __device__(unsigned int idx){
+            custring_view* dstr = d_strings[idx];
+            bool brc = true; // null is empty
+            if( dstr )
+                brc = dstr->empty(); // requires at least one character
+            d_rtn[idx] = brc;
+        });
+    // count the number of trues
+    int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
+    if( !todevice )
+    {   // copy result back to host
+        cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
+        RMM_FREE(d_rtn,0);
+    }
+    return (unsigned int)matches;
+}
+
