@@ -383,6 +383,14 @@ public:
      * @return The number of trues.
      */
     unsigned int isupper( bool* results, bool devmem=true );
+    /**
+     * @brief Returns true for non-empty strings -- non-null strings with at least one character.
+     * @param[in,out] results Array filled in by this method.
+     *                        This must point to memory able to hold size() values.
+     * @param devmem Indicates whether the results parameter points to device memory or CPU memory.
+     * @return The number of trues.
+     */
+    unsigned int is_empty( bool* results, bool devmem=true );
 
     // NVStrings_combine.cu
     /**
