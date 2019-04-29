@@ -111,8 +111,8 @@ def test_from_strings():
 
     expected_keys = ['aaa', 'bbb', 'ccc', 'ddd', 'eee', 'fff', 'ggg', 'hhh']
     expected_values = [4, 0, 4, 3, 2, 2, 2, 4, 0, 6, 5, 7, 0, 5, 5, 6, 7, 1]
-    assert_eq(got.keys(), expected_keys)
-    assert_eq(got.values(), expected_values)
+    assert_eq(cat.keys(), expected_keys)
+    assert_eq(cat.values(), expected_values)
 
 
 def test_merge_category():
