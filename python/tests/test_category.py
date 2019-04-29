@@ -4,6 +4,7 @@ import nvstrings
 import nvcategory
 
 import pytest
+import numpy as np
 
 from utils import assert_eq
 
@@ -203,3 +204,32 @@ def test_gather_and_remap():
     expected_values = [0, 2, 1, 2, 0, 1]
     assert_eq(cat1.keys(), expected_keys)
     assert_eq(cat1.values(), expected_values)
+
+
+def test_from_offsets():
+    values = np.array([97, 112, 112, 108, 101], dtype=np.int8)
+    offsets = np.array([0,1,2,3,4,5], dtype=np.int32)
+    cat = nvcategory.from_offsets(values,offsets,5)
+    expected_keys = ['a', 'e', 'l', 'p']
+    expected_values = [0, 3, 3, 2, 1]
+    assert_eq(cat.keys(), expected_keys)
+    assert_eq(cat.values(), expected_values)
+
+
+def test_from_strings_list():
+    s1 = nvstrings.to_device(['apple', 'pear', 'banana'])
+    s2 = nvstrings.to_device(['orange', 'pear'])
+    cat = nvcategory.from_strings_list([s1, s2])
+
+    expected_keys = ['apple', 'banana', 'orange', 'pear']
+    expected_values = [0, 3, 1, 2, 3]
+    assert_eq(cat.keys(), expected_keys)
+    assert_eq(cat.values(), expected_values)
+
+
+def test_to_device():
+    cat = nvcategory.to_device(['apple','pear','banana','orange','pear'])
+    expected_keys = ['apple', 'banana', 'orange', 'pear']
+    expected_values = [0, 3, 1, 2, 3]
+    assert_eq(cat.keys(), expected_keys)
+    assert_eq(cat.values(), expected_values)
