@@ -11,9 +11,23 @@ from utils import assert_eq
 def test_size():
     strs = nvstrings.to_device(
         ["eee", "aaa", "eee", "ddd", "ccc", "ccc", "ccc", "eee", "aaa"])
-    got = strs.size()
     cat = nvcategory.from_strings(strs)
     assert strs.size() == cat.size()
+
+
+def test_keys():
+    strs1 = nvstrings.to_device(["a", "b", "b", "f", "c", "f"])
+    cat = nvcategory.from_strings(strs1)
+    got = cat.keys()
+    expected = ['a', 'b', 'c', 'f']
+    assert_eq(got, expected)
+
+
+def test_keys_size():
+    strs1 = nvstrings.to_device(["a", "b", "b", "f", "c", "f"])
+    cat = nvcategory.from_strings(strs1)
+    got = cat.keys_size()
+    assert got == 4
 
 
 def test_values():
@@ -57,8 +71,7 @@ def test_to_strings():
         ["eee", "aaa", "eee", "ddd", "ccc", "ccc", "ccc", "eee", "aaa"])
     cat = nvcategory.from_strings(strs)
     got = cat.to_strings()
-    expected = ['eee', 'aaa', 'eee', 'ddd', 'ccc', 'ccc', 'ccc', 'eee', 'aaa']
-    assert_eq(got, expected)
+    assert_eq(got, strs)
 
 
 def test_add_strings():
@@ -92,14 +105,6 @@ def test_remove_strings():
     expected_values = [1, 1, 0, 1]
     assert_eq(got.keys(), expected_keys)
     assert_eq(got.values(), expected_values)
-
-
-def test_to_strings():
-    strs = nvstrings.to_device(
-        ["eee", "aaa", "eee", "ddd", "ccc", "ccc", "ccc", "eee", "aaa"])
-    cat = nvcategory.from_strings(strs)
-    got = cat.to_strings()
-    assert_eq(got, strs)
 
 
 def test_from_strings():
