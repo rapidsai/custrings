@@ -120,17 +120,11 @@ print(s)
 print(".ip2int()",s.ip2int())
 print("int2ip()",nvstrings.int2ip(s.ip2int()))
 
-s = nvstrings.to_device(["2019-03-20T12:34:56.789Z","2020-02-29"])
-print(s)
-print(".timestamp2int()",s.timestamp2int())
-print(".timestamp2int(ms)",s.timestamp2int(units='milliseconds'))
-print("int2timestamp()",nvstrings.int2timestamp([1553085296,1582934400]))
-print("int2timestamp(ms)",nvstrings.int2timestamp([1553085296789,1582934400000],units='milliseconds'))
-
+# booleans
 s = nvstrings.to_device(["true","false",None,"","true"])
 print(s)
 print(".to_booleans()",s.to_booleans(true="true"))
 print("from_booleans",nvstrings.from_booleans([True,False,False,True],nulls=[11]))
-
+print("is_empty()",s.is_empty())
 
 s = None

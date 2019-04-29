@@ -266,31 +266,37 @@ def int2ip(values, count=0, nulls=None, bdevmem=False):
     return rtn
 
 
-def int2timestamp(values, count=0, nulls=None, units='seconds', bdevmem=False):
+def int2timestamp(values, count=0, nulls=None,
+                  format=None, units='s', bdevmem=False):
     """
-    Create ISO8601 strings from an array of int64 values.
-    The values must be in seconds or milliseconds from epoch time
-    and is expected as UTC.
-    Each string will be created with the following format:
-    YYYY-MM-DDThh:mm:ss.sssZ
+    Create date/time strings from an array of int64 values.
+    The values must be in units as specified by the units parameter.
+    The values is expected to be from epoch time and in UTC.
 
     Parameters
     ----------
     values : list, memory address or buffer
-        Array of int64 values (milliseconds) to convert to strings.
+        Array of int64 values to convert to date-time strings.
     count : int
         Number of integers in values.
         This is only required if values is a memory pointer.
     nulls : list, memory address or buffer
         Bit array indicating which values should be considered null.
         Uses the arrow format for valid bitmask.
+    format : str
+        May include the following strftime specifiers only:
+        %Y,%y,%m,%d,%H,%I,%p,%M,%S,%f,%z
+        Default format is "%Y-%m-%dT%H:%M:%SZ"
     units : str
-        Must be either 'seconds' or 'milliseconds'.
+        The units of the values and must be one of the following:
+        Y,M,D,h,m,s,ms,us,ns
+        Default is 's' for seconds
     bdevmem : boolean
         Default (False) interprets memory pointers as CPU memory.
 
     """
-    rtn = pyniNVStrings.n_createFromTimestamp(values, count, nulls, units,
+    rtn = pyniNVStrings.n_createFromTimestamp(values, count, nulls,
+                                              format, units,
                                               bdevmem)
     if rtn is not None:
         rtn = nvstrings(rtn)
@@ -827,18 +833,23 @@ class nvstrings:
         rtn = pyniNVStrings.n_ip2int(self.m_cptr, devptr)
         return rtn
 
-    def timestamp2int(self, units='seconds', devptr=0):
+    def timestamp2int(self, format=None, units='s', devptr=0):
         """
         Returns integer value represented by each string.
-        String is interpretted to be ISO8601 format.
-        Format must be YYYY-MM-DDThh:mm:ss.sss±hh:ss
-        though separators are optional.
-        Timezone shortcut 'Z' in place of '±hh:ss' is also allowed.
+        String is interpretted using the format provided.
+        The values are returned in the units specified based
+        on epoch time and in UTC.
 
         Parameters
         ----------
+        format : str
+            May include the following strptime specifiers only:
+            %Y,%y,%m,%d,%H,%I,%p,%M,%S,%f,%z
+            Default format is "%Y-%m-%dT%H:%M:%SZ"
         units : str
-            Acceptable types are 'seconds' or 'milliseconds'.
+            The units of the values and must be one of the following:
+            Y,M,D,h,m,s,ms,us,ns
+            Default is 's' for seconds
         devptr : GPU memory pointer
             Where resulting integer values will be written.
             Memory must be able to hold at least size() of int64 values.
@@ -846,12 +857,14 @@ class nvstrings:
         Examples
         --------
         >>> import nvstrings
-        >>> s = nvstrings.to_device(["2019-03-20T12:34:56","2020-02-29"])
+        >>> s = nvstrings.to_device(["2019-03-20T12:34:56Z"])
         >>> print(s.timestamp2int())
-        [1553085296, 1582934400]
+        [1553085296]
 
         """
-        rtn = pyniNVStrings.n_timestamp2int(self.m_cptr, units, devptr)
+        rtn = pyniNVStrings.n_timestamp2int(self.m_cptr,
+                                            format, units,
+                                            devptr)
         return rtn
 
     def cat(self, others=None, sep=None, na_rep=None):
@@ -1460,13 +1473,15 @@ class nvstrings:
 
     def fillna(self, repl):
         """
-        Create new instance, replacing all nulls with the given string.
+        Create new instance, replacing all nulls with the given string(s).
 
         Parameters
         ----------
-        repl : str
+        repl : str or nvstrings
             String to be used in place of nulls.
             This may be an empty string but may not be None.
+            This may also be another nvstrings instance with the size.
+            Corresponding strings are replaced only if null.
 
         Examples
         --------
@@ -1647,10 +1662,10 @@ class nvstrings:
         sub : str
             String to find
         start : int
-            Beginning of section to replace.
-            Default is beginning of each string.
+            Beginning of section to search from.
+            Default is 0 (beginning of each string).
         end : int
-            End of section to replace. Default is end of each string.
+            End of section to search. Default is end of each string.
         devptr : GPU memory pointer
             Optional device memory pointer to hold the results.
             Memory size must be able to hold at least size() of int32 values.
@@ -1675,10 +1690,10 @@ class nvstrings:
         sub : str
             String to find
         start : int
-            Beginning of section to replace.
-            Default is beginning of each string.
+            Beginning of section to search from.
+            Default is 0 (beginning of each string).
         end : int
-            End of section to replace. Default is end of each string.
+            End of section to search. Default is end of each string.
         devptr : GPU memory pointer
             Optional device memory pointer to hold the results.
             Memory size must be able to hold at least size() of int32 values.
@@ -1704,10 +1719,10 @@ class nvstrings:
         sub : str
             String to find
         start : int
-            Beginning of section to replace.
-            Default is beginning of each string.
+            Beginning of section to search from.
+            Default is 0 (beginning of each string).
         end : int
-            End of section to replace. Default is end of each string.
+            End of section to find. Default is end of each string.
         devptr : GPU memory pointer
             Optional device memory pointer to hold the results.
             Memory size must be able to hold at least size() of int32 values.
@@ -1771,10 +1786,10 @@ class nvstrings:
         sub : str
             String to find
         start : int
-            Beginning of section to replace.
-            Default is beginning of each string.
+            Beginning of section to find.
+            Default is 0(beginning of each string).
         end : int
-            End of section to replace. Default is end of each string.
+            End of section to find. Default is end of each string.
         devptr : GPU memory pointer
             Optional device memory pointer to hold the results.
 
@@ -2183,6 +2198,22 @@ class nvstrings:
 
         """
         rtn = pyniNVStrings.n_isupper(self.m_cptr, devptr)
+        return rtn
+
+    def is_empty(self, devptr=0):
+        """
+        Return array of boolean values with True for strings that contain
+        at least one character.
+
+        Examples
+        --------
+        >>> import nvstrings
+        >>> s = nvstrings.to_device(['hello', 'goodbye', '', None])
+        >>> print(s.isempty())
+        [True, True,False,False]
+
+        """
+        rtn = pyniNVStrings.n_is_empty(self.m_cptr, devptr)
         return rtn
 
     def translate(self, table):

@@ -14,16 +14,14 @@
 * limitations under the License.
 */
 
-#include <cuda_runtime.h>
 #include <memory.h>
 #include <math.h>
-#include "custring.cuh"
 
 
 namespace custr
 {
     // convert string with numerical characters to number
-    __device__ long stol( const char* str, unsigned int bytes )
+    __device__ inline long stol( const char* str, unsigned int bytes )
     {
         const char* ptr = str;
         if( !ptr || !bytes )
@@ -46,12 +44,12 @@ namespace custr
         return value * sign;
     }
 
-    __device__ int stoi( const char* str, unsigned int bytes )
+    __device__ inline int stoi( const char* str, unsigned int bytes )
     {
         return (int)stol(str,bytes);
     }
 
-    __device__ unsigned long stoul( const char* str, unsigned int bytes )
+    __device__ inline unsigned long stoul( const char* str, unsigned int bytes )
     {
         const char* ptr = str;
         if( !ptr || !bytes )
@@ -69,7 +67,7 @@ namespace custr
         return value;
     }
 
-    __device__ double stod( const char* str, unsigned int bytes )
+    __device__ inline double stod( const char* str, unsigned int bytes )
     {
         char* ptr = (char*)str;
         if( !ptr || !bytes )
@@ -129,12 +127,12 @@ namespace custr
         return (value * sign);
     }
 
-    __device__ float stof( const char* str, unsigned int bytes )
+    __device__ inline float stof( const char* str, unsigned int bytes )
     {
         return (float)stod(str,bytes);
     }
 
-    __device__ unsigned int hash( const char* str, unsigned int bytes )
+    __device__ inline unsigned int hash( const char* str, unsigned int bytes )
     {
         unsigned int seed = 31; // prime number
         unsigned int hash = 0;
@@ -143,7 +141,7 @@ namespace custr
         return hash;
     }
 
-    __device__ int compare(const char* src, unsigned int sbytes, const char* tgt, unsigned int tbytes )
+    __device__ inline int compare(const char* src, unsigned int sbytes, const char* tgt, unsigned int tbytes )
     {
         const char* ptr1 = src;
         if( !ptr1 )
@@ -169,7 +167,7 @@ namespace custr
     }
 
     //
-    __device__ int find( const char* sptr, unsigned int sz, const char* str, unsigned int bytes )
+    __device__ inline int find( const char* sptr, unsigned int sz, const char* str, unsigned int bytes )
     {
         if(!sptr || !str || (sz < bytes))
             return -1;
@@ -193,7 +191,7 @@ namespace custr
         return -1;
     }
 
-    __device__ int rfind( const char* sptr, unsigned int sz, const char* str, unsigned int bytes )
+    __device__ inline int rfind( const char* sptr, unsigned int sz, const char* str, unsigned int bytes )
     {
         if(!sptr || !str || (sz < bytes) )
             return -1;
@@ -218,7 +216,7 @@ namespace custr
     }
 
     //
-    __device__ void copy( char* dst, unsigned int bytes, const char* src )
+    __device__ inline void copy( char* dst, unsigned int bytes, const char* src )
     {
         memcpy(dst,src,bytes);
     }

@@ -5,10 +5,13 @@
 #include <vector>
 #include <cuda_runtime.h>
 #include <thrust/device_vector.h>
-#include "../NVStrings.h"
+#include <thrust/execution_policy.h>
+#include <thrust/for_each.h>
+#include "../include/NVStrings.h"
 
 //
-// nvcc -w -std=c++11 --expt-extended-lambda -gencode arch=compute_70,code=sm_70 csv.cu -L.. -lNVStrings -o CSVTest --linker-options -rpath,.:
+// cd ../build
+// nvcc -w -std=c++11 --expt-extended-lambda -gencode arch=compute_70,code=sm_70 ../tests/csv.cu -L. -lNVStrings -o csv --linker-options -rpath,.:
 //
 
 // csv file contents in device memory
@@ -119,26 +122,22 @@ int main( int argc, char** argv )
     if( column1==0 )
         return -1;
 
-    NVStrings dstrs( column1, count );
+    NVStrings* dstrs = NVStrings::create_from_index( column1, count );
 
     cudaFree(d_fileContents); // csv data not needed once dstrs is created
     cudaFree(column1);        // string index data has done its job as well
 
     // simple strings op
     int* rtn = new int[count];
-    dstrs.len(rtn,false);
+    dstrs->len(rtn,false);
     for( int idx=0; idx < count; ++idx )
         printf("%d,",rtn[idx]);
     printf("\n");
     delete rtn;
 
     // show column values
-    char** list = new char*[count];
-    dstrs.to_host(list,0,count);
-    for( int idx=0; idx < count; ++idx )
-        printf("%s,",list[idx]);
-    printf("\n");
-    delete list;
+    dstrs->print();
 
+    NVStrings::destroy(dstrs);
     return 0;
 }

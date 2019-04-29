@@ -14,7 +14,6 @@
 * limitations under the License.
 */
 
-#include <stdlib.h>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #include <thrust/device_vector.h>
@@ -27,7 +26,6 @@
 #include "NVStringsImpl.h"
 #include "custring_view.cuh"
 #include "unicode/is_flags.h"
-#include "Timing.h"
 #include "util.h"
 
 // this will return the number of characters for each string
@@ -42,7 +40,6 @@ unsigned int NVStrings::len(int* lengths, bool todevice)
     if( !todevice )
         RMM_ALLOC(&d_rtn,sizeof(int)*count,0);
 
-    double st = GetTime();
     custring_view** d_strings = pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_rtn] __device__(unsigned int idx){
@@ -53,9 +50,7 @@ unsigned int NVStrings::len(int* lengths, bool todevice)
                 d_rtn[idx] = -1;
         });
     //
-    printCudaError(cudaDeviceSynchronize(),"nvs-len");
-    double et = GetTime();
-    pImpl->addOpTimes("len",0.0,(et-st));
+    //printCudaError(cudaDeviceSynchronize(),"nvs-len");
     size_t size = thrust::reduce(execpol->on(0), d_rtn, d_rtn+count, (size_t)0,
          []__device__(int lhs, int rhs) {
             if( lhs < 0 )
@@ -87,7 +82,6 @@ size_t NVStrings::byte_count(int* lengths, bool todevice)
     if( !todevice )
         RMM_ALLOC(&d_rtn,sizeof(int)*count,0);
 
-    double st = GetTime();
     custring_view** d_strings = pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_rtn] __device__(unsigned int idx){
@@ -98,9 +92,7 @@ size_t NVStrings::byte_count(int* lengths, bool todevice)
                 d_rtn[idx] = -1;
         });
     //
-    printCudaError(cudaDeviceSynchronize(),"nvs-bytes");
-    double et = GetTime();
-    pImpl->addOpTimes("byte_count",0.0,(et-st));
+    //printCudaError(cudaDeviceSynchronize(),"nvs-bytes");
     size_t size = thrust::reduce(execpol->on(0), d_rtn, d_rtn+count, (size_t)0,
          []__device__(int lhs, int rhs) {
             if( lhs < 0 )
@@ -131,7 +123,6 @@ unsigned int NVStrings::isalnum( bool* results, bool todevice )
     if( !todevice )
         RMM_ALLOC(&d_rtn,count*sizeof(bool),0);
     custring_view_array d_strings = pImpl->getStringsPtr();
-    double st = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_flags, d_rtn] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -148,16 +139,7 @@ unsigned int NVStrings::isalnum( bool* results, bool todevice )
             }
             d_rtn[idx] = brc;
         });
-    //
-    cudaError_t err = cudaDeviceSynchronize();
-    double et = GetTime();
-    if( err != cudaSuccess )
-    {
-        fprintf(stderr,"nvs-isalnum(%p,%d)\n",results,(int)todevice);
-        printCudaError(err);
-    }
-    pImpl->addOpTimes("isalnum",0.0,(et-st));
-    // count the number of successful finds
+    // count the number of trues
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true );
     if( !todevice )
     {   // copy result back to host
@@ -178,7 +160,6 @@ unsigned int NVStrings::isalpha( bool* results, bool todevice )
     if( !todevice )
         RMM_ALLOC(&d_rtn,count*sizeof(bool),0);
     custring_view_array d_strings = pImpl->getStringsPtr();
-    double st = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_flags, d_rtn] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -195,16 +176,7 @@ unsigned int NVStrings::isalpha( bool* results, bool todevice )
             }
             d_rtn[idx] = brc;
         });
-    //
-    cudaError_t err = cudaDeviceSynchronize();
-    double et = GetTime();
-    if( err != cudaSuccess )
-    {
-        fprintf(stderr,"nvs-isalpha(%p,%d)\n",results,(int)todevice);
-        printCudaError(err);
-    }
-    pImpl->addOpTimes("isalpha",0.0,(et-st));
-    // count the number of successful finds
+    // count the number of trues
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
@@ -226,7 +198,6 @@ unsigned int NVStrings::isdigit( bool* results, bool todevice )
     if( !todevice )
         RMM_ALLOC(&d_rtn,count*sizeof(bool),0);
     custring_view_array d_strings = pImpl->getStringsPtr();
-    double st = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_flags, d_rtn] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -243,16 +214,7 @@ unsigned int NVStrings::isdigit( bool* results, bool todevice )
             }
             d_rtn[idx] = brc;
         });
-    //
-    cudaError_t err = cudaDeviceSynchronize();
-    double et = GetTime();
-    if( err != cudaSuccess )
-    {
-        fprintf(stderr,"nvs-isdigit(%p,%d)\n",results,(int)todevice);
-        printCudaError(err);
-    }
-    pImpl->addOpTimes("isdigit",0.0,(et-st));
-    // count the number of successful finds
+    // count the number of trues
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
@@ -273,7 +235,6 @@ unsigned int NVStrings::isspace( bool* results, bool todevice )
     if( !todevice )
         RMM_ALLOC(&d_rtn,count*sizeof(bool),0);
     custring_view_array d_strings = pImpl->getStringsPtr();
-    double st = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_flags, d_rtn] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -290,16 +251,7 @@ unsigned int NVStrings::isspace( bool* results, bool todevice )
             }
             d_rtn[idx] = brc;
         });
-    //
-    cudaError_t err = cudaDeviceSynchronize();
-    double et = GetTime();
-    if( err != cudaSuccess )
-    {
-        fprintf(stderr,"nvs-isspace(%p,%d)\n",results,(int)todevice);
-        printCudaError(err);
-    }
-    pImpl->addOpTimes("isspace",0.0,(et-st));
-    // count the number of successful finds
+    // count the number of trues
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
@@ -320,7 +272,6 @@ unsigned int NVStrings::isdecimal( bool* results, bool todevice )
     if( !todevice )
         RMM_ALLOC(&d_rtn,count*sizeof(bool),0);
     custring_view_array d_strings = pImpl->getStringsPtr();
-    double st = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_flags, d_rtn] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -337,16 +288,7 @@ unsigned int NVStrings::isdecimal( bool* results, bool todevice )
             }
             d_rtn[idx] = brc;
         });
-    //
-    cudaError_t err = cudaDeviceSynchronize();
-    double et = GetTime();
-    if( err != cudaSuccess )
-    {
-        fprintf(stderr,"nvs-isdecimal(%p,%d)\n",results,(int)todevice);
-        printCudaError(err);
-    }
-    pImpl->addOpTimes("isdecimal",0.0,(et-st));
-    // count the number of successful finds
+    // count the number of trues
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
@@ -367,7 +309,6 @@ unsigned int NVStrings::isnumeric( bool* results, bool todevice )
     if( !todevice )
         RMM_ALLOC(&d_rtn,count*sizeof(bool),0);
     custring_view_array d_strings = pImpl->getStringsPtr();
-    double st = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_flags, d_rtn] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -384,16 +325,7 @@ unsigned int NVStrings::isnumeric( bool* results, bool todevice )
             }
             d_rtn[idx] = brc;
         });
-    //
-    cudaError_t err = cudaDeviceSynchronize();
-    double et = GetTime();
-    if( err != cudaSuccess )
-    {
-        fprintf(stderr,"nvs-isnumeric(%p,%d)\n",results,(int)todevice);
-        printCudaError(err);
-    }
-    pImpl->addOpTimes("isnumeric",0.0,(et-st));
-    // count the number of successful finds
+    // count the number of trues
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
@@ -414,7 +346,6 @@ unsigned int NVStrings::islower( bool* results, bool todevice )
     if( !todevice )
         RMM_ALLOC(&d_rtn,count*sizeof(bool),0);
     custring_view_array d_strings = pImpl->getStringsPtr();
-    double st = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_flags, d_rtn] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -431,16 +362,7 @@ unsigned int NVStrings::islower( bool* results, bool todevice )
             }
             d_rtn[idx] = brc;
         });
-    //
-    cudaError_t err = cudaDeviceSynchronize();
-    double et = GetTime();
-    if( err != cudaSuccess )
-    {
-        fprintf(stderr,"nvs-islower(%p,%d)\n",results,(int)todevice);
-        printCudaError(err);
-    }
-    pImpl->addOpTimes("islower",0.0,(et-st));
-    // count the number of successful finds
+    // count the number of trues
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
@@ -461,7 +383,6 @@ unsigned int NVStrings::isupper( bool* results, bool todevice )
     if( !todevice )
         RMM_ALLOC(&d_rtn,count*sizeof(bool),0);
     custring_view_array d_strings = pImpl->getStringsPtr();
-    double st = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_flags, d_rtn] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -478,16 +399,7 @@ unsigned int NVStrings::isupper( bool* results, bool todevice )
             }
             d_rtn[idx] = brc;
         });
-    //
-    cudaError_t err = cudaDeviceSynchronize();
-    double et = GetTime();
-    if( err != cudaSuccess )
-    {
-        fprintf(stderr,"nvs-islower(%p,%d)\n",results,(int)todevice);
-        printCudaError(err);
-    }
-    pImpl->addOpTimes("islower",0.0,(et-st));
-    // count the number of successful finds
+    // count the number of trues
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
@@ -496,3 +408,32 @@ unsigned int NVStrings::isupper( bool* results, bool todevice )
     }
     return (unsigned int)matches;
 }
+
+unsigned int NVStrings::is_empty( bool* results, bool todevice )
+{
+    unsigned int count = size();
+    if( count==0 || results==0 )
+        return 0;
+    auto execpol = rmm::exec_policy(0);
+    bool* d_rtn = results;
+    if( !todevice )
+        RMM_ALLOC(&d_rtn,count*sizeof(bool),0);
+    custring_view_array d_strings = pImpl->getStringsPtr();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_strings, d_rtn] __device__(unsigned int idx){
+            custring_view* dstr = d_strings[idx];
+            bool brc = true; // null is empty
+            if( dstr )
+                brc = dstr->empty(); // requires at least one character
+            d_rtn[idx] = brc;
+        });
+    // count the number of trues
+    int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
+    if( !todevice )
+    {   // copy result back to host
+        cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
+        RMM_FREE(d_rtn,0);
+    }
+    return (unsigned int)matches;
+}
+
