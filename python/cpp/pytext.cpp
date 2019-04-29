@@ -316,8 +316,19 @@ static PyObject* n_edit_distance( PyObject* self, PyObject* args )
         Py_RETURN_NONE;
     }
 
+    NVText::distance_type algo = NVText::levenshtein;
+    PyObject* pyalgo = PyTuple_GetItem(args,2);
+    if( pyalgo != Py_None )
+    {
+        int ialgo = (int)PyLong_AsLong(pyalgo);
+        if( ialgo != (int)NVText::levenshtein )
+        {
+            PyErr_Format(PyExc_ValueError,"unrecognized edit-distance algorithm");
+            Py_RETURN_NONE;
+        }
+    }
     unsigned int count = strs->size();
-    unsigned int* devptr = (unsigned int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,2));
+    unsigned int* devptr = (unsigned int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,3));
     std::string cname = pytgts->ob_type->tp_name;
     if( cname.compare("str")==0 )
     {
