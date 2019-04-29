@@ -1914,7 +1914,7 @@ class nvstrings:
         >>> import nvstrings
         >>> s = nvstrings.to_device(["hello","there","world"])
         >>> print(s.match('h'))
-        [True, False, True]
+        [True, False, False]
 
         """
         rtn = pyniNVStrings.n_match(self.m_cptr, pat, devptr)
