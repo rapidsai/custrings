@@ -3006,7 +3006,7 @@ static PyObject* n_gather( PyObject* self, PyObject* args )
 static PyObject* n_sublist( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    unsigned int start = 0, step = 1, end = tptr->size();
+    unsigned int start = 0, end = tptr->size();
     PyObject* argOpt = PyTuple_GetItem(args,1);
     if( argOpt != Py_None )
         start = (unsigned int)PyLong_AsLong(argOpt);
@@ -3014,8 +3014,9 @@ static PyObject* n_sublist( PyObject* self, PyObject* args )
     if( argOpt != Py_None )
         end = (unsigned int)PyLong_AsLong(argOpt);
     argOpt = PyTuple_GetItem(args,3);
+    int step = 1;
     if( argOpt != Py_None )
-        step = (unsigned int)PyLong_AsLong(argOpt);
+        step = (int)PyLong_AsLong(argOpt);
     //
     NVStrings* rtn = nullptr;
     Py_BEGIN_ALLOW_THREADS
