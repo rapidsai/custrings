@@ -1,13 +1,19 @@
-#
+# Copyright (c) 2019, NVIDIA CORPORATION.
+
 import nvstrings
 
-#
-s1 = nvstrings.to_device(["defghi",None,"jkl","dog and cat","accénted",""])
-print("s1",s1)
-print("s1,s1,s1",nvstrings.from_strings(s1,s1,s1))
 
-s2 = nvstrings.to_device(["aaa",None,"","bbb"])
-print("s2",s2)
-print("s1.add_strings(s2)",s1.add_strings(s2))
+def test_from_strings():
+    s1 = nvstrings.to_device(["dog and cat", None, "accénted", ""])
+    got = nvstrings.from_strings(s1, s1)
+    expected = ['dog and cat', None, 'accénted', '',
+                'dog and cat', None, 'accénted', '']
+    assert got.to_host() == expected
 
-print("s1.copy()",s1.copy())
+
+def test_add_strings():
+    s1 = nvstrings.to_device(["dog and cat", None, "accénted", ""])
+    s2 = nvstrings.to_device(["aaa", None, "", "bbb"])
+    got = s1.add_strings(s2)
+    expected = ['dog and cat', None, 'accénted', '', 'aaa', None, '', 'bbb']
+    assert got.to_host() == expected
