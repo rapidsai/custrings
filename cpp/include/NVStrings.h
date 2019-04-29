@@ -256,7 +256,7 @@ public:
      * @param step This can be used to capture indexes in intervals. Default is all strings within start and end.
      * @return New instance with the specified strings.
      */
-    NVStrings* sublist( unsigned int start, unsigned int end, unsigned int step=0 );
+    NVStrings* sublist( unsigned int start, unsigned int end, int step=0 );
     /**
      * @brief Returns new instance using the order of the specified index values for this instance.
      *
