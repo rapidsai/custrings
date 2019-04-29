@@ -1,68 +1,106 @@
+# Copyright (c) 2018-2019, NVIDIA CORPORATION.
 
+import pytest
 import numpy as np
+
 import nvstrings
 
-#
 from librmm_cffi import librmm as rmm
-from librmm_cffi import librmm_config as rmm_cfg
-rmm_cfg.use_pool_allocator = True 
-rmm.initialize()
 
-strs = nvstrings.to_device(["hello","there","world","accéntéd",None,""])
-#
-arr = np.arange(strs.size(),dtype=np.int32)
-d_arr = rmm.to_device(arr)
-devmem = d_arr.device_ctypes_pointer.value
+from utils import assert_eq
 
-print(strs)
-print(".compare(there):",strs.compare("there"))
-strs.compare("there",devmem)
-print(".compare(there,devmem):",d_arr.copy_to_host())
 
-print(".find(o):",strs.find("o"))
-strs.find("o",devptr=devmem)
-print(".find(o,devmem)",d_arr.copy_to_host())
-print(".find_from(l,..)",strs.find_from("l",devmem))
+def test_compare():
+    strs = nvstrings.to_device(
+        ["hello", "there", "world", "accéntéd", None, ""])
+    got = strs.compare('there')
+    expected = [-12, 0, 3, -19, None, -1]
+    assert_eq(got, expected)
 
-print(".rfind(e):",strs.rfind("e"))
-strs.rfind("e",devptr=devmem)
-print(".rfind(e,devmem):",d_arr.copy_to_host())
+    # device array
+    arr = np.arange(strs.size(), dtype=np.int32)
+    d_arr = rmm.to_device(arr)
+    devmem = d_arr.device_ctypes_pointer.value
+    strs.compare("there", devmem)
+    expected = [-12, 0, 3, -19, -1, -1]
+    assert_eq(d_arr.copy_to_host().tolist(), expected)
 
-print(".find(é):",strs.find("é"))
-print(".rfind(é):",strs.rfind("é"))
-print(".find():",strs.find(""))
-print(".rfind():",strs.rfind(""))
 
-print(".find_multiple(e,o,d):",strs.find_multiple(['e','o','d']))
+def test_find():
+    strs = nvstrings.to_device(
+        ["hello", "there", "world", "accéntéd", None, ""])
+    got = strs.find("o")
+    expected = [4, -1, 1, -1, None, -1]
+    assert_eq(got, expected)
 
-print(".startswith(he):",strs.startswith("he"))
-print(".endswith(d):",strs.endswith("d"))
 
-strs2 = nvstrings.to_device(["hello","here",None,"accéntéd",None,""])
-print(".match_strings(",strs2,"):",strs.match_strings(strs2))
-strs2 = None
+def test_find_from():
+    strs = nvstrings.to_device(
+        ["hello", "there", "world", "accéntéd", None, ""])
+    got = strs.find_from("r")
+    expected = [-1, 3, 2, -1, None, -1]
+    assert_eq(got, expected)
 
-strs = nvstrings.to_device(["he-llo","-there-","world-","accént-éd",None,"-"])
-#
-arr = np.arange(strs.size(),dtype=np.int32)
-d_arr = rmm.to_device(arr)
-devmem = d_arr.device_ctypes_pointer.value
 
-print(strs)
-print(".index(-):",strs.index("-"))
-strs.index("-",devptr=devmem)
-print(".index(-,devmem):",d_arr.copy_to_host())
+def test_rfind():
+    strs = nvstrings.to_device(
+        ["hello", "there", "world", "accéntéd", None, ""])
+    got = strs.rfind("d")
+    expected = [-1, -1, 4, 7, None, -1]
+    assert_eq(got, expected)
 
-print(".rindex(-):",strs.rindex("-"))
-strs.rindex("-",devptr=devmem)
-print(".rindex(-,devmem):",d_arr.copy_to_host())
 
-#
-arr = np.arange(strs.size(),dtype=np.byte)
-d_arr = rmm.to_device(arr)
-devmem = d_arr.device_ctypes_pointer.value
-print(".contains(l):",strs.contains("l"))
-strs.contains("l",devptr=devmem)
-print(".contains(l,devmem):",d_arr.copy_to_host())
+def test_find_multiple():
+    strs = nvstrings.to_device(
+        ["hello", "there", "world", "accéntéd", None, ""])
+    got = strs.find_multiple(['e', 'o', 'd'])
+    expected = [[1, 4, -1], [2, -1, -1], [-1, 1, 4], [-1, -1, 7],
+                [None, None, None], [-1, -1, -1]]
+    assert_eq(got, expected)
 
-strs = None
+
+def test_startswith():
+    strs = nvstrings.to_device(
+        ["hello", "there", "world", "accéntéd", None, ""])
+    got = strs.startswith("he")
+    expected = [True, False, False, False, None, False]
+    assert_eq(got, expected)
+
+
+def test_endswith():
+    strs = nvstrings.to_device(
+        ["hello", "there", "world", "accéntéd", None, ""])
+    strs.endswith("d")
+    expected = [False, False, True, True, None, False]
+    assert_eq(got, expected)
+
+
+def test_match():
+    strs = nvstrings.to_device(["tempo", "there", "this", "ether", None, ""])
+    got = strs.match("th")
+    expected = [False, True, True, False, None, False]
+    assert_eq(got, expected)
+
+
+def test_index():
+    strs = nvstrings.to_device(
+        ["he-llo", "-there-", "world-", "accént-éd", None, "-"])
+    got = strs.index("-")
+    expected = [2, 0, 5, 6, None, 0]
+    assert_eq(got, expected)
+
+
+def test_rindex():
+    strs = nvstrings.to_device(
+        ["he-llo", "-there-", "world-", "accént-éd", None, "-"])
+    got = strs.rindex("-")
+    expected = [2, 6, 5, 6, None, 0]
+    assert_eq(got, expected)
+
+
+def test_contains():
+    strs = nvstrings.to_device(
+        ["he-llo", "-there-", "world-", "accént-éd", None, "-"])
+    got = strs.contains("l")
+    expected = [True, False, True, False, None, False]
+    assert_eq(got, expected)
