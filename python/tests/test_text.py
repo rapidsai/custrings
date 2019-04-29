@@ -108,6 +108,34 @@ def test_strings_counts():
     assert np.array_equal(outcome_darray.copy_to_host(), expected)
 
 
+def test_tokens_counts():
+    strs = nvstrings.to_device(
+        ["apples are green",
+         "apples are a fruit",
+         None,
+         ""]
+    )
+
+    query_strings = nvtext.unique_tokens(strs)
+
+    # host results
+    contains_outcome = nvtext.tokens_counts(strs, query_strings)
+    expected = [
+        [0, 1, 1, 0, 1],
+        [1, 1, 1, 1, 0],
+        [0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0]
+    ]
+    assert contains_outcome == expected
+
+    # device results
+    outcome_darray = rmm.device_array((strs.size(), query_strings.size()),
+                                      dtype=np.int32)
+    nvtext.tokens_counts(strs, query_strings,
+                            devptr=outcome_darray.device_ctypes_pointer.value)
+    assert np.array_equal(outcome_darray.copy_to_host(), expected)
+
+
 def test_edit_distance():
     # singe comparator
     strs = nvstrings.to_device(["my favorite sentence", "kittin", "nvidia"])
