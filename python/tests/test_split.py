@@ -1,127 +1,100 @@
-#
+# Copyright (c) 2018-2019, NVIDIA CORPORATION.
+
+import numpy as np
+import pandas as pd
 import nvstrings
 
-#
-from librmm_cffi import librmm as rmm
-from librmm_cffi import librmm_config as rmm_cfg
-rmm_cfg.use_pool_allocator = True 
-rmm.initialize()
+from utils import assert_eq
 
-#
-strs = nvstrings.to_device(["héllo",None,"a_bc_déf","a__bc","_ab_cd","ab_cd_",""])
-print("strs:",strs)
-print("strs.split(_):")
-nstrs = strs.split("_")
-for s in nstrs:
-   print(" ",s)
 
-print("strs.split_record(_):")
-nstrs = strs.split_record("_")
-for s in nstrs:
-   print(" ",s)
+def compare_split_records(nvstrs, pstrs):
+    for i in range(len(nvstrs)):
+        got = nstrs[i]
+        expected = pstrs[i]
+        if not got:
+            assert None == expected
+            continue
+        assert got.to_host() == expected
 
-print("strs.split(_,1):")
-nstrs = strs.split("_",1)
-for s in nstrs:
-   print(" ",s)
 
-print("strs.split_record(_,1):")
-nstrs = strs.split_record("_",1)
-for s in nstrs:
-   print(" ",s)
+def test_split_record():
+    s = ["héllo", None, "a_bc_déf", "a__bc", "_ab_cd", "ab_cd_", "", ' a b ']
+    strs = nvstrings.to_device(s)
+    pstrs = pd.Series(s)
+    nstrs = strs.split_record("_")
+    ps = pstrs.str.split('_')
+    compare_split_records(nstrs, ps)
 
-print("strs.split(_,2):")
-nstrs = strs.split("_",2)
-for s in nstrs:
-   print(" ",s)
 
-print("strs.split_record(_,2):")
-nstrs = strs.split_record("_",2)
-for s in nstrs:
-   print(" ",s)
+def test_split():
+    s = ["héllo", None, "a_bc_déf", "a__bc", "_ab_cd", "ab_cd_", "", ' a b ',
+         ' a  bbb   c']
+    strs = nvstrings.to_device(s)
+    got = strs.split("_")
+    expected = np.array(
+        [['héllo', None, 'a', 'a', '', 'ab', '', ' a b ', ' a  bbb   c'],
+         [None, None, 'bc', '', 'ab', 'cd', None],
+         [None, None, 'déf', 'bc', 'cd', '', None]])
 
-print("strs.split(_,3):")
-nstrs = strs.split("_",3)
-for s in nstrs:
-   print(" ",s)
+    for i in range(len(got)):
+        assert_eq(got[i], expected[i])
 
-print("strs.split_record(_,3):")
-nstrs = strs.split_record("_",3)
-for s in nstrs:
-   print(" ",s)
 
-print("strs.split(_,4):")
-nstrs = strs.split("_",4)
-for s in nstrs:
-   print(" ",s)
+def test_rsplit():
+    s = ["héllo", None, "a_bc_déf", "a__bc", "_ab_cd", "ab_cd_", "", ' a b ',
+         ' a  bbb   c']
+    strs = nvstrings.to_device(s)
+    got = strs.rsplit("_")
+    expected = np.array([
+        ['héllo', None, 'a', 'a', '', 'ab', ''],
+        [None, None, 'bc', '', 'ab', 'cd', None],
+        [None, None, 'déf', 'bc', 'cd', '', None],
+    ])
+    for i in range(len(got)):
+        assert_eq(got[i], expected[i])
 
-print("strs.split_record(_,4):")
-nstrs = strs.split_record("_",4)
-for s in nstrs:
-   print(" ",s)
 
-#
-print("strs.rsplit(_):")
-nstrs = strs.rsplit("_")
-for s in nstrs:
-   print(" ",s)
+def test_rsplit_record():
+    s = ["héllo", None, "a_bc_déf", "a__bc", "_ab_cd", "ab_cd_", "", ' a b ',
+         ' a  bbb   c']
+    strs = nvstrings.to_device(s)
+    pstrs = pd.Series(s)
+    nstrs = strs.rsplit_record("_")
+    ps = pstrs.str.rsplit('_')
+    compare_split_records(nstrs, ps)
 
-print("strs.rsplit_record(_):")
-nstrs = strs.rsplit_record("_")
-for s in nstrs:
-   print(" ",s)
 
-print("strs.rsplit(_,1):")
-nstrs = strs.rsplit("_",1)
-for s in nstrs:
-   print(" ",s)
+def test_partition():
+    s = ["héllo", None, "a_bc_déf", "a__bc", "_ab_cd", "ab_cd_", "", ' a b ',
+         ' a  bbb   c']
+    strs = nvstrings.to_device(s)
+    got = strs.partition("_")
+    expected = np.array([
+        ['héllo', '', ''],
+        [None, None, None],
+        ['a', '_', 'bc_déf'],
+        ['a', '_', '_bc'],
+        ['', '_', 'ab_cd'],
+        ['ab', '_', 'cd_'],
+        ['', '', '']
+    ])
+    for i in range(len(got)):
+        assert_eq(got[i], expected[i])
 
-print("strs.rsplit_record(_,1):")
-nstrs = strs.rsplit_record("_",1)
-for s in nstrs:
-   print(" ",s)
 
-print("strs.rsplit(_,2):")
-nstrs = strs.rsplit("_",2)
-for s in nstrs:
-   print(" ",s)
-
-print("strs.rsplit_record(_,2):")
-nstrs = strs.rsplit_record("_",2)
-for s in nstrs:
-   print(" ",s)
-
-print("strs.rsplit(_,3):")
-nstrs = strs.rsplit("_",3)
-for s in nstrs:
-   print(" ",s)
-
-print("strs.rsplit_record(_,3):")
-nstrs = strs.rsplit_record("_",3)
-for s in nstrs:
-   print(" ",s)
-
-print("strs.rsplit(_,4):")
-nstrs = strs.rsplit("_",4)
-for s in nstrs:
-   print(" ",s)
-
-print("strs.rsplit_record(_,4):")
-nstrs = strs.rsplit_record("_",4)
-for s in nstrs:
-   print(" ",s)
-
-#
-print("strs.partition(_):")
-nstrs = strs.partition('_')
-for s in nstrs:
-   print(" ",s)
-   nvstrings.free(s)
-#
-print("strs.rpartition(_):")
-rstrs = strs.rpartition('_')
-for s in rstrs:
-   print(" ",s)
-   nvstrings.free(s)
-
-strs = None
+def test_rpartition():
+    s = ["héllo", None, "a_bc_déf", "a__bc", "_ab_cd", "ab_cd_", "", ' a b ',
+         ' a  bbb   c']
+    strs = nvstrings.to_device(s)
+    got = strs.rpartition("_")
+    expected = np.array([
+        ['', '', 'héllo'],
+        [None, None, None],
+        ['a_bc', '_', 'déf'],
+        ['a_', '_', 'bc'],
+        ['_ab', '_', 'cd'],
+        ['ab_cd', '_', ''],
+        ['', '', '']
+    ])
+    for i in range(len(got)):
+        assert_eq(got[i], expected[i])
