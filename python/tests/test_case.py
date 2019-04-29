@@ -1,25 +1,60 @@
-#
+# Copyright (c) 2019, NVIDIA CORPORATION.
+
 import nvstrings
+from utils import assert_eq
 
-#
-from librmm_cffi import librmm as rmm
-from librmm_cffi import librmm_config as rmm_cfg
-rmm_cfg.use_pool_allocator = True 
-rmm.initialize()
 
-#
-strs = nvstrings.to_device(["abc","Def",None,"jLl","mnO","PqR","sTT","dog and cat","accénted",""," 1234 ","XYZ"])
-print(strs)
-print(".lower():",strs.lower())
-print(".upper():",strs.upper())
-print(".swapcase():",strs.swapcase())
-print(".capitalize():",strs.capitalize())
-print(".title():",strs.title())
-# only first char (pos=0) is capitalized -- not the first letter
-print(".rjust(4).capitalize():",strs.rjust(4).capitalize())
+def test_lower():
+    strs = nvstrings.to_device(["abc", "Def", None, "jLl"])
+    got = strs.lower()
+    expected = ['abc', 'def', None, 'jll']
+    assert_eq(got, expected)
 
-#
-print(".islower():",strs.islower())
-print(".isupper():",strs.isupper())
 
-strs = None
+def test_upper():
+    strs = nvstrings.to_device(["abc", "Def", None, "jLl"])
+    got = strs.upper()
+    expected = ['ABC', 'DEF', None, 'JLL']
+    assert_eq(got, expected)
+
+
+def test_swapcase():
+    strs = nvstrings.to_device(["abc", "Def", None, "jLl"])
+    got = strs.swapcase()
+    expected = ['ABC', 'dEF', None, 'JlL']
+    assert_eq(got, expected)
+
+
+def test_capitalize():
+    strs = nvstrings.to_device(["abc", "Def", None, "jLl"])
+    got = strs.capitalize()
+    expected = ['Abc', 'Def', None, 'Jll']
+    assert_eq(got, expected)
+
+
+def test_title():
+    strs = nvstrings.to_device(["abc", "Def", None, "jLl"])
+    got = strs.title()
+    expected = ['Abc', 'Def', None, 'Jll']
+    assert_eq(got, expected)
+
+
+def test_rjust():
+    strs = nvstrings.to_device(["abc", "Def", None, "jLl"])
+    got = strs.rjust(4)
+    expected = [' abc', ' Def', None, ' jLl']
+    assert_eq(got, expected)
+
+
+def test_islower():
+    strs = nvstrings.to_device(["abc", "Def", None, "jLl"])
+    got = strs.islower()
+    expected = [True, False, None, False]
+    assert_eq(got, expected)
+
+
+def test_isupper():
+    strs = nvstrings.to_device(["abc", "Def", None, "jLl"])
+    got = strs.isupper()
+    expected = [False, False, None, False]
+    assert_eq(got, expected)

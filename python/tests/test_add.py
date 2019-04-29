@@ -1,7 +1,8 @@
 # Copyright (c) 2019, NVIDIA CORPORATION.
 
 import nvstrings
-
+import pytest
+from nvstrings.utils import methodcaller
 
 def test_from_strings():
     s1 = nvstrings.to_device(["dog and cat", None, "accénted", ""])
