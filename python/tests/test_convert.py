@@ -90,6 +90,15 @@ def test_stoi():
     assert_eq(got, expected)
 
 
+def test_stol():
+    s = nvstrings.to_device(
+        ["1234", "5678", "90", None, "-876", "543.2", "-0.12", "2.55", "-.002",
+         "", "de", "abc123", "123abc", "456e", "-1.78e+5"])
+    got = s.stol()
+    expected = [1234, 5678, 90, None, -876, 543, 0, 2, 0, 0, 0, 0, 123, 456, -1]
+    assert_eq(got, expected)
+
+
 def test_stof():
     s = nvstrings.to_device(
         ["1234", "5678", "90", None, "-876", "543.2", "-0.12", ".55", "-.002",
@@ -97,6 +106,16 @@ def test_stof():
     got = s.stof()
     expected = [1234.0, 5678.0, 90.0, None, -876.0, 543.2000122070312,
                 -0.11999999731779099, 0.550000011920929, -0.0020000000949949026,
+                0.0, 0.0, 0.0, 123.0, 456.0, -178000.0]
+    assert_eq(got, expected)
+
+
+def test_stod():
+    s = nvstrings.to_device(
+        ["1234", "5678", "90", None, "-876", "543.2", "-0.12", "2.553", "-.002",
+         "", "de", "abc123", "123abc", "456e", "-1.78e+5"])
+    got = s.stod()
+    expected = [1234.0, 5678.0, 90.0, None, -876.0, 543.2, -0.12, 2.553, -0.002,
                 0.0, 0.0, 0.0, 123.0, 456.0, -178000.0]
     assert_eq(got, expected)
 
