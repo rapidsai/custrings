@@ -23,6 +23,7 @@
 #include <stdexcept>
 #include <nvstrings/NVStrings.h>
 #include <nvstrings/ipc_transfer.h>
+#include <nvstrings/StringsStatistics.h>
 
 //
 // These are C-functions that simply map the python objects to appropriate methods
@@ -3480,8 +3481,61 @@ static PyObject* n_is_empty( PyObject* self, PyObject* args )
         PyList_SetItem(ret, idx, PyBool_FromLong((long)rtn[idx]));
     }
     delete rtn;
-    printf("count=%d,ncount=%d,ret=%p\n",count,ncount,ret);
     return ret;
+}
+
+static PyObject* n_get_info( PyObject* self, PyObject* args )
+{
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+
+    StringsStatistics stats;
+    Py_BEGIN_ALLOW_THREADS
+    tptr->compute_statistics(stats);
+    Py_END_ALLOW_THREADS
+
+    PyObject* pydict = PyDict_New();
+    PyDict_SetItemString(pydict,"total_strings",PyLong_FromLong(stats.total_strings));
+    PyDict_SetItemString(pydict,"null_strings",PyLong_FromLong(stats.total_nulls));
+    PyDict_SetItemString(pydict,"empty_strings",PyLong_FromLong(stats.total_empty));
+    PyDict_SetItemString(pydict,"unique_strings",PyLong_FromLong(stats.unique_strings));
+    PyDict_SetItemString(pydict,"total_bytes",PyLong_FromLong(stats.total_bytes));
+    PyDict_SetItemString(pydict,"total_chars",PyLong_FromLong(stats.total_chars));
+    PyDict_SetItemString(pydict,"device_memory",PyLong_FromLong(stats.total_memory));
+    PyDict_SetItemString(pydict,"bytes_avg",PyLong_FromLong(stats.bytes_avg));
+    PyDict_SetItemString(pydict,"bytes_min",PyLong_FromLong(stats.bytes_min));
+    PyDict_SetItemString(pydict,"bytes_max",PyLong_FromLong(stats.bytes_max));
+    PyDict_SetItemString(pydict,"chars_avg",PyLong_FromLong(stats.chars_avg));
+    PyDict_SetItemString(pydict,"chars_min",PyLong_FromLong(stats.chars_min));
+    PyDict_SetItemString(pydict,"chars_max",PyLong_FromLong(stats.chars_max));
+    PyDict_SetItemString(pydict,"memory_avg",PyLong_FromLong(stats.mem_avg));
+    PyDict_SetItemString(pydict,"memory_min",PyLong_FromLong(stats.mem_min));
+    PyDict_SetItemString(pydict,"memory_max",PyLong_FromLong(stats.mem_max));
+    PyDict_SetItemString(pydict,"whitespace",PyLong_FromLong(stats.whitespace_count));
+    PyDict_SetItemString(pydict,"digits",PyLong_FromLong(stats.digits_count));
+    PyDict_SetItemString(pydict,"uppercase",PyLong_FromLong(stats.uppercase_count));
+    PyDict_SetItemString(pydict,"lowercase",PyLong_FromLong(stats.lowercase_count));
+
+    PyObject* pyhist = PyDict_New();
+    size_t count = stats.char_counts.size();
+    for( size_t idx=0; idx < count; ++idx )
+    {
+        unsigned int chr = stats.char_counts[idx].first;
+        unsigned int num = stats.char_counts[idx].second;
+        unsigned char out[5] = {0,0,0,0,0};
+        unsigned char* ptr = out + ((chr & 0xF0000000)==0xF0000000) + ((chr & 0xFFE00000)==0x00E00000) + ((chr & 0xFFFFC000)==0x0000C000);
+        //printf("%p,%p,%x,%d\n",out,ptr,(chr & 0xFFFF),(int)((chr & 0xFFFFC000)==0x0000C00000));
+        unsigned int cvt = chr;
+        while( cvt > 0 )
+        {
+            *ptr-- = (unsigned char)(cvt & 255);
+            cvt = cvt >> 8;
+        }
+        PyDict_SetItemString(pyhist,(const char*)out,PyLong_FromLong(num));
+        //printf("    [%s] 0x%04x = %u\n",out,chr,num);
+    }
+
+    PyDict_SetItemString(pydict,"chars_histogram",pyhist);
+    return pydict;
 }
 
 // Version 0.1, 0.1.1, 0.2, 0.2.1 features
@@ -3582,6 +3636,7 @@ static PyMethodDef s_Methods[] = {
     { "n_islower", n_islower, METH_VARARGS, "" },
     { "n_isupper", n_isupper, METH_VARARGS, "" },
     { "n_is_empty", n_is_empty, METH_VARARGS, "" },
+    { "n_get_info", n_get_info, METH_VARARGS, "" },
     { NULL, NULL, 0, NULL }
 };
 
