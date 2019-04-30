@@ -31,5 +31,11 @@ print(".fillna(''):",strs.fillna(''))
 repl = nvstrings.to_device(["null1","null2","null3","null4","null5","null6"])
 print(".fillna(nvs):",strs.fillna(repl))
 
+print(".insert(0,--):",strs.insert(0,'--'))
+print(".insert(1,--):",strs.insert(1,'--'))
+print(".insert(9,--):",strs.insert(9,'--'))
+print(".insert(10,--):",strs.insert(10,'--'))
+print(".insert(-1,--):",strs.insert(-1,'--'))
+
 strs = None
 repl = None
