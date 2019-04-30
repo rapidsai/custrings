@@ -1718,6 +1718,12 @@ static PyObject* n_pad( PyObject* self, PyObject* args )
     const char* fillchar = 0;
     if( !parse_args("pad",args,"OIzz",&vo,&width,&side,&fillchar) )
         Py_RETURN_NONE;
+    if( *fillchar==0 )
+    {
+        PyErr_Format(PyExc_ValueError,"fillchar cannot be empty");
+        Py_RETURN_NONE;
+    }
+
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
     NVStrings::padside ps = NVStrings::left;
     std::string sside = side;
@@ -1743,6 +1749,12 @@ static PyObject* n_ljust( PyObject* self, PyObject* args )
     const char* fillchar = 0;
     if( !parse_args("ljust",args,"OIz",&vo,&width,&fillchar) )
         Py_RETURN_NONE;
+    if( *fillchar==0 )
+    {
+        PyErr_Format(PyExc_ValueError,"fillchar cannot be empty");
+        Py_RETURN_NONE;
+    }
+
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
     NVStrings* rtn = nullptr;
     Py_BEGIN_ALLOW_THREADS
@@ -1761,6 +1773,12 @@ static PyObject* n_center( PyObject* self, PyObject* args )
     const char* fillchar = 0;
     if( !parse_args("ljust",args,"OIz",&vo,&width,&fillchar) )
         Py_RETURN_NONE;
+    if( *fillchar==0 )
+    {
+        PyErr_Format(PyExc_ValueError,"fillchar cannot be empty");
+        Py_RETURN_NONE;
+    }
+
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
     NVStrings* rtn = nullptr;
     Py_BEGIN_ALLOW_THREADS
@@ -1779,6 +1797,12 @@ static PyObject* n_rjust( PyObject* self, PyObject* args )
     const char* fillchar = 0;
     if( !parse_args("ljust",args,"OIz",&vo,&width,&fillchar) )
         Py_RETURN_NONE;
+    if( *fillchar==0 )
+    {
+        PyErr_Format(PyExc_ValueError,"fillchar cannot be empty");
+        Py_RETURN_NONE;
+    }
+    
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
     NVStrings* rtn = nullptr;
     Py_BEGIN_ALLOW_THREADS

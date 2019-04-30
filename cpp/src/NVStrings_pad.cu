@@ -101,7 +101,7 @@ NVStrings* NVStrings::ljust( unsigned int width, const char* fillchar )
     custring_view_array d_strings = pImpl->getStringsPtr();
 
     auto execpol = rmm::exec_policy(0);
-    if( !fillchar )
+    if( !fillchar || *fillchar==0 )
         fillchar = " ";
     Char d_fillchar = 0;
     unsigned int fcbytes = custring_view::char_to_Char(fillchar,d_fillchar);
@@ -163,7 +163,7 @@ NVStrings* NVStrings::center( unsigned int width, const char* fillchar )
     custring_view** d_strings = pImpl->getStringsPtr();
 
     auto execpol = rmm::exec_policy(0);
-    if( !fillchar )
+    if( !fillchar || *fillchar==0 )
         fillchar = " ";
     Char d_fillchar = 0;
     int fcbytes = custring_view::char_to_Char(fillchar,d_fillchar);
@@ -231,7 +231,7 @@ NVStrings* NVStrings::rjust( unsigned int width, const char* fillchar )
     custring_view** d_strings = pImpl->getStringsPtr();
 
     auto execpol = rmm::exec_policy(0);
-    if( !fillchar )
+    if( !fillchar || *fillchar==0 )
         fillchar = " ";
     Char d_fillchar = 0;
     int fcbytes = custring_view::char_to_Char(fillchar,d_fillchar);
