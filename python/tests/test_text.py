@@ -7,9 +7,6 @@ from librmm_cffi import librmm as rmm
 from librmm_cffi import librmm_config as rmm_cfg
 
 
-@pytest.mark.xfail(
-    raises=AssertionError,
-    reason="token_counts currently considers empty strings to be a token")
 def test_token_count():
     # default space delimiter
     strs = nvstrings.to_device(
@@ -31,7 +28,7 @@ def test_token_count():
     outcome_darray = rmm.device_array(strs.size(), dtype=np.int32)
     nvtext.token_count(strs, devptr=outcome_darray.device_ctypes_pointer.value)
     expected = [10, 9, 0, 0]
-    assert outcome_darray.copy_to_host() == expected
+    assert np.array_equal(outcome_darray.copy_to_host(), expected)
 
 
 def test_unique_tokens():
