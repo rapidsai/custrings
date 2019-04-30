@@ -7,9 +7,6 @@ from librmm_cffi import librmm as rmm
 from librmm_cffi import librmm_config as rmm_cfg
 
 
-@pytest.mark.xfail(
-    raises=AssertionError,
-    reason="token_counts currently considers empty strings to be a token")
 def test_token_count():
     # default space delimiter
     strs = nvstrings.to_device(
@@ -31,7 +28,7 @@ def test_token_count():
     outcome_darray = rmm.device_array(strs.size(), dtype=np.int32)
     nvtext.token_count(strs, devptr=outcome_darray.device_ctypes_pointer.value)
     expected = [10, 9, 0, 0]
-    assert outcome_darray.copy_to_host() == expected
+    assert np.array_equal(outcome_darray.copy_to_host(), expected)
 
 
 def test_unique_tokens():
@@ -104,6 +101,34 @@ def test_strings_counts():
     outcome_darray = rmm.device_array((strs.size(), query_strings.size()),
                                       dtype=np.int32)
     nvtext.strings_counts(strs, query_strings,
+                            devptr=outcome_darray.device_ctypes_pointer.value)
+    assert np.array_equal(outcome_darray.copy_to_host(), expected)
+
+
+def test_tokens_counts():
+    strs = nvstrings.to_device(
+        ["apples are green",
+         "apples are a fruit",
+         None,
+         ""]
+    )
+
+    query_strings = nvtext.unique_tokens(strs)
+
+    # host results
+    contains_outcome = nvtext.tokens_counts(strs, query_strings)
+    expected = [
+        [0, 1, 1, 0, 1],
+        [1, 1, 1, 1, 0],
+        [0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0]
+    ]
+    assert contains_outcome == expected
+
+    # device results
+    outcome_darray = rmm.device_array((strs.size(), query_strings.size()),
+                                      dtype=np.int32)
+    nvtext.tokens_counts(strs, query_strings,
                             devptr=outcome_darray.device_ctypes_pointer.value)
     assert np.array_equal(outcome_darray.copy_to_host(), expected)
 

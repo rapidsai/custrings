@@ -76,7 +76,7 @@ def contains_strings(strs, tgts, devptr=0):
         The strings to check for inside each strs.
     devptr : GPU memory pointer
         Must be able to hold at least strs.size()*tgts.size()
-        of int32 values.
+        of int8 values.
 
     Examples
     --------
@@ -118,6 +118,38 @@ def strings_counts(strs, tgts, devptr=0):
 
     """
     rtn = pyniNVText.n_strings_counts(strs, tgts, devptr)
+    return rtn
+
+
+def tokens_counts(strs, tgts, delimiter=' ', devptr=0):
+    """
+    The tgts strings are searched for within each strs.
+    The returned int32 array is number of occurrences of each tgts in strs.
+
+    Parameters
+    ----------
+    strs : nvstrings
+        The strings for this operation.
+    tgts : nvstrings
+        The strings to count for inside each strs.
+    delimiter : str
+        The character used to locate the split points of each string.
+        Default is space.
+    devptr : GPU memory pointer
+        Must be able to hold at least strs.size()*tgts.size()
+        of int32 values.
+
+    Examples
+    --------
+    >>> import nvstrings, nvtext
+    >>> s = nvstrings.to_device(["this is me","goodbye me",""])
+    >>> t = nvstrings.to_device(['is','me'])
+    >>> n = nvtext.tokens_counts(s,t)
+    >>> print(n)
+    [[1,1],[0,1],[0,0]]
+
+    """
+    rtn = pyniNVText.n_tokens_counts(strs, tgts, delimiter, devptr)
     return rtn
 
 

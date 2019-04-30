@@ -302,6 +302,99 @@ static PyObject* n_strings_counts( PyObject* self, PyObject* args )
     return ret;
 }
 
+static PyObject* n_tokens_counts( PyObject* self, PyObject* args )
+{
+    PyObject* pystrs = PyTuple_GetItem(args,0);
+    NVStrings* strs = strings_from_object(pystrs);
+    if( strs==0 )
+        Py_RETURN_NONE;
+    //
+    PyObject* argStrs = PyTuple_GetItem(args,1);
+    if( argStrs == Py_None )
+    {
+        PyErr_Format(PyExc_ValueError,"tgts argument must be specified");
+        Py_RETURN_NONE;
+    }
+    NVStrings* tgts = 0;
+    std::string cname = argStrs->ob_type->tp_name;
+    if( cname.compare("nvstrings")==0 )
+        tgts = (NVStrings*)PyLong_AsVoidPtr(PyObject_GetAttrString(argStrs,"m_cptr"));
+    else if( cname.compare("list")==0 )
+        tgts = strings_from_list(argStrs);
+    //
+    if( !tgts )
+    {
+        PyErr_Format(PyExc_ValueError,"invalid tgts parameter");
+        Py_RETURN_NONE;
+    }
+    if( tgts->size()==0 )
+    {
+        if( cname.compare("list")==0 )
+        {
+            Py_BEGIN_ALLOW_THREADS
+            NVStrings::destroy(tgts);
+            Py_END_ALLOW_THREADS
+        }
+        PyErr_Format(PyExc_ValueError,"tgts argument is empty");
+        Py_RETURN_NONE;
+    }
+
+    const char* delimiter = " ";
+    PyObject* argDelim = PyTuple_GetItem(args,2);
+    if( argDelim != Py_None )
+        delimiter = PyUnicode_AsUTF8(argDelim);
+
+    // fill in devptr with result if provided
+    unsigned int* devptr = (unsigned int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,3));
+    if( devptr )
+    {
+        unsigned int rtn = 0;
+        Py_BEGIN_ALLOW_THREADS
+        rtn = NVText::tokens_counts(*strs,*tgts,delimiter,devptr);
+        Py_END_ALLOW_THREADS
+        if( cname.compare("list")==0 )
+        {
+            Py_BEGIN_ALLOW_THREADS
+            NVStrings::destroy(tgts);
+            Py_END_ALLOW_THREADS
+        }
+        return PyLong_FromLong((long)rtn);
+    }
+    // or fill in python list with host memory
+    unsigned int rows = strs->size();
+    unsigned int columns = tgts->size();
+    PyObject* ret = PyList_New(rows);
+    if( rows==0 )
+    {
+        if( cname.compare("list")==0 )
+        {
+            Py_BEGIN_ALLOW_THREADS
+            NVStrings::destroy(tgts);
+            Py_END_ALLOW_THREADS
+        }
+        return ret;
+    }
+    unsigned int* rtn = new unsigned int[rows*columns];
+    Py_BEGIN_ALLOW_THREADS
+    NVText::tokens_counts(*strs,*tgts,delimiter,rtn,false);
+    Py_END_ALLOW_THREADS
+    for(unsigned int idx=0; idx < rows; idx++)
+    {
+        PyObject* row = PyList_New(columns);
+        for( unsigned int jdx=0; jdx < columns; ++jdx )
+            PyList_SetItem(row, jdx, PyLong_FromLong((long)rtn[(idx*columns)+jdx]));
+        PyList_SetItem(ret, idx, row);
+    }
+    delete rtn;
+    if( cname.compare("list")==0 )
+    {
+        Py_BEGIN_ALLOW_THREADS
+        NVStrings::destroy(tgts);
+        Py_END_ALLOW_THREADS
+    }
+    return ret;
+}
+
 static PyObject* n_edit_distance( PyObject* self, PyObject* args )
 {
     PyObject* pystrs = PyTuple_GetItem(args,0);
@@ -316,8 +409,19 @@ static PyObject* n_edit_distance( PyObject* self, PyObject* args )
         Py_RETURN_NONE;
     }
 
+    NVText::distance_type algo = NVText::levenshtein;
+    PyObject* pyalgo = PyTuple_GetItem(args,2);
+    if( pyalgo != Py_None )
+    {
+        int ialgo = (int)PyLong_AsLong(pyalgo);
+        if( ialgo != (int)NVText::levenshtein )
+        {
+            PyErr_Format(PyExc_ValueError,"unrecognized edit-distance algorithm");
+            Py_RETURN_NONE;
+        }
+    }
     unsigned int count = strs->size();
-    unsigned int* devptr = (unsigned int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,2));
+    unsigned int* devptr = (unsigned int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,3));
     std::string cname = pytgts->ob_type->tp_name;
     if( cname.compare("str")==0 )
     {
@@ -393,6 +497,7 @@ static PyMethodDef s_Methods[] = {
     { "n_token_count", n_token_count, METH_VARARGS, "" },
     { "n_contains_strings", n_contains_strings, METH_VARARGS, "" },
     { "n_strings_counts", n_strings_counts, METH_VARARGS, "" },
+    { "n_tokens_counts", n_tokens_counts, METH_VARARGS, "" },
     { "n_edit_distance", n_edit_distance, METH_VARARGS, "" },
     { NULL, NULL, 0, NULL }
 };

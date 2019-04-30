@@ -20,6 +20,7 @@ print(".gather([1,3,5,7],4):",strs.gather(devmem,4))
 print("[3]:",strs[3])
 print("[[1,3,5,7]]:",strs[[1,3,5,7]])
 print("[1:7:2]:",strs[1:7:2])
+print("[7:1:-2]:",strs[7:1:-2])
 print("[arr]:",strs[arr])
 print("[d_arr]:",strs[d_arr])
 

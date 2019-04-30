@@ -1906,6 +1906,24 @@ static PyObject* n_replace( PyObject* self, PyObject* args )
     Py_RETURN_NONE;
 }
 
+//
+static PyObject* n_replace_with_backrefs( PyObject* self, PyObject* args )
+{
+    PyObject* vo = 0;      // self pointer   = O
+    const char* pat = 0;   // cannot be null = s
+    const char* repl = 0;  // can be null    = z
+    if( !parse_args("replace_with_backrefs",args,"Osz",&vo,&pat,&repl) )
+        Py_RETURN_NONE;
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
+    NVStrings* rtn = 0;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->replace_with_backrefs(pat,repl);
+    Py_END_ALLOW_THREADS
+    if( rtn )
+        return PyLong_FromVoidPtr((void*)rtn);
+    Py_RETURN_NONE;
+}
+
 static PyObject* n_fillna( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
@@ -1943,18 +1961,22 @@ static PyObject* n_fillna( PyObject* self, PyObject* args )
     Py_RETURN_NONE;
 }
 
-//
-static PyObject* n_replace_with_backrefs( PyObject* self, PyObject* args )
+// inserts a string into each string
+static PyObject* n_insert( PyObject* self, PyObject* args )
 {
-    PyObject* vo = 0;      // self pointer   = O
-    const char* pat = 0;   // cannot be null = s
-    const char* repl = 0;  // can be null    = z
-    if( !parse_args("replace_with_backrefs",args,"Osz",&vo,&pat,&repl) )
-        Py_RETURN_NONE;
-    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
-    NVStrings* rtn = 0;
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    int start = 0;
+    PyObject* argOpt = PyTuple_GetItem(args,1);
+    if( argOpt != Py_None )
+        start = (int)PyLong_AsLong(argOpt);
+    const char* repl = 0;
+    argOpt = PyTuple_GetItem(args,2);
+    if( argOpt != Py_None )
+        repl = PyUnicode_AsUTF8(argOpt);
+    //
+    NVStrings* rtn = nullptr;
     Py_BEGIN_ALLOW_THREADS
-    rtn = tptr->replace_with_backrefs(pat,repl);
+    rtn = tptr->insert(repl,start);
     Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
@@ -3006,7 +3028,7 @@ static PyObject* n_gather( PyObject* self, PyObject* args )
 static PyObject* n_sublist( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    unsigned int start = 0, step = 1, end = tptr->size();
+    unsigned int start = 0, end = tptr->size();
     PyObject* argOpt = PyTuple_GetItem(args,1);
     if( argOpt != Py_None )
         start = (unsigned int)PyLong_AsLong(argOpt);
@@ -3014,8 +3036,9 @@ static PyObject* n_sublist( PyObject* self, PyObject* args )
     if( argOpt != Py_None )
         end = (unsigned int)PyLong_AsLong(argOpt);
     argOpt = PyTuple_GetItem(args,3);
+    int step = 1;
     if( argOpt != Py_None )
-        step = (unsigned int)PyLong_AsLong(argOpt);
+        step = (int)PyLong_AsLong(argOpt);
     //
     NVStrings* rtn = nullptr;
     Py_BEGIN_ALLOW_THREADS
@@ -3515,6 +3538,7 @@ static PyMethodDef s_Methods[] = {
     { "n_replace", n_replace, METH_VARARGS, "" },
     { "n_replace_with_backrefs", n_replace_with_backrefs, METH_VARARGS, "" },
     { "n_fillna", n_fillna, METH_VARARGS, "" },
+    { "n_insert", n_insert, METH_VARARGS, "" },
     { "n_len", n_len, METH_VARARGS, "" },
     { "n_byte_count", n_byte_count, METH_VARARGS, "" },
     { "n_lstrip", n_lstrip, METH_VARARGS, "" },
