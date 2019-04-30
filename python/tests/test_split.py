@@ -9,7 +9,7 @@ from utils import assert_eq
 
 def compare_split_records(nvstrs, pstrs):
     for i in range(len(nvstrs)):
-        got = nstrs[i]
+        got = nvstrs[i]
         expected = pstrs[i]
         if not got:
             assert None == expected

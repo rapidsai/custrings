@@ -1,24 +1,41 @@
-#
+# Copyright (c) 2018-2019, NVIDIA CORPORATION.
+
+import pandas as pd
 import nvstrings
 
-#
-from librmm_cffi import librmm as rmm
-from librmm_cffi import librmm_config as rmm_cfg
-rmm_cfg.use_pool_allocator = True 
-rmm.initialize()
+from utils import assert_eq
 
-#
-strs = nvstrings.to_device(["  hello  ","  there  ","  world  ", None, "  accénté  ",""])
-print(strs)
 
-print(".strip():",strs.strip())
-print(".lstrip():",strs.lstrip())
-print(".rstrip():",strs.rstrip())
+def test_strip():
+    s = ["  hello  ", "  there  ", "  world  ", None, "  accénté  ", ""]
+    strs = nvstrings.to_device(s)
+    pstrs = pd.Series(s)
+    got = strs.strip()
+    expected = pstrs.str.strip()
+    assert_eq(got.to_host(), expected)
 
-print(".strip().strip(e):",strs.strip().strip('e'))
-print(".strip().strip(é):",strs.strip().strip('é'))
+    got = strs.strip().strip('é')
+    expected = pstrs.str.strip().str.strip('é')
+    assert_eq(got.to_host(), expected)
 
-print(".strip( e):",strs.strip(' e'))
-print(".strip(é ):",strs.strip('é '))
+    got = strs.strip(' e')
+    expected = pstrs.str.strip(' e')
+    assert_eq(got.to_host(), expected)
 
-strs = None
+
+def test_lstrip():
+    s = ["  hello  ", "  there  ", "  world  ", None, "  accénté  ", ""]
+    strs = nvstrings.to_device(s)
+    pstrs = pd.Series(s)
+    got = strs.lstrip()
+    expected = pstrs.str.lstrip()
+    assert_eq(got.to_host(), expected)
+
+
+def test_rstrip():
+    s = ["  hello  ", "  there  ", "  world  ", None, "  accénté  ", ""]
+    strs = nvstrings.to_device(s)
+    pstrs = pd.Series(s)
+    got = strs.rstrip()
+    expected = pstrs.str.rstrip()
+    assert_eq(got.to_host(), expected)
