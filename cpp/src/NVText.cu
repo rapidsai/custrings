@@ -167,7 +167,7 @@ unsigned int NVText::token_count( NVStrings& strs, const char* delimiter, unsign
             custring_view* dstr = d_strings[idx];
             int tc = 0;
             if( dstr )
-                tc = dstr->split_size(d_delimiter,bytes,0,-1);
+                tc = dstr->empty() ? 0 : dstr->split_size(d_delimiter,bytes,0,-1);
             d_counts[idx] = tc;
         });
     //

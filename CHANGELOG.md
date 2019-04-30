@@ -39,6 +39,7 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 
 ## Bug Fixes
 
+- PR #276 Fixed token_count counting empty string as token
 - PR #269 Fixed exception on invalid parameter to edit_distance
 - PR #261 Fixed doxygen formatting and updated to 0.7
 - PR #248 Fixed docstring for index,rindex,find,rfind
