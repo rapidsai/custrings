@@ -40,11 +40,11 @@ def test_values():
     assert_eq(got, expected)
 
 
-def test_values_for_index():
+def test_value_for_index():
     strs = nvstrings.to_device(
         ["eee", "aaa", "eee", "ddd", "ccc", "ccc", "ccc", "eee", "aaa"])
     cat = nvcategory.from_strings(strs)
-    got = cat.values_for_index(7)
+    got = cat.value_for_index(7)
     expected = 3
     assert got == expected
 

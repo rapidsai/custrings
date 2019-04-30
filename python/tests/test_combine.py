@@ -29,7 +29,7 @@ def test_cat():
     assert_eq(got, expected)
 
     # nvstrings others
-    strs2 = = nvstrings.to_device(["1", "2", "3", None, "5", "é", ""])
+    strs2 = nvstrings.to_device(["1", "2", "3", None, "5", "é", ""])
     got = strs.cat(strs2)
     expected = ['abc1', 'def2', None, None, 'jkl5', 'mnoé', 'accént']
     assert_eq(got, expected)

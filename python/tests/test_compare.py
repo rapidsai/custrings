@@ -70,7 +70,7 @@ def test_startswith():
 def test_endswith():
     strs = nvstrings.to_device(
         ["hello", "there", "world", "accéntéd", None, ""])
-    strs.endswith("d")
+    got = strs.endswith("d")
     expected = [False, False, True, True, None, False]
     assert_eq(got, expected)
 
