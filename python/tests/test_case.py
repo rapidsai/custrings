@@ -39,13 +39,6 @@ def test_title():
     assert_eq(got, expected)
 
 
-def test_rjust():
-    strs = nvstrings.to_device(["abc", "Def", None, "jLl"])
-    got = strs.rjust(4)
-    expected = [' abc', ' Def', None, ' jLl']
-    assert_eq(got, expected)
-
-
 def test_islower():
     strs = nvstrings.to_device(["abc", "Def", None, "jLl"])
     got = strs.islower()
