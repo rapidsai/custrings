@@ -96,8 +96,8 @@ def test_stof():
          "", "de", "abc123", "123abc", "456e", "-1.78e+5"])
     got = s.stof()
     expected = [1234.0, 5678.0, 90.0, None, -876.0, 543.2000122070312,
-                -0.11999999731779099, 0.550000011920929, -0.001999999862164259,
-                0.0, 0.0, 0.0, 123.0, 456.0, -1.7799999713897705]
+                -0.11999999731779099, 0.550000011920929, -0.0020000000949949026,
+                0.0, 0.0, 0.0, 123.0, 456.0, -178000.0]
     assert_eq(got, expected)
 
 
@@ -109,19 +109,33 @@ def test_htoi():
 
 
 def test_itos():
-    pass
+    s = [0, 103, 1053, 8395739]
+    got = nvstrings.itos(s)
+    expected = nvstrings.to_device(['0', '103', '1053', '8395739'])
+    assert_eq(got, expected)
 
 
 def test_ltos():
-    pass
+    s = [0, 103, -2548485929, 8395794248339]
+    got = nvstrings.ltos(s)
+    expected = nvstrings.to_device(['0', '103', '-2548485929', '8395794248339'])
+    assert_eq(got, expected)
 
 
 def test_ftos():
-    pass
+    s = np.array([0, 103, -254848.5929, 8395794.248339], dtype=np.float32)
+    got = nvstrings.ftos(s)
+    expected = nvstrings.to_device(['0', '103', '-254848.5938', '8395794'])
+    assert_eq(got, expected)
 
 
 def test_dtos():
-    pass
+    s = np.array([0, 103342.313, -25.4294, 839542223232.794248339],
+                 dtype=np.float64)
+    got = nvstrings.dtos(s)
+    expected = nvstrings.to_device(
+        ['0', '103342.313', '-25.4294', '8.395422232e+11'])
+    assert_eq(got, expected)
 
 
 def test_ip2int():
@@ -139,21 +153,30 @@ def test_int2ip():
 
 
 def test_to_booleans():
-    pass
+    s = nvstrings.to_device(["true", "false", None, "", "true", 'True'])
+
+    got = s.to_booleans()
+    expected = [False, False, None, False, False, True]
+    assert_eq(got, expected)
+
+    got = s.to_booleans(true='true')
+    expected = [True, False, None, False, True, False]
+    assert_eq(got, expected)
 
 
 def test_from_booleans():
-    pass
+    s = [True, False, False, True]
+    got = nvstrings.from_booleans(s)
+    expected = ['True', 'False', 'False', 'True']
+    assert_eq(got, expected)
+
+    got = nvstrings.from_booleans(s, nulls=[11])
+    expected = ['True', 'False', None, 'True']
+    assert_eq(got, expected)
 
 
 def test_is_empty():
-    pass
-
-# booleans
-s = nvstrings.to_device(["true","false",None,"","true"])
-print(s)
-print(".to_booleans()",s.to_booleans(true="true"))
-print("from_booleans",nvstrings.from_booleans([True,False,False,True],nulls=[11]))
-print("is_empty()",s.is_empty())
-
-s = None
+    s = nvstrings.to_device(["true", "false", None, "", "true", 'True'])
+    got = s.is_empty()
+    expected = [False, False, None, True, False, False]
+    assert_eq(got, expected)
