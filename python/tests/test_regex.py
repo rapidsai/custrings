@@ -183,3 +183,16 @@ def test_replace_with_backrefs(find, replace):
     got = nvstrs.replace_with_backrefs(find, replace)
     expected = pstrs.str.replace(find, replace).values
     assert_eq(got, expected)
+
+
+@pytest.mark.parametrize('pattern', [
+    "hello @abc @def world The quick brown @fox jumps over the lazy @dog hello http://www.world.com I'm here @home",
+    "hello @abc @def world The quick brown @fox jumps over the lazy @dog hello http://www.world.com I'm here @home zzzz"
+])
+def test_contains_large_regex(pattern):
+    s = ["hello @abc @def world The quick brown @fox jumps over the lazy @dog hello http://www.world.com I'm here @home", "12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890","abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz"]
+    pstrs = pd.Series(s)
+    strs =  nvstrings.to_device(s)
+    got = strs.contains(pattern)
+    expected = pstrs.str.contains(pattern)
+    assert_eq(got, expected)
