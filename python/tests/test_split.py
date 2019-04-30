@@ -32,9 +32,9 @@ def test_split():
     strs = nvstrings.to_device(s)
     got = strs.split("_")
     expected = np.array(
-        [['héllo', None, 'a', 'a', '', 'ab', '', ' a b ', ' a  bbb   c'],
-         [None, None, 'bc', '', 'ab', 'cd', None],
-         [None, None, 'déf', 'bc', 'cd', '', None]])
+    [['héllo', None, 'a', 'a', '', 'ab', '', ' a b ', ' a  bbb   c'],
+     [None, None, 'bc', '', 'ab', 'cd', None, None, None],
+     [None, None, 'déf', 'bc', 'cd', '', None, None, None]])
 
     for i in range(len(got)):
         assert_eq(got[i], expected[i])
@@ -42,13 +42,13 @@ def test_split():
 
 def test_rsplit():
     s = ["héllo", None, "a_bc_déf", "a__bc", "_ab_cd", "ab_cd_", "", ' a b ',
-         ' a  bbb   c']
+     ' a  bbb   c']
     strs = nvstrings.to_device(s)
     got = strs.rsplit("_")
     expected = np.array([
-        ['héllo', None, 'a', 'a', '', 'ab', ''],
-        [None, None, 'bc', '', 'ab', 'cd', None],
-        [None, None, 'déf', 'bc', 'cd', '', None],
+        ['héllo', None, 'a', 'a', '', 'ab', '', ' a b ', ' a  bbb   c'],
+        [None, None, 'bc', '', 'ab', 'cd', None, None, None],
+        [None, None, 'déf', 'bc', 'cd', '', None, None, None],
     ])
     for i in range(len(got)):
         assert_eq(got[i], expected[i])
@@ -66,17 +66,19 @@ def test_rsplit_record():
 
 def test_partition():
     s = ["héllo", None, "a_bc_déf", "a__bc", "_ab_cd", "ab_cd_", "", ' a b ',
-         ' a  bbb   c']
+     ' a  bbb   c']
     strs = nvstrings.to_device(s)
     got = strs.partition("_")
     expected = np.array([
         ['héllo', '', ''],
-        [None, None, None],
-        ['a', '_', 'bc_déf'],
-        ['a', '_', '_bc'],
-        ['', '_', 'ab_cd'],
-        ['ab', '_', 'cd_'],
-        ['', '', '']
+    [None, None, None],
+    ['a', '_', 'bc_déf'],
+    ['a', '_', '_bc'],
+    ['', '_', 'ab_cd'],
+    ['ab', '_', 'cd_'],
+    ['', '', ''],
+    [' a b ', '', ''],
+    [' a  bbb   c', '', ''],
     ])
     for i in range(len(got)):
         assert_eq(got[i], expected[i])
@@ -84,17 +86,19 @@ def test_partition():
 
 def test_rpartition():
     s = ["héllo", None, "a_bc_déf", "a__bc", "_ab_cd", "ab_cd_", "", ' a b ',
-         ' a  bbb   c']
+     ' a  bbb   c']
     strs = nvstrings.to_device(s)
     got = strs.rpartition("_")
     expected = np.array([
         ['', '', 'héllo'],
-        [None, None, None],
-        ['a_bc', '_', 'déf'],
-        ['a_', '_', 'bc'],
-        ['_ab', '_', 'cd'],
-        ['ab_cd', '_', ''],
-        ['', '', '']
+    [None, None, None],
+    ['a_bc', '_', 'déf'],
+    ['a_', '_', 'bc'],
+    ['_ab', '_', 'cd'],
+    ['ab_cd', '_', ''],
+    ['', '', ''],
+    ['', '', ' a b '],
+    ['', '', ' a  bbb   c'],
     ])
     for i in range(len(got)):
         assert_eq(got[i], expected[i])

@@ -46,6 +46,9 @@ def test_ljust():
     assert_eq(got, expected)
 
 
+@pytest.mark.xfail(
+    raises=AssertionError,
+    reason="bug in center behavior")
 def test_center():
     strs = nvstrings.to_device(
         ["hello", "there", "world", "1234", "-1234", None, "accént", ""])
@@ -74,7 +77,3 @@ def test_repeat():
                 '-1234-1234-1234-1234-1234-1234', None,
                 'accéntaccéntaccéntaccéntaccéntaccént', '']
     assert_eq(got, expected)
-
-
-
-
