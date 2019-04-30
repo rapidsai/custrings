@@ -199,3 +199,20 @@ def test_is_empty():
     got = s.is_empty()
     expected = [False, False, None, True, False, False]
     assert_eq(got, expected)
+
+
+def test_copy():
+    s = nvstrings.to_device(["true", "false", None, "", "true", 'True'])
+    s1 = s.copy()
+    assert_eq(s, s1)
+
+
+def test_to_host():
+    s = nvstrings.to_device(["true", "false", None, "", "true", 'True'])
+    got = s.to_host()
+    expected = ['true', 'false', None, '', 'true', 'True']
+    assert_eq(got, expected)
+
+
+def test_to_device():
+    pass
