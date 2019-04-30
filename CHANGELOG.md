@@ -56,6 +56,7 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 - PR #235 Fix anaconda upload script for new conda recipe
 - PR #239 Fix definitions of upload files for conda packages
 - PR #241 Revert split package to individual recipes to avoid run_exports bug
+- PR #274 Updated RPATH/RUNPATH setting to accommodate current install location
 
 
 # cuStrings/nvStrings 0.3.0 (15 Mar 2019)
