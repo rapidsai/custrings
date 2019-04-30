@@ -16,4 +16,3 @@ def test_wrap(width):
     got = strs.wrap(width)
     expected = pstrs.str.wrap(width)
     assert_eq(got.to_host(), expected)
-

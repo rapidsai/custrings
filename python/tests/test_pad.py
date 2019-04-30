@@ -32,8 +32,8 @@ def test_pad():
     strs = nvstrings.to_device(
         ["hello", "there", "world", "1234", "-1234", None, "accént", ""])
     got = strs.pad(9, 'both', '.')
-    expected = ['..hello..', '..there..', '..world..', '..1234...', '..-1234..',
-                None, '.accént..', '.........']
+    expected = ['..hello..', '..there..', '..world..', '..1234...',
+                '..-1234..', None, '.accént..', '.........']
     assert_eq(got, expected)
 
 

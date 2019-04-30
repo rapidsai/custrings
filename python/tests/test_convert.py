@@ -1,11 +1,8 @@
 # Copyright (c) 2018-2019, NVIDIA CORPORATION.
 
-import pytest
 import numpy as np
 
 import nvstrings
-
-from librmm_cffi import librmm as rmm
 
 from utils import assert_eq
 
@@ -23,18 +20,18 @@ def test_hash():
 
 def test_isalnum():
     s = nvstrings.to_device(
-        ['1234567890', 'de', '1.75', '-34', '+9.8', '7¼', 'x³', '2³', '12⅝', '',
-         '\t\r\n '])
+        ['1234567890', 'de', '1.75', '-34', '+9.8', '7¼', 'x³', '2³', '12⅝',
+         '', '\t\r\n '])
     got = s.isalnum()
-    expected = [True, True, False, False, False, True, True, True, True, False,
-                False]
+    expected = [True, True, False, False, False, True, True, True, True,
+                False, False]
     assert_eq(got, expected)
 
 
 def test_isalpha():
     s = nvstrings.to_device(
-        ['1234567890', 'de', '1.75', '-34', '+9.8', '7¼', 'x³', '2³', '12⅝', '',
-         '\t\r\n '])
+        ['1234567890', 'de', '1.75', '-34', '+9.8', '7¼', 'x³', '2³', '12⅝',
+         '', '\t\r\n '])
     got = s.isalpha()
     expected = [False, True, False, False, False, False, False, False, False,
                 False, False]
@@ -43,8 +40,8 @@ def test_isalpha():
 
 def test_isdigit():
     s = nvstrings.to_device(
-        ['1234567890', 'de', '1.75', '-34', '+9.8', '7¼', 'x³', '2³', '12⅝', '',
-         '\t\r\n '])
+        ['1234567890', 'de', '1.75', '-34', '+9.8', '7¼', 'x³', '2³', '12⅝',
+         '', '\t\r\n '])
     got = s.isdigit()
     expected = [True, False, False, False, False, False, False, True, False,
                 False, False]
@@ -53,8 +50,8 @@ def test_isdigit():
 
 def test_isdecimal():
     s = nvstrings.to_device(
-        ['1234567890', 'de', '1.75', '-34', '+9.8', '7¼', 'x³', '2³', '12⅝', '',
-         '\t\r\n '])
+        ['1234567890', 'de', '1.75', '-34', '+9.8', '7¼', 'x³', '2³', '12⅝',
+         '', '\t\r\n '])
     got = s.isdecimal()
     expected = [True, False, False, False, False, False, False, False, False,
                 False, False]
@@ -63,8 +60,8 @@ def test_isdecimal():
 
 def test_isspace():
     s = nvstrings.to_device(
-        ['1234567890', 'de', '1.75', '-34', '+9.8', '7¼', 'x³', '2³', '12⅝', '',
-         '\t\r\n '])
+        ['1234567890', 'de', '1.75', '-34', '+9.8', '7¼', 'x³', '2³', '12⅝',
+         '', '\t\r\n '])
     got = s.isspace()
     expected = [False, False, False, False, False, False, False, False, False,
                 False, True]
@@ -73,8 +70,8 @@ def test_isspace():
 
 def test_isnumeric():
     s = nvstrings.to_device(
-        ['1234567890', 'de', '1.75', '-34', '+9.8', '7¼', 'x³', '2³', '12⅝', '',
-         '\t\r\n '])
+        ['1234567890', 'de', '1.75', '-34', '+9.8', '7¼', 'x³', '2³', '12⅝',
+         '', '\t\r\n '])
     got = s.isnumeric()
     expected = [True, False, False, False, False, True, False, True, True,
                 False, False]
@@ -86,7 +83,8 @@ def test_stoi():
         ["1234", "5678", "90", None, "-876", "543.2", "-0.12", ".55", "-.002",
          "", "de", "abc123", "123abc", "456e", "-1.78e+5"])
     got = s.stoi()
-    expected = [1234, 5678, 90, None, -876, 543, 0, 0, 0, 0, 0, 0, 123, 456, -1]
+    expected = [1234, 5678, 90, None, -876, 543, 0, 0, 0, 0, 0, 0, 123, 456,
+                -1]
     assert_eq(got, expected)
 
 
@@ -95,7 +93,8 @@ def test_stol():
         ["1234", "5678", "90", None, "-876", "543.2", "-0.12", "2.55", "-.002",
          "", "de", "abc123", "123abc", "456e", "-1.78e+5"])
     got = s.stol()
-    expected = [1234, 5678, 90, None, -876, 543, 0, 2, 0, 0, 0, 0, 123, 456, -1]
+    expected = [1234, 5678, 90, None, -876, 543, 0, 0, 0, 0, 0, 0, 123, 456,
+                -1]
     assert_eq(got, expected)
 
 
@@ -105,18 +104,18 @@ def test_stof():
          "", "de", "abc123", "123abc", "456e", "-1.78e+5"])
     got = s.stof()
     expected = [1234.0, 5678.0, 90.0, None, -876.0, 543.2000122070312,
-                -0.11999999731779099, 0.550000011920929, -0.0020000000949949026,
-                0.0, 0.0, 0.0, 123.0, 456.0, -178000.0]
+                -0.11999999731779099, 0.550000011920929,
+                -0.0020000000949949026, 0.0, 0.0, 0.0, 123.0, 456.0, -178000.0]
     assert_eq(got, expected)
 
 
 def test_stod():
     s = nvstrings.to_device(
-        ["1234", "5678", "90", None, "-876", "543.2", "-0.12", "2.553", "-.002",
-         "", "de", "abc123", "123abc", "456e", "-1.78e+5"])
+        ["1234", "5678", "90", None, "-876", "543.2", "-0.12", "2.553",
+         "-.002", "", "de", "abc123", "123abc", "456e", "-1.78e+5"])
     got = s.stod()
-    expected = [1234.0, 5678.0, 90.0, None, -876.0, 543.2, -0.12, 2.553, -0.002,
-                0.0, 0.0, 0.0, 123.0, 456.0, -178000.0]
+    expected = [1234.0, 5678.0, 90.0, None, -876.0, 543.2, -0.12, 2.553,
+                -0.002, 0.0, 0.0, 0.0, 123.0, 456.0, -178000.0]
     assert_eq(got, expected)
 
 
@@ -137,7 +136,8 @@ def test_itos():
 def test_ltos():
     s = [0, 103, -2548485929, 8395794248339]
     got = nvstrings.ltos(s)
-    expected = nvstrings.to_device(['0', '103', '-2548485929', '8395794248339'])
+    expected = nvstrings.to_device(['0', '103', '-2548485929',
+                                    '8395794248339'])
     assert_eq(got, expected)
 
 

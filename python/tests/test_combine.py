@@ -1,14 +1,14 @@
 # Copyright (c) 2018-2019, NVIDIA CORPORATION.
 
-import pytest
-
 import nvstrings
 
 from utils import assert_eq
 
 
 def test_cat():
-    strs = nvstrings.to_device(["abc", "def", None, "", "jkl", "mno", "accént"])
+    strs = nvstrings.to_device(
+        ["abc", "def", None, "", "jkl", "mno", "accént"]
+    )
     got = strs.cat()
     expected = ['abcdefjklmnoaccént']
     assert_eq(got, expected)

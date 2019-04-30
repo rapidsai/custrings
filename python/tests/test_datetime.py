@@ -28,4 +28,3 @@ def test_int2timestamp():
     got = nvstrings.int2timestamp(ints)
     expected = ['2019-03-20T12:34:56Z', '2020-02-29T00:00:00Z']
     assert_eq(got, expected)
-

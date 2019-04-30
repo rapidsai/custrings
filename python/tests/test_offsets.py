@@ -1,6 +1,5 @@
 # Copyright (c) 2018-2019, NVIDIA CORPORATION.
 
-import pytest
 import numpy as np
 
 import nvstrings
@@ -57,6 +56,3 @@ def test_to_offsets():
     assert np.array_equal(values, expected_values)
     assert np.array_equal(offsets, expected_offsets)
     assert np.array_equal(nulls, expected_nulls)
-
-
-

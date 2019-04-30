@@ -1,14 +1,12 @@
 # Copyright (c) 2018-2019, NVIDIA CORPORATION.
 
-import pytest
-
 import nvstrings
 
 
 def test_len():
     strs = nvstrings.to_device(
-    ["abc", "Def", None, "jLl", "mnO", "PqR", "sTT", "dog and cat",
-     "accénted", "", " 1234 ", "XYZ"])
+        ["abc", "Def", None, "jLl", "mnO", "PqR", "sTT", "dog and cat",
+         "accénted", "", " 1234 ", "XYZ"])
     assert len(strs) == 12
     assert strs.len() == [3, 3, None, 3, 3, 3, 3, 11, 8, 0, 6, 3]
 

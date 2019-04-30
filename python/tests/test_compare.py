@@ -1,6 +1,5 @@
 # Copyright (c) 2019, NVIDIA CORPORATION.
 
-import pytest
 import numpy as np
 
 import nvstrings
@@ -81,14 +80,16 @@ def test_match():
     expected = [False, True, True, False, None, False]
     assert_eq(got, expected)
 
+
 def test_match_strings():
-    s1 = ["hello","here",None,"accéntéd",None,""]
-    s2 = ["hello","there","world","accéntéd",None,""]
+    s1 = ["hello", "here", None, "accéntéd", None, ""]
+    s2 = ["hello", "there", "world", "accéntéd", None, ""]
     strs1 = nvstrings.to_device(s1)
     strs2 = nvstrings.to_device(s2)
     got = strs1.match_strings(strs2)
     expected = [True, False, False, True, True, True]
     assert_eq(got, expected)
+
 
 def test_index():
     strs = nvstrings.to_device(
