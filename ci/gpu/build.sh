@@ -100,4 +100,4 @@ nvidia-smi
 
 logger "Simple test..."
 cd tests
-python test_build.py
+pytest -v
