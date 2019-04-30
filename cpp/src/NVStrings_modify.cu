@@ -625,3 +625,67 @@ NVStrings* NVStrings::fillna( NVStrings& strs )
     //
     return rtn;
 }
+
+//
+// The slice_replace method can do this too.
+// This is easier to use and more efficient.
+NVStrings* NVStrings::insert( const char* repl, int start )
+{
+    if( !repl )
+        throw std::invalid_argument("nvstrings::slice_replace parameter cannot be null");
+    auto execpol = rmm::exec_policy(0);
+    unsigned int replen = (unsigned int)strlen(repl);
+    char* d_repl = nullptr;
+    RMM_ALLOC(&d_repl,replen,0);
+    cudaMemcpy(d_repl,repl,replen,cudaMemcpyHostToDevice);
+    // compute size of output buffer
+    unsigned int count = size();
+    custring_view_array d_strings = pImpl->getStringsPtr();
+    rmm::device_vector<size_t> lengths(count,0);
+    size_t* d_lengths = lengths.data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_strings, d_repl, replen, start, d_lengths] __device__(unsigned int idx){
+            custring_view* dstr = d_strings[idx];
+            if( !dstr )
+                return;
+            unsigned int len = dstr->size();
+            if( start <= (int)dstr->chars_count() )
+                len = dstr->insert_size(d_repl,replen);
+            len = ALIGN_SIZE(len);
+            d_lengths[idx] = (size_t)len;
+        });
+
+    // create output object
+    NVStrings* rtn = new NVStrings(count);
+    char* d_buffer = rtn->pImpl->createMemoryFor(d_lengths);
+    if( d_buffer==0 )
+    {
+        if( d_repl )
+            RMM_FREE(d_repl,0);
+        return rtn;
+    }
+    // create offsets
+    rmm::device_vector<size_t> offsets(count,0);
+    thrust::exclusive_scan(execpol->on(0),lengths.begin(),lengths.end(),offsets.begin());
+    // do the insert
+    custring_view_array d_results = rtn->pImpl->getStringsPtr();
+    size_t* d_offsets = offsets.data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<size_t>(0), count,
+        [d_strings, d_repl, replen, start, d_buffer, d_offsets, d_results] __device__(size_t idx){
+            custring_view* dstr = d_strings[idx];
+            if( !dstr )
+                return;
+            char* buffer = d_buffer + d_offsets[idx];
+            custring_view* dout = custring_view::create_from(buffer,*dstr);
+            if( start <= (int)dstr->chars_count() )
+            {
+                unsigned int pos = ( start < 0 ? dstr->chars_count() : (unsigned)start );
+                dout->insert(pos,d_repl,replen);
+            }
+            d_results[idx] = dout;
+        });
+    //
+    if( d_repl )
+        RMM_FREE(d_repl,0);
+    return rtn;
+}

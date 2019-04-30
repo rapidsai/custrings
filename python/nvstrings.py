@@ -197,6 +197,7 @@ def ltos(values, count=0, nulls=None, bdevmem=False):
 def ftos(values, count=0, nulls=None, bdevmem=False):
     """
     Create strings from an array of float32 values.
+    Scientific notation may be used to show up to 10 significant digits.
 
     Parameters
     ----------
@@ -221,6 +222,7 @@ def ftos(values, count=0, nulls=None, bdevmem=False):
 def dtos(values, count=0, nulls=None, bdevmem=False):
     """
     Create strings from an array of float64 values.
+    Scientific notation may be used to show up to 10 significant digits.
 
     Parameters
     ----------
@@ -1418,6 +1420,33 @@ class nvstrings:
 
         """
         rtn = pyniNVStrings.n_slice_replace(self.m_cptr, start, stop, repl)
+        if rtn is not None:
+            rtn = nvstrings(rtn)
+        return rtn
+
+    def insert(self, start=0, repl=None):
+        """
+        Insert the specified string into each string in the specified
+        position.
+
+        Parameters
+        ----------
+        start : int
+            Beginning position of the string to replace.
+            Default is beginning of the each string.
+            Specify -1 to insert at the end of each string.
+        repl : str
+            String to insert into the specified position valus.
+
+        Examples
+        --------
+        >>> import nvstrings
+        >>> strs = nvstrings.to_device(["abcdefghij","0123456789"])
+        >>> print(strs.insert(2,'_'))
+        ['ab_cdefghij', '01_23456789']
+
+        """
+        rtn = pyniNVStrings.n_insert(self.m_cptr, start, repl)
         if rtn is not None:
             rtn = nvstrings(rtn)
         return rtn

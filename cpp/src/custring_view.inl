@@ -977,7 +977,7 @@ __device__ inline custring_view& custring_view::insert(unsigned int pos, const c
     if(sz == 0)
     { // insert whole string into this empty string
         if(bytes > 0)
-            memcpy(sptr + spos, str, bytes);
+            memcpy(sptr, str, bytes);
         init_fields(bytes);
         return *this;
     }
@@ -990,7 +990,7 @@ __device__ inline custring_view& custring_view::insert(unsigned int pos, const c
         char* optr = sptr + spos;
         if(right > 0) // move the right side first
             _memmove(optr + bytes, sptr + spos, right);
-        if(bytes > 0)                // fill in with
+        if(bytes > 0)                 // fill in with
             memcpy(optr, str, bytes); // the new string
         init_fields(nsz);             // and re-init
     }
