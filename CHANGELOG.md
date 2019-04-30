@@ -4,6 +4,7 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 
 ## New Features
 
+- PR #280 Added get_info method to show data about strings
 - PR #273 Added tokens_counts method to nvtext
 - PR #265 Added is_empty method
 - PR #260 Support for format-specified date-time to/from string conversion
