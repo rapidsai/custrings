@@ -2463,7 +2463,6 @@ class nvstrings:
         rtn = pyniNVStrings.n_find_multiple(self.m_cptr, strs, devptr)
         return rtn
 
-
     def get_info(self):
         """
         Return a dictionary of information about the strings
