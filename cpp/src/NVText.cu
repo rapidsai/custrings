@@ -167,7 +167,7 @@ unsigned int NVText::token_count( NVStrings& strs, const char* delimiter, unsign
             custring_view* dstr = d_strings[idx];
             int tc = 0;
             if( dstr )
-                tc = dstr->split_size(d_delimiter,bytes,0,-1);
+                tc = dstr->empty() ? 0 : dstr->split_size(d_delimiter,bytes,0,-1);
             d_counts[idx] = tc;
         });
     //
@@ -260,6 +260,68 @@ unsigned int NVText::strings_counts( NVStrings& strs, NVStrings& tkns, unsigned 
                     {
                         pos = dstr->find(*dtgt,pos+dtgt->chars_count());
                         ++fnd;
+                    }
+                }
+                d_rtn[(idx*tcount)+jdx] = fnd;
+            }
+        });
+    //
+    if( !todevice )
+    {   // copy result back to host
+        cudaMemcpy(results,d_rtn,sizeof(unsigned int)*count*tcount,cudaMemcpyDeviceToHost);
+        RMM_FREE(d_rtn,0);
+    }
+    return 0;
+}
+
+// return the number of occurrences of each string within a set of strings
+// this will fill in the provided memory as a matrix:
+//              'aa'  'bbb'  'c' ...
+// "aa aa b c"    2     0     1
+// "aa bb c c"    1     0     2
+// "a bbb ccc"    0     1     0
+// ...
+unsigned int NVText::tokens_counts( NVStrings& strs, NVStrings& tkns, const char* delimiter, unsigned int* results, bool todevice )
+{
+    unsigned int count = strs.size();
+    unsigned int tcount = tkns.size();
+    if( results==0 || count==0 || tcount==0 )
+        return 0;
+    //
+    auto execpol = rmm::exec_policy(0);
+    unsigned int* d_rtn = results;
+    if( !todevice )
+        RMM_ALLOC(&d_rtn,tcount*count*sizeof(unsigned int),0);
+    int dellen = (int)strlen(delimiter);
+    char* d_delimiter = nullptr;
+    RMM_ALLOC(&d_delimiter,dellen,0);
+    cudaMemcpy(d_delimiter,delimiter,dellen,cudaMemcpyHostToDevice);
+
+    //
+    rmm::device_vector<custring_view*> strings(count,nullptr);
+    rmm::device_vector<custring_view*> tokens(tcount,nullptr);
+    custring_view** d_strings = strings.data().get();
+    custring_view** d_tokens = tokens.data().get();
+    strs.create_custring_index(d_strings);
+    tkns.create_custring_index(d_tokens);
+
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_strings, d_tokens, tcount, d_delimiter, dellen, d_rtn] __device__(unsigned int idx){
+            custring_view* dstr = d_strings[idx];
+            for( int jdx=0; jdx < tcount; ++jdx )
+            {
+                custring_view* dtgt = d_tokens[jdx];
+                int fnd = 0;
+                if( dstr && dtgt )
+                {
+                    int pos = dstr->find(*dtgt);
+                    while( pos >= 0 )
+                    {
+                        int epos = pos + dtgt->chars_count();
+                        if( ((pos==0) || (dstr->find(d_delimiter,dellen,pos-1)==(pos-1))) &&
+                            ((epos>=dstr->chars_count()) || (dstr->find(d_delimiter,dellen,epos)==epos)) )
+                            ++fnd;
+                        pos = dstr->find(*dtgt,pos+dtgt->chars_count());
                     }
                 }
                 d_rtn[(idx*tcount)+jdx] = fnd;

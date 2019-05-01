@@ -10,3 +10,4 @@ dependencies:
 - cython=0.28.*
 - cffi>=1.10.0
 - librmm=0.7.*
+- pytest

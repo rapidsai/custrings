@@ -256,7 +256,7 @@ public:
      * @param step This can be used to capture indexes in intervals. Default is all strings within start and end.
      * @return New instance with the specified strings.
      */
-    NVStrings* sublist( unsigned int start, unsigned int end, unsigned int step=0 );
+    NVStrings* sublist( unsigned int start, unsigned int end, int step=0 );
     /**
      * @brief Returns new instance using the order of the specified index values for this instance.
      *
@@ -653,7 +653,7 @@ public:
      * @param start The 0-based character position in each string to start the replace.
      * @param stop The 0-based character position to complete the replace.
      *             The default (-1) indicates replace to the end of each string.
-     * @return New instance with replaced strings.
+     * @return New instance with updated strings.
      */
     NVStrings* slice_replace( const char* repl, int start=0, int stop=-1 );
     /**
@@ -704,6 +704,13 @@ public:
      * @return Copy of this instance with null strings replaced.
      */
     NVStrings* fillna( NVStrings& strs );
+    /**
+     * @brief Inserts the specified string (repl) into each string at the specified position.
+     * @param[in] repl Null-terminated CPU string to insert into each string.
+     * @param pos The 0-based character position in each string to start the replace.
+     * @return New instance with updated strings.
+     */
+    NVStrings* insert( const char* repl, int pos=0 );
 
     // NVStrings_strip.cu
     /**

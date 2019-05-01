@@ -105,20 +105,27 @@ NVStrings* NVStrings::gather( const int* pos, unsigned int elems, bool bdevmem )
     return rtn;
 }
 
-NVStrings* NVStrings::sublist( unsigned int start, unsigned int end, unsigned int step )
+NVStrings* NVStrings::sublist( unsigned int start, unsigned int end, int step )
 {
     unsigned int count = size();
     if( end > count )
         end = count;
-    if( start >= end )
-        return new NVStrings(0);
+    if( start > count )
+        start = count;
     if( step==0 )
         step = 1;
-    unsigned int elems = (end - start + step -1)/step;
+    if( start == end )
+        return new NVStrings(0);
+    if( ((step > 0) && (start > end)) ||
+        ((step < 0) && (start < end)) )
+        return new NVStrings(0);
+    unsigned int elems = (unsigned int)std::abs((int)(end-start));
+    unsigned int abs_step = (unsigned int)std::abs(step);
+    elems = (elems + abs_step -1)/abs_step; // adjust for steps
     auto execpol = rmm::exec_policy(0);
-    rmm::device_vector<unsigned int> indexes(elems);
-    thrust::sequence(execpol->on(0),indexes.begin(),indexes.end(),start,step);
-    return gather((int*)indexes.data().get(),elems,true);
+    rmm::device_vector<int> indexes(elems);
+    thrust::sequence(execpol->on(0),indexes.begin(),indexes.end(),(int)start,step);
+    return gather(indexes.data().get(),elems,true);
 }
 
 // remove the specified strings and return a new instance
