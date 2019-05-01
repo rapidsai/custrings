@@ -3,7 +3,10 @@
 import pandas as pd
 import nvstrings
 
-from utils import assert_eq
+from utils import assert_eq, initialize_rmm_pool
+
+
+initialize_rmm_pool()
 
 
 def test_strip():

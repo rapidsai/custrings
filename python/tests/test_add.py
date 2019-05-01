@@ -2,6 +2,11 @@
 
 import nvstrings
 
+from utils import initialize_rmm_pool
+
+
+initialize_rmm_pool()
+
 
 def test_from_strings():
     s1 = nvstrings.to_device(["dog and cat", None, "accénted", ""])

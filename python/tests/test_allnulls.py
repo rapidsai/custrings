@@ -1,7 +1,11 @@
+# Copyright (c) 2018-2019, NVIDIA CORPORATION.
 
 import nvstrings
 import pytest
-from utils import methodcaller
+from utils import methodcaller, initialize_rmm_pool
+
+
+initialize_rmm_pool()
 
 
 @pytest.mark.parametrize('func',
