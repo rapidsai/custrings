@@ -197,6 +197,7 @@ def ltos(values, count=0, nulls=None, bdevmem=False):
 def ftos(values, count=0, nulls=None, bdevmem=False):
     """
     Create strings from an array of float32 values.
+    Scientific notation may be used to show up to 10 significant digits.
 
     Parameters
     ----------
@@ -221,6 +222,7 @@ def ftos(values, count=0, nulls=None, bdevmem=False):
 def dtos(values, count=0, nulls=None, bdevmem=False):
     """
     Create strings from an array of float64 values.
+    Scientific notation may be used to show up to 10 significant digits.
 
     Parameters
     ----------
@@ -412,11 +414,13 @@ class nvstrings:
             start = 0 if key.start is None else key.start
             end = self.size() if key.stop is None else key.stop
             step = 1 if key.step is None or key.step == 0 else key.step
+            # negative slicing check
+            end = self.size()+end if end < 0 else end
+            start = self.size()+start if start < 0 else start
             rtn = pyniNVStrings.n_sublist(self.m_cptr, start, end, step)
             if rtn is not None:
                 rtn = nvstrings(rtn)
             return rtn
-        # raise TypeError("key must be integer, slice, or list of integers")
         # gather can handle almost anything now
         return self.gather(key)
 
@@ -1420,6 +1424,33 @@ class nvstrings:
             rtn = nvstrings(rtn)
         return rtn
 
+    def insert(self, start=0, repl=None):
+        """
+        Insert the specified string into each string in the specified
+        position.
+
+        Parameters
+        ----------
+        start : int
+            Beginning position of the string to replace.
+            Default is beginning of the each string.
+            Specify -1 to insert at the end of each string.
+        repl : str
+            String to insert into the specified position valus.
+
+        Examples
+        --------
+        >>> import nvstrings
+        >>> strs = nvstrings.to_device(["abcdefghij","0123456789"])
+        >>> print(strs.insert(2,'_'))
+        ['ab_cdefghij', '01_23456789']
+
+        """
+        rtn = pyniNVStrings.n_insert(self.m_cptr, start, repl)
+        if rtn is not None:
+            rtn = nvstrings(rtn)
+        return rtn
+
     def replace(self, pat, repl, n=-1, regex=True):
         """
         Replace a string (pat) in each string with another string (repl).
@@ -1912,7 +1943,7 @@ class nvstrings:
         >>> import nvstrings
         >>> s = nvstrings.to_device(["hello","there","world"])
         >>> print(s.match('h'))
-        [True, False, True]
+        [True, False, False]
 
         """
         rtn = pyniNVStrings.n_match(self.m_cptr, pat, devptr)
@@ -2430,4 +2461,14 @@ class nvstrings:
 
         """
         rtn = pyniNVStrings.n_find_multiple(self.m_cptr, strs, devptr)
+        return rtn
+
+    def get_info(self):
+        """
+        Return a dictionary of information about the strings
+        in this instance. This could be helpful in understanding
+        the makeup of the data and how the operations may perform.
+
+        """
+        rtn = pyniNVStrings.n_get_info(self.m_cptr)
         return rtn

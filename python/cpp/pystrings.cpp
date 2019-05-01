@@ -23,6 +23,7 @@
 #include <stdexcept>
 #include <nvstrings/NVStrings.h>
 #include <nvstrings/ipc_transfer.h>
+#include <nvstrings/StringsStatistics.h>
 
 //
 // These are C-functions that simply map the python objects to appropriate methods
@@ -1717,6 +1718,12 @@ static PyObject* n_pad( PyObject* self, PyObject* args )
     const char* fillchar = 0;
     if( !parse_args("pad",args,"OIzz",&vo,&width,&side,&fillchar) )
         Py_RETURN_NONE;
+    if( *fillchar==0 )
+    {
+        PyErr_Format(PyExc_ValueError,"fillchar cannot be empty");
+        Py_RETURN_NONE;
+    }
+
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
     NVStrings::padside ps = NVStrings::left;
     std::string sside = side;
@@ -1742,6 +1749,12 @@ static PyObject* n_ljust( PyObject* self, PyObject* args )
     const char* fillchar = 0;
     if( !parse_args("ljust",args,"OIz",&vo,&width,&fillchar) )
         Py_RETURN_NONE;
+    if( *fillchar==0 )
+    {
+        PyErr_Format(PyExc_ValueError,"fillchar cannot be empty");
+        Py_RETURN_NONE;
+    }
+
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
     NVStrings* rtn = nullptr;
     Py_BEGIN_ALLOW_THREADS
@@ -1760,6 +1773,12 @@ static PyObject* n_center( PyObject* self, PyObject* args )
     const char* fillchar = 0;
     if( !parse_args("ljust",args,"OIz",&vo,&width,&fillchar) )
         Py_RETURN_NONE;
+    if( *fillchar==0 )
+    {
+        PyErr_Format(PyExc_ValueError,"fillchar cannot be empty");
+        Py_RETURN_NONE;
+    }
+
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
     NVStrings* rtn = nullptr;
     Py_BEGIN_ALLOW_THREADS
@@ -1778,6 +1797,12 @@ static PyObject* n_rjust( PyObject* self, PyObject* args )
     const char* fillchar = 0;
     if( !parse_args("ljust",args,"OIz",&vo,&width,&fillchar) )
         Py_RETURN_NONE;
+    if( *fillchar==0 )
+    {
+        PyErr_Format(PyExc_ValueError,"fillchar cannot be empty");
+        Py_RETURN_NONE;
+    }
+    
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
     NVStrings* rtn = nullptr;
     Py_BEGIN_ALLOW_THREADS
@@ -1906,6 +1931,24 @@ static PyObject* n_replace( PyObject* self, PyObject* args )
     Py_RETURN_NONE;
 }
 
+//
+static PyObject* n_replace_with_backrefs( PyObject* self, PyObject* args )
+{
+    PyObject* vo = 0;      // self pointer   = O
+    const char* pat = 0;   // cannot be null = s
+    const char* repl = 0;  // can be null    = z
+    if( !parse_args("replace_with_backrefs",args,"Osz",&vo,&pat,&repl) )
+        Py_RETURN_NONE;
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
+    NVStrings* rtn = 0;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->replace_with_backrefs(pat,repl);
+    Py_END_ALLOW_THREADS
+    if( rtn )
+        return PyLong_FromVoidPtr((void*)rtn);
+    Py_RETURN_NONE;
+}
+
 static PyObject* n_fillna( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
@@ -1943,18 +1986,22 @@ static PyObject* n_fillna( PyObject* self, PyObject* args )
     Py_RETURN_NONE;
 }
 
-//
-static PyObject* n_replace_with_backrefs( PyObject* self, PyObject* args )
+// inserts a string into each string
+static PyObject* n_insert( PyObject* self, PyObject* args )
 {
-    PyObject* vo = 0;      // self pointer   = O
-    const char* pat = 0;   // cannot be null = s
-    const char* repl = 0;  // can be null    = z
-    if( !parse_args("replace_with_backrefs",args,"Osz",&vo,&pat,&repl) )
-        Py_RETURN_NONE;
-    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
-    NVStrings* rtn = 0;
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    int start = 0;
+    PyObject* argOpt = PyTuple_GetItem(args,1);
+    if( argOpt != Py_None )
+        start = (int)PyLong_AsLong(argOpt);
+    const char* repl = 0;
+    argOpt = PyTuple_GetItem(args,2);
+    if( argOpt != Py_None )
+        repl = PyUnicode_AsUTF8(argOpt);
+    //
+    NVStrings* rtn = nullptr;
     Py_BEGIN_ALLOW_THREADS
-    rtn = tptr->replace_with_backrefs(pat,repl);
+    rtn = tptr->insert(repl,start);
     Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
@@ -3006,7 +3053,7 @@ static PyObject* n_gather( PyObject* self, PyObject* args )
 static PyObject* n_sublist( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    unsigned int start = 0, step = 1, end = tptr->size();
+    unsigned int start = 0, end = tptr->size();
     PyObject* argOpt = PyTuple_GetItem(args,1);
     if( argOpt != Py_None )
         start = (unsigned int)PyLong_AsLong(argOpt);
@@ -3014,8 +3061,9 @@ static PyObject* n_sublist( PyObject* self, PyObject* args )
     if( argOpt != Py_None )
         end = (unsigned int)PyLong_AsLong(argOpt);
     argOpt = PyTuple_GetItem(args,3);
+    int step = 1;
     if( argOpt != Py_None )
-        step = (unsigned int)PyLong_AsLong(argOpt);
+        step = (int)PyLong_AsLong(argOpt);
     //
     NVStrings* rtn = nullptr;
     Py_BEGIN_ALLOW_THREADS
@@ -3457,8 +3505,61 @@ static PyObject* n_is_empty( PyObject* self, PyObject* args )
         PyList_SetItem(ret, idx, PyBool_FromLong((long)rtn[idx]));
     }
     delete rtn;
-    printf("count=%d,ncount=%d,ret=%p\n",count,ncount,ret);
     return ret;
+}
+
+static PyObject* n_get_info( PyObject* self, PyObject* args )
+{
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+
+    StringsStatistics stats;
+    Py_BEGIN_ALLOW_THREADS
+    tptr->compute_statistics(stats);
+    Py_END_ALLOW_THREADS
+
+    PyObject* pydict = PyDict_New();
+    PyDict_SetItemString(pydict,"total_strings",PyLong_FromLong(stats.total_strings));
+    PyDict_SetItemString(pydict,"null_strings",PyLong_FromLong(stats.total_nulls));
+    PyDict_SetItemString(pydict,"empty_strings",PyLong_FromLong(stats.total_empty));
+    PyDict_SetItemString(pydict,"unique_strings",PyLong_FromLong(stats.unique_strings));
+    PyDict_SetItemString(pydict,"total_bytes",PyLong_FromLong(stats.total_bytes));
+    PyDict_SetItemString(pydict,"total_chars",PyLong_FromLong(stats.total_chars));
+    PyDict_SetItemString(pydict,"device_memory",PyLong_FromLong(stats.total_memory));
+    PyDict_SetItemString(pydict,"bytes_avg",PyLong_FromLong(stats.bytes_avg));
+    PyDict_SetItemString(pydict,"bytes_min",PyLong_FromLong(stats.bytes_min));
+    PyDict_SetItemString(pydict,"bytes_max",PyLong_FromLong(stats.bytes_max));
+    PyDict_SetItemString(pydict,"chars_avg",PyLong_FromLong(stats.chars_avg));
+    PyDict_SetItemString(pydict,"chars_min",PyLong_FromLong(stats.chars_min));
+    PyDict_SetItemString(pydict,"chars_max",PyLong_FromLong(stats.chars_max));
+    PyDict_SetItemString(pydict,"memory_avg",PyLong_FromLong(stats.mem_avg));
+    PyDict_SetItemString(pydict,"memory_min",PyLong_FromLong(stats.mem_min));
+    PyDict_SetItemString(pydict,"memory_max",PyLong_FromLong(stats.mem_max));
+    PyDict_SetItemString(pydict,"whitespace",PyLong_FromLong(stats.whitespace_count));
+    PyDict_SetItemString(pydict,"digits",PyLong_FromLong(stats.digits_count));
+    PyDict_SetItemString(pydict,"uppercase",PyLong_FromLong(stats.uppercase_count));
+    PyDict_SetItemString(pydict,"lowercase",PyLong_FromLong(stats.lowercase_count));
+
+    PyObject* pyhist = PyDict_New();
+    size_t count = stats.char_counts.size();
+    for( size_t idx=0; idx < count; ++idx )
+    {
+        unsigned int chr = stats.char_counts[idx].first;
+        unsigned int num = stats.char_counts[idx].second;
+        unsigned char out[5] = {0,0,0,0,0};
+        unsigned char* ptr = out + ((chr & 0xF0000000)==0xF0000000) + ((chr & 0xFFE00000)==0x00E00000) + ((chr & 0xFFFFC000)==0x0000C000);
+        //printf("%p,%p,%x,%d\n",out,ptr,(chr & 0xFFFF),(int)((chr & 0xFFFFC000)==0x0000C00000));
+        unsigned int cvt = chr;
+        while( cvt > 0 )
+        {
+            *ptr-- = (unsigned char)(cvt & 255);
+            cvt = cvt >> 8;
+        }
+        PyDict_SetItemString(pyhist,(const char*)out,PyLong_FromLong(num));
+        //printf("    [%s] 0x%04x = %u\n",out,chr,num);
+    }
+
+    PyDict_SetItemString(pydict,"chars_histogram",pyhist);
+    return pydict;
 }
 
 // Version 0.1, 0.1.1, 0.2, 0.2.1 features
@@ -3515,6 +3616,7 @@ static PyMethodDef s_Methods[] = {
     { "n_replace", n_replace, METH_VARARGS, "" },
     { "n_replace_with_backrefs", n_replace_with_backrefs, METH_VARARGS, "" },
     { "n_fillna", n_fillna, METH_VARARGS, "" },
+    { "n_insert", n_insert, METH_VARARGS, "" },
     { "n_len", n_len, METH_VARARGS, "" },
     { "n_byte_count", n_byte_count, METH_VARARGS, "" },
     { "n_lstrip", n_lstrip, METH_VARARGS, "" },
@@ -3558,6 +3660,7 @@ static PyMethodDef s_Methods[] = {
     { "n_islower", n_islower, METH_VARARGS, "" },
     { "n_isupper", n_isupper, METH_VARARGS, "" },
     { "n_is_empty", n_is_empty, METH_VARARGS, "" },
+    { "n_get_info", n_get_info, METH_VARARGS, "" },
     { NULL, NULL, 0, NULL }
 };
 

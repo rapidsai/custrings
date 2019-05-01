@@ -4,6 +4,8 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 
 ## New Features
 
+- PR #281 Added get_info method to show data about strings
+- PR #273 Added tokens_counts method to nvtext
 - PR #265 Added is_empty method
 - PR #260 Support for format-specified date-time to/from string conversion
 - PR #195 Added IPC python bindings
@@ -19,6 +21,9 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 
 ## Improvements
 
+- PR #283 Check for empty fillchar in pad methods
+- PR #278 Added insert method as alternative to slice_replace insert
+- PR #268 Support negative slicing
 - PR #264 Allow nvstrings parameter to fillna
 - PR #256 Convert device-only custring_view to header-only
 - PR #255 Removed unnecessary cudaDeviceSync calls
@@ -33,10 +38,13 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 - PR #196 Include nvtext in python module setup
 - PR #221 Create separate conda packages for libnvstrings and nvstrings
 - PR #247 Release Python GIl while calling underlying C++ API from python
+- PR #240 Initial suite of nvtext function Python unit tests
 - PR #267 Add a minimal suite of nvstrings and nvcategory pytests
 
 ## Bug Fixes
 
+- PR #276 Fixed token_count counting empty string as token
+- PR #269 Fixed exception on invalid parameter to edit_distance
 - PR #261 Fixed doxygen formatting and updated to 0.7
 - PR #248 Fixed docstring for index,rindex,find,rfind
 - PR #245 Fixed backref to continue replacing
@@ -53,6 +61,7 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 - PR #235 Fix anaconda upload script for new conda recipe
 - PR #239 Fix definitions of upload files for conda packages
 - PR #241 Revert split package to individual recipes to avoid run_exports bug
+- PR #274 Updated RPATH/RUNPATH setting to accommodate current install location
 
 
 # cuStrings/nvStrings 0.3.0 (15 Mar 2019)
