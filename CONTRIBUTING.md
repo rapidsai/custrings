@@ -48,6 +48,11 @@ contributing to. Start with _Step 3_ from above, commenting on the issue to let
 others know you are working on it. If you have any questions related to the
 implementation of the issue, ask them in the issue instead of the PR.
 
+### Building and Testing on a gpuCI image locally
+
+Before submitting a pull request, you can do a local build and test on your machine that mimics our gpuCI environment using the `ci/local/build.sh` script.
+For detailed information on usage of this script, see [here](ci/local/README.md).
+
 ## Setting Up Your Build Environment
 
 The following instructions are for developers and contributors to cuStrings OSS development. These instructions are tested on Linux Ubuntu 16.04 & 18.04. Use these instructions to build cuStrings from source and contribute to its development.  Other operatings systems may be compatible, but are not currently tested.
