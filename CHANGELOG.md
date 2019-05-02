@@ -40,6 +40,7 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 - PR #221 Create separate conda packages for libnvstrings and nvstrings
 - PR #247 Release Python GIl while calling underlying C++ API from python
 - PR #240 Initial suite of nvtext function Python unit tests
+- PR #275 Add cudatoolkit conda dependency
 
 ## Bug Fixes
 
