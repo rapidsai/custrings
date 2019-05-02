@@ -70,6 +70,7 @@ class Reprog
     std::vector<Reinst> insts;
     std::vector<Reclass> classes;
     int startinst_id;
+    std::vector<int> startinst_ids; // short-cut to speed-up ORs
     int num_capturing_groups;
 
 public:
@@ -80,20 +81,24 @@ public:
     int add_inst(Reinst inst);
     int add_class(Reclass cls);
 
-    int inst_count() const;
-    int classes_count() const;
     void set_groups_count(int groups);
     int groups_count() const;
 
     const Reinst* insts_data() const;
-
+    int inst_count() const;
     Reinst& inst_at(int id);
+
     Reclass& class_at(int id);
+    int classes_count() const;
+
+    const int* starts_data() const;
+    int starts_count() const;
 
     void set_start_inst(int id);
     int get_start_inst() const;
 
-    void optimize();
+    void optimize1();
+    void optimize2();
     void print(); // for debugging
 };
 
