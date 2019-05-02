@@ -9,7 +9,7 @@ initialize_rmm_pool()
 
 def test_from_csv():
     tweets = nvstrings.from_csv(
-        '/nicholasb/rapids_dev/scratch/docker-rapids/custrings/data/tweets.csv',
+        '../../data/tweets.csv',
         7)
     got = tweets[:5]
     expected = ['@Bill_Porter nice to know that your site is back :-)',
