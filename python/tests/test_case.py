@@ -1,10 +1,7 @@
 # Copyright (c) 2018-2019, NVIDIA CORPORATION.
 
 import nvstrings
-from utils import assert_eq, initialize_rmm_pool
-
-
-initialize_rmm_pool()
+from utils import assert_eq
 
 
 def test_lower():

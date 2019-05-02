@@ -7,10 +7,7 @@ import nvstrings
 
 from librmm_cffi import librmm as rmm
 
-from utils import assert_eq, initialize_rmm_pool
-
-
-initialize_rmm_pool()
+from utils import assert_eq
 
 
 def test_slice_from():

@@ -1,10 +1,6 @@
 # Copyright (c) 2018-2019, NVIDIA CORPORATION.
 
 import nvstrings
-from utils import initialize_rmm_pool
-
-
-initialize_rmm_pool()
 
 
 def test_len():

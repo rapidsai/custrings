@@ -6,11 +6,6 @@ import nvtext
 
 from librmm_cffi import librmm as rmm
 
-from utils import initialize_rmm_pool
-
-
-initialize_rmm_pool()
-
 
 def test_token_count():
     # default space delimiter

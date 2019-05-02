@@ -2,10 +2,7 @@
 
 import nvstrings
 import pytest
-from utils import methodcaller, initialize_rmm_pool
-
-
-initialize_rmm_pool()
+from utils import methodcaller
 
 
 @pytest.mark.parametrize('func',

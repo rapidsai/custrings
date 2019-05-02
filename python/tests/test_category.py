@@ -5,10 +5,7 @@ import nvcategory
 
 import numpy as np
 
-from utils import assert_eq, initialize_rmm_pool
-
-
-initialize_rmm_pool()
+from utils import assert_eq
 
 
 def test_size():
