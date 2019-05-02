@@ -31,3 +31,8 @@ def initialize_rmm_pool():
     rmm_cfg.use_managed_memory = False  # default is false
     rmm_cfg.enable_logging = True
     return rmm.initialize()
+
+
+def finalize_rmm():
+    from librmm_cffi import librmm as rmm
+    return rmm.finalize()
