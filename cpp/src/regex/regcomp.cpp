@@ -123,6 +123,17 @@ const Reinst* Reprog::insts_data() const
     return insts.data();
 }
 
+const int* Reprog::starts_data() const
+{
+    return startinst_ids.data();
+}
+
+int Reprog::starts_count() const
+{
+    return (int)startinst_ids.size();
+}
+
+
 class RegParser
 {
     Reprog& m_prog;
@@ -933,7 +944,8 @@ public:
             ; // "unmatched left paren";
         /* points to first and only operand */
         m_prog.set_start_inst(andstack[andstack.size() - 1].id_first);
-        m_prog.optimize();
+        m_prog.optimize1();
+        m_prog.optimize2();
         m_prog.set_groups_count(cursubid);
     }
 };
@@ -952,7 +964,7 @@ Reprog* Reprog::create_from(const char32_t* pattern)
 //	return compiler.m_prog;
 //}
 
-void Reprog::optimize()
+void Reprog::optimize1()
 {
     // Treat non-capturing LBRAs/RBRAs as NOOP
     for (int i = 0; i < (int)insts.size(); i++)
@@ -1021,6 +1033,30 @@ void Reprog::optimize()
     }
     // set the new start id
     startinst_id = id_map[startinst_id];
+}
+
+// expand leading ORs to multiple startinst_ids
+void Reprog::optimize2()
+{
+	startinst_ids.clear();
+	std::vector<int> stack;
+	stack.push_back(startinst_id);
+	while(stack.size() > 0)
+	{
+		int id = *(stack.end() - 1);
+		stack.pop_back();
+		const Reinst& inst = insts[id];
+		if(inst.type == OR)
+		{
+			stack.push_back(inst.u2.left_id);
+			stack.push_back(inst.u1.right_id);
+		}
+		else
+		{
+			startinst_ids.push_back(id);
+		}
+	}
+	startinst_ids.push_back(-1); // terminator mark
 }
 
 void Reprog::print()
@@ -1092,7 +1128,16 @@ void Reprog::print()
         }
         printf("\n");
     }
+    
     printf("startinst_id=%d\n", startinst_id);
+    if( startinst_ids.size() > 0 )
+    {
+	    printf("startinst_ids:");
+	    for (size_t i = 0; i < startinst_ids.size(); i++)
+		    printf(" %d", startinst_ids[i]);
+        printf("\n");
+    }
+
     int count = (int)classes.size();
     printf("\nClasses %d\n",count);
     for( int i = 0; i < count; i++ )

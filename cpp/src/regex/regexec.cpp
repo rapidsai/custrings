@@ -11,18 +11,25 @@ dreprog* dreprog::create_from(const char32_t* pattern, unsigned char* uflags, un
     // compute size to hold prog
     int insts_count = (int)prog->inst_count();
     int classes_count = (int)prog->classes_count();
+    int starts_count = (int)prog->starts_count();
     int insts_size = insts_count * sizeof(Reinst);
+    int sids_size = starts_count * sizeof(int);
     int classes_size = classes_count * sizeof(int); // offsets
     for( int idx=0; idx < classes_count; ++idx )
         classes_size += (int)((prog->class_at(idx).chrs.size())*sizeof(char32_t)) + (int)sizeof(int);
     // allocate memory to store prog
-    size_t memsize = sizeof(dreprog) + insts_size + classes_size;
+    size_t memsize = sizeof(dreprog) + insts_size + sids_size + classes_size;
     u_char* buffer = (u_char*)malloc(memsize);
     dreprog* rtn = (dreprog*)buffer;
-    buffer += sizeof(dreprog);
+    buffer += sizeof(dreprog);       // point to the end
+    // copy the insts array first (fixed-size structs)
     Reinst* insts = (Reinst*)buffer;
     memcpy( insts, prog->insts_data(), insts_size);
-    buffer += insts_size;
+    buffer += insts_size; // next section
+    // copy the startinst_ids next (ints)
+    int* startinst_ids = (int*)buffer;
+    memcpy( startinst_ids, prog->starts_data(), sids_size );
+    buffer += sids_size; // next section
     // classes are variable size so create offsets array
     int* offsets = (int*)buffer;
     buffer += classes_count * sizeof(int);
@@ -42,6 +49,7 @@ dreprog* dreprog::create_from(const char32_t* pattern, unsigned char* uflags, un
     rtn->startinst_id = prog->get_start_inst();
     rtn->num_capturing_groups = prog->groups_count();
     rtn->insts_count = insts_count;
+    rtn->starts_count = starts_count;
     rtn->classes_count = classes_count;
     rtn->unicode_flags = uflags;
     rtn->relists_mem = 0;

@@ -21,6 +21,7 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 
 ## Improvements
 
+- PR #289 Improve regex perf for OR clauses
 - PR #283 Check for empty fillchar in pad methods
 - PR #278 Added insert method as alternative to slice_replace insert
 - PR #268 Support negative slicing
