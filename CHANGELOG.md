@@ -42,6 +42,7 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 - PR #247 Release Python GIl while calling underlying C++ API from python
 - PR #240 Initial suite of nvtext function Python unit tests
 - PR #275 Add cudatoolkit conda dependency
+- PR #291 Use latest release version in update-version CI script
 
 ## Bug Fixes
 
