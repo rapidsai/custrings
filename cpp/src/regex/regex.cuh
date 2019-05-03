@@ -40,7 +40,7 @@ public:
 class dreprog
 {
     int startinst_id, num_capturing_groups;
-    int insts_count, classes_count;
+    int insts_count, starts_count, classes_count;
     unsigned char* unicode_flags;
     void* relists_mem;
 
@@ -61,8 +61,8 @@ public:
     int group_counts();
 
     __host__ __device__ inline Reinst* get_inst(int idx);
-    //__device__ char32_t* get_class(int idx, int& len);
     __device__ inline int get_class(int idx, dreclass& cls);
+    __device__ inline int* get_startinst_ids();
 
     //
     __device__ inline int contains( custring_view* dstr );
