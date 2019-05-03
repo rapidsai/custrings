@@ -1,103 +1,200 @@
-#
+# Copyright (c) 2018-2019, NVIDIA CORPORATION.
+
+import pytest
+import numpy as np
+import pandas as pd
 import nvstrings
-#
-from librmm_cffi import librmm as rmm
-from librmm_cffi import librmm_config as rmm_cfg
-rmm_cfg.use_pool_allocator = True 
-rmm.initialize()
 
-#
-strs = nvstrings.to_device(["5","hej","\t \n","12345","\\","d","c:\\Tools","+27", "1c2", "1C2" ])
-print(strs)
-print(".contains('\\d')", strs.contains('\\d') )
-print(".contains('\\w+')", strs.contains('\\w+') )
-print(".contains('\\s')", strs.contains('\\s') )
-print(".contains('\\S')", strs.contains('\\S') )
-print(".contains('^.*\\\\.*$')", strs.contains('^.*\\\\.*$') )
+from utils import assert_eq
 
-print("----------------------")
-strs2 = nvstrings.to_device([ "0123456789", "1C2", "Xaa", "abcdefghxxx", "ABCDEFGH", "abcdefgh", "abc def", "abc\ndef", "aa\r\nbb\r\ncc\r\n\r\n", "abcabc" ])
-print(strs2)
-print(".contains('[1-5]+')", strs2.contains('[1-5]+') )
-print(".contains('[a-h]+')", strs2.contains('[a-h]+') )
-print(".contains('[A-H]+')", strs2.contains('[A-H]+') )
-print(".contains('\\n')", strs2.contains('\n') )
-print(".contains('b.\\s*\\n')", strs2.contains('b.\\s*\n') )
-print(".contains('.*c')", strs2.contains('.*c') )
 
-print("----------------------")
-strs3 = nvstrings.to_device([  "0:00:0", "0:0:00", "00:0:0", "00:00:0", "00:0:00", "0:00:00", "00:00:00", "Hello world !", "Hello world!   ", "Hello worldcup  !" ])
-print(strs3)
-print(".contains('[0-9]')", strs3.contains('[0-9]') )
-print(".contains('\\d\\d:\\d\\d:\\d\\d')", strs3.contains('\\d\\d:\\d\\d:\\d\\d') )
-print(".contains('\\d\\d?:\\d\\d?:\\d\\d?')", strs3.contains('\\d\\d?:\\d\\d?:\\d\\d?') )
-print(".contains('[Hh]ello [Ww]orld')", strs3.contains('[Hh]ello [Ww]orld') )
-print(".contains('\\bworld\\b')", strs3.contains('\\bworld\\b') )
+@pytest.mark.parametrize('pattern', ['\\d',
+                                     '\\w+',
+                                     '\\s',
+                                     '\\S',
+                                     '^.*\\\\.*$',
+                                     '[1-5]+',
+                                     '[a-h]+',
+                                     '[A-H]+',
+                                     '\n',
+                                     'b.\\s*\n',
+                                     '.*c',
+                                     '\\d\\d:\\d\\d:\\d\\d',
+                                     '\\d\\d?:\\d\\d?:\\d\\d?',
+                                     '[Hh]ello [Ww]orld',
+                                     '\\bworld\\b'
+                                     ])
+def test_contains(pattern):
+    s = [
+        '5',
+        'hej',
+        '\t \n',
+        '12345',
+        '\\',
+        'd',
+        'c:\\Tools',
+        '+27',
+        '1c2',
+        '1C2',
+        '0:00:0',
+        '0:0:00',
+        '00:0:0',
+        '00:00:0',
+        '00:0:00',
+        '0:00:00',
+        '00:00:00',
+        'Hello world !',
+        'Hello world!   ',
+        'Hello worldcup  !',
+        '0123456789',
+        '1C2',
+        'Xaa',
+        'abcdefghxxx',
+        'ABCDEFGH',
+        'abcdefgh',
+        'abc def',
+        'abc\ndef',
+        'aa\r\nbb\r\ncc\r\n\r\n',
+        'abcabc'
+    ]
+    pstrs = pd.Series(s)
+    nvstrs = nvstrings.to_device(s)
+    got = nvstrs.contains(pattern)
+    expected = pstrs.str.contains(pattern).values
+    assert_eq(got, expected)
 
-print("----------------------")
-strs4 =  nvstrings.to_device(["hello @abc @def world", "The quick brown @fox jumps", "over the", "lazy @dog", "hello http://www.world.com I'm here @home"])
-print(strs4)
-print(".replace(@\\S+,***):\n  ",strs4.replace("@\\S+","***"))
-print(".replace((?:@|https?://)\\S+,''):\n  ",strs4.replace("(?:@|https?://)\\S+",""))
 
-print("----------------------")
-strs = nvstrings.to_device(["hello","and héllo",None,""])
-print(strs)
-print(".contains('h[a-u]llo')", strs.contains('h[a-u]llo'))
-print(".contains('h[á-ú]llo')", strs.contains('h[á-ú]llo'))
-print(".contains('é',False)", strs.contains('é',False))
-print(".match('[hH]')", strs.match('[hH]'))
+@pytest.mark.parametrize('find', ["@\\S+", "(?:@|https?://)\\S+"])
+@pytest.mark.parametrize('replace', ["***", ""])
+def test_replace(find, replace):
+    s = ["hello @abc @def world", "The quick brown @fox jumps", "over the",
+         "lazy @dog", "hello http://www.world.com I'm here @home"]
+    pstrs = pd.Series(s)
+    nvstrs = nvstrings.to_device(s)
+    got = nvstrs.replace(find, replace)
+    expected = pstrs.str.replace(find, replace).values
+    assert_eq(got, expected)
 
-print("----------------------")
-strs = nvstrings.to_device(["A","B","Aaba","Baca",None,"CABA","cat",""])
-print(strs)
-print(".count(a):", strs.count('a'))
-print(".count([aA]):", strs.count('[aA]'))
-print(".match('[bB][aA]'):", strs.match('[bB][aA]'))
-print(".findall('[aA]'):")
-columns = strs.findall('[aA]')
-for col in columns:
-	print(" ",col)
-print(".findall_record('[aA]'):")
-rows = strs.findall_record('[aA]')
-for row in rows:
-	print(" ",row)
 
-print("----------------------")
-strs = nvstrings.to_device(['ALA-PEK Flight:HU7934', 'HKT-PEK Flight:CA822', 'FRA-PEK Flight:LA8769', 'FRA-PEK Flight:LH7332', '', None, 'Flight:ZZ'])
-print(strs)
-print(".extract(r'Flight:([A-Z]+)(\d+)'):")
-columns = strs.extract(r'Flight:([A-Z]+)(\d+)')
-for col in columns:
-	print(" ",col)
-	nvstrings.free(col)
-print(".extract_record(r'Flight:([A-Z]+)(\d+)'):")
-rows = strs.extract_record(r'Flight:([A-Z]+)(\d+)')
-for row in rows:
-	print(" ",row)
-	nvstrings.free(row)
+@pytest.mark.parametrize('pattern', ['[hH]',
+                                     '[bB][aA]',
+                                     ])
+def test_match(pattern):
+    s = ["hello", "and héllo", None, ""]
+    pstrs = pd.Series(s)
+    nvstrs = nvstrings.to_device(s)
+    got = nvstrs.match(pattern)
+    expected = pstrs.str.match(pattern).values
+    assert_eq(got, expected)
 
-print("----------------------")
-strs = nvstrings.to_device('word [[wikt:anarchism|anarchism]] is')
-print(strs)
-print(".replace('\\[\\[[a-z\\-]+:[^]]+\\]\\]','')",strs.replace('\\[\\[[a-z\\-]+:[^]]+\\]\\]',''))
 
-print("----------------------")
-strs = nvstrings.to_device(["A543","Z756","",None])
-print(strs)
-print("(\\d)(\\d),'\\1-\\2'",strs.replace_with_backrefs('(\\d)(\\d)', '\\1-\\2'))
-print("(\\d)(\\d),'V\\2-\\1'",strs.replace_with_backrefs('(\\d)(\\d)', 'V\\2-\\1'))
-print("(\\d)(\\d),'V\\1-\\3'",strs.replace_with_backrefs('(\\d)(\\d)', 'V\\1-\\3'))
-print("(\\d)(\\d),'V\\3-\\2'",strs.replace_with_backrefs('(\\d)(\\d)', 'V\\3-\\2'))
-strs = nvstrings.to_device(['tést-string','two-thréé four-fivé','abcd-éfgh','tést-string-again'])
-print(strs)
-print(strs.replace_with_backrefs("([a-z])-([a-z])","\\1 \\2"))
-print(strs.replace_with_backrefs("([a-z])-([a-zé])","\\2 \\1"))
-print(strs.replace_with_backrefs("([a-z])-([a-z])","X\\1+\\2Z"))
-print(strs.replace_with_backrefs("([a-z])-([a-zé])","X\\1+\\2Z"))
+@pytest.mark.parametrize('pattern', ['a',
+                                     '[aA]',
+                                     ])
+def test_count(pattern):
+    s = ["hello", "and héllo", 'this was empty', ""]
+    pstrs = pd.Series(s)
+    nvstrs = nvstrings.to_device(s)
+    got = nvstrs.count(pattern)
+    expected = pstrs.str.count(pattern).values
+    assert_eq(got, expected)
 
-strs = None
-strs1 = None
-strs2 = None
-strs3 = None
-strs4 = None
+
+def test_findall():
+    pattern = '[aA]'
+    s = ["hello", "and héllo", 'this was empty', ""]
+    nvstrs = nvstrings.to_device(s)
+    got = nvstrs.findall(pattern)[0]
+    expected = [None, 'a', 'a', None]
+    assert_eq(got, expected)
+
+
+def test_findall_record():
+    pattern = '[aA]'
+    s = ["hello", "and héllo", 'this was empty', "", 'another']
+    nvstrs = nvstrings.to_device(s)
+    got = nvstrs.findall_record(pattern)
+    expected = [[], ['a'], ['a'], [], ['a']]
+    for i in range(len(got)):
+        assert got[i].to_host() == expected[i]
+
+
+def test_extract():
+    pattern = r'Flight:([A-Z]+)(\d+)'
+    s = ['ALA-PEK Flight:HU7934', 'HKT-PEK Flight:CA822',
+         'FRA-PEK Flight:LA8769', 'FRA-PEK Flight:LH7332', '', None,
+         'Flight:ZZ']
+    nvstrs = nvstrings.to_device(s)
+    got = nvstrs.extract(pattern)
+    expected = np.array([['HU', '7934'],
+                         ['CA', '822'],
+                         ['LA', '8769'],
+                         ['LH', '7332'],
+                         [None, None],
+                         [None, None],
+                         [None, None]])
+    assert_eq(got[0], expected[:, 0])
+    assert_eq(got[1], expected[:, 1])
+
+
+def test_extract_record():
+    pattern = r'Flight:([A-Z]+)(\d+)'
+    s = ['ALA-PEK Flight:HU7934', 'HKT-PEK Flight:CA822',
+         'FRA-PEK Flight:LA8769', 'FRA-PEK Flight:LH7332', '', None,
+         'Flight:ZZ']
+    nvstrs = nvstrings.to_device(s)
+    got = nvstrs.extract_record(pattern)
+    expected = np.array([['HU', '7934'],
+                         ['CA', '822'],
+                         ['LA', '8769'],
+                         ['LH', '7332'],
+                         [None, None],
+                         [None, None],
+                         [None, None]])
+
+    for i in range(len(got)):
+        assert_eq(got[i], expected[i, :])
+
+
+@pytest.mark.parametrize('find', ['(\\d)(\\d)',
+                                  '(\\d)(\\d)',
+                                  '(\\d)(\\d)',
+                                  '(\\d)(\\d)',
+                                  "([a-z])-([a-z])",
+                                  "([a-z])-([a-zé])",
+                                  "([a-z])-([a-z])",
+                                  "([a-z])-([a-zé])"
+                                  ])
+@pytest.mark.parametrize('replace', [
+    '\\1-\\2',
+    'V\\2-\\1',
+    pytest.param('V\\1-\\3', marks=[pytest.mark.xfail(
+         reason='Pandas fails with this backreference group 3')]),
+    pytest.param('V\\3-\\2', marks=[pytest.mark.xfail(
+         reason='Pandas fails with this backreference group 3')]),
+    "\\1 \\2",
+    "\\2 \\1",
+    "X\\1+\\2Z",
+    "X\\1+\\2Z"
+])
+def test_replace_with_backrefs(find, replace):
+    s = ["A543", "Z756", "", None, 'tést-string', 'two-thréé four-fivé',
+         'abcd-éfgh', 'tést-string-again']
+    pstrs = pd.Series(s)
+    nvstrs = nvstrings.to_device(s)
+    got = nvstrs.replace_with_backrefs(find, replace)
+    expected = pstrs.str.replace(find, replace).values
+    assert_eq(got, expected)
+
+
+@pytest.mark.parametrize('pattern', [
+    "hello @abc @def world The quick brown @fox jumps over the lazy @dog hello http://www.world.com I'm here @home",
+    "hello @abc @def world The quick brown @fox jumps over the lazy @dog hello http://www.world.com I'm here @home zzzz"
+])
+def test_contains_large_regex(pattern):
+    s = ["hello @abc @def world The quick brown @fox jumps over the lazy @dog hello http://www.world.com I'm here @home", "12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz"]
+    pstrs = pd.Series(s)
+    strs = nvstrings.to_device(s)
+    got = strs.contains(pattern)
+    expected = pstrs.str.contains(pattern)
+    assert_eq(got, expected)
