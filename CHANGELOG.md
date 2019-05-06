@@ -18,7 +18,9 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 - PR #172 Added to/from boolean conversion methods
 - PR #171 Added conversion to/from subset of ISO8601 format
 - PR #230 Add ngrams function to nvtext module
+- PR #285 Add build script for nightly docs
 - PR #286 Add local build script to cuStrings
+
 
 ## Improvements
 
