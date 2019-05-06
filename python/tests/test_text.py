@@ -7,6 +7,20 @@ import nvtext
 from librmm_cffi import librmm as rmm
 
 
+def test_tokenize():
+    # default space delimiter
+    strs = nvstrings.to_device(
+        ["the quick fox jumped over the lazy dog",
+         "the siamésé cat jumped under the sofa",
+         None,
+         ""]
+    )
+    outcome = nvtext.tokenize(strs)
+    expected = ["the", "quick", "fox", "jumped", "over", "the", "lazy", "dog",
+                "the", "siamésé", "cat", "jumped", "under", "the", "sofa"]
+    assert outcome.to_host() == expected
+
+
 def test_token_count():
     # default space delimiter
     strs = nvstrings.to_device(
