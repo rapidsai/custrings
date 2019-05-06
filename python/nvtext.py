@@ -38,7 +38,7 @@ def tokenize(strs, delimiter=' '):
     if isinstance(delimiter, list):
         delimiter = nvs.to_device(delimiter)
     if isinstance(delimiter, nvs.nvstrings):
-        rtn = pyniNVText.n_tokenize_multi(strs,delimiter)
+        rtn = pyniNVText.n_tokenize_multi(strs, delimiter)
     if rtn is not None:
         rtn = nvs.nvstrings(rtn)
     return rtn
