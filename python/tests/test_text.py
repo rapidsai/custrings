@@ -1,10 +1,10 @@
 # Copyright (c) 2019, NVIDIA CORPORATION.
 
-import pytest
 import numpy as np
-import nvstrings, nvtext
+import nvstrings
+import nvtext
+
 from librmm_cffi import librmm as rmm
-from librmm_cffi import librmm_config as rmm_cfg
 
 
 def test_token_count():
@@ -40,12 +40,14 @@ def test_unique_tokens():
          ""]
     )
     unique_tokens_outcome = nvtext.unique_tokens(strs)
-    expected = set(['Favorite', 'Your', 'book', 'different', 'favorite', 'is', 'my', 'this'])
+    expected = set(['Favorite', 'Your', 'book', 'different',
+                    'favorite', 'is', 'my', 'this'])
     assert set(unique_tokens_outcome.to_host()) == expected
 
     # custom delimiter
     unique_tokens_outcome = nvtext.unique_tokens(strs, delimiter='my')
-    expected = set([' favorite book', 'Your Favorite book is different', 'this is '])
+    expected = set([' favorite book', 'Your Favorite book is different',
+                    'this is '])
     assert set(unique_tokens_outcome.to_host()) == expected
 
 
@@ -101,7 +103,7 @@ def test_strings_counts():
     outcome_darray = rmm.device_array((strs.size(), query_strings.size()),
                                       dtype=np.int32)
     nvtext.strings_counts(strs, query_strings,
-                            devptr=outcome_darray.device_ctypes_pointer.value)
+                          devptr=outcome_darray.device_ctypes_pointer.value)
     assert np.array_equal(outcome_darray.copy_to_host(), expected)
 
 
@@ -129,7 +131,7 @@ def test_tokens_counts():
     outcome_darray = rmm.device_array((strs.size(), query_strings.size()),
                                       dtype=np.int32)
     nvtext.tokens_counts(strs, query_strings,
-                            devptr=outcome_darray.device_ctypes_pointer.value)
+                         devptr=outcome_darray.device_ctypes_pointer.value)
     assert np.array_equal(outcome_darray.copy_to_host(), expected)
 
 

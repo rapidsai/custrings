@@ -19,9 +19,12 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 - PR #171 Added conversion to/from subset of ISO8601 format
 - PR #230 Add ngrams function to nvtext module
 - PR #285 Add build script for nightly docs
+- PR #286 Add local build script to cuStrings
+
 
 ## Improvements
 
+- PR #289 Improve regex perf for OR clauses
 - PR #283 Check for empty fillchar in pad methods
 - PR #278 Added insert method as alternative to slice_replace insert
 - PR #268 Support negative slicing
@@ -40,6 +43,9 @@ Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 - PR #221 Create separate conda packages for libnvstrings and nvstrings
 - PR #247 Release Python GIl while calling underlying C++ API from python
 - PR #240 Initial suite of nvtext function Python unit tests
+- PR #275 Add cudatoolkit conda dependency
+- PR #291 Use latest release version in update-version CI script
+- PR #267 Add a minimal suite of nvstrings and nvcategory pytests
 
 ## Bug Fixes
 
