@@ -1,27 +1,55 @@
-
-import nvstrings
-
-#
-from librmm_cffi import librmm as rmm
-from librmm_cffi import librmm_config as rmm_cfg
-rmm_cfg.use_pool_allocator = True 
-rmm.initialize()
-
-strs = nvstrings.to_device(["hello","there","world","accéntéd",None,""])
-print(strs)
-print(".translate():",strs.translate([]))
-print(".translate([[e,a]]):",strs.translate([['e','a']]))
-print(".translate([[e,é]]):",strs.translate([['e','é']]))
-print(".translate([[é,e],[o,None]]):",strs.translate([['é','e'],['o',None]]))
-
-print(".translate(maketrans(e,a):",strs.translate(str.maketrans('e','a')))
-print(".translate(maketrans(elh,ELH):",strs.translate(str.maketrans('elh','ELH')))
+# Copyright (c) 2018-2019, NVIDIA CORPORATION.
 
 import string
-print()
-strs = nvstrings.to_device(["This, of course, is only an example!","And; will have @all the #punctuation that $money can buy.","The %percent & the *star along with the (parenthesis) with dashes-and-under_lines.","Equations: 3+3=6; 3/4 < 1 and > 0"])
-print(strs)
-print(".translate(punctuation=None):\n",strs.translate(str.maketrans('','',string.punctuation)))
-print(".translate(punctuation=' '):\n",strs.translate(str.maketrans(string.punctuation,' '*len(string.punctuation))))
 
-strs = None
+import pytest
+import pandas as pd
+import nvstrings
+
+from utils import assert_eq
+
+
+@pytest.mark.parametrize('table', [
+    [],
+    pytest.param([['e', 'a']], marks=[pytest.mark.xfail(
+         reason='Pandas series requires ordinal mapping')]),
+    pytest.param([['e', 'é']], marks=[pytest.mark.xfail(
+         reason='Pandas series requires ordinal mapping')]),
+    pytest.param([['é', 'e']], marks=[pytest.mark.xfail(
+         reason='Pandas series requires ordinal mapping')]),
+    pytest.param([['o', None]], marks=[pytest.mark.xfail(
+         reason='Pandas series requires ordinal mapping')])
+])
+def test_translate_from_list(table):
+    s = ["hello", "there", "world", "accéntéd", None, ""]
+    strs = nvstrings.to_device(s)
+    pstrs = pd.Series(s)
+    got = strs.translate(table)
+    expected = pstrs.str.translate(table)
+    assert_eq(got.to_host(), expected)
+
+
+@pytest.mark.parametrize('table', [{},
+                                   str.maketrans('e', 'a'),
+                                   str.maketrans('elh', 'ELH'),
+                                   str.maketrans('', '', string.punctuation),
+                                   str.maketrans(string.punctuation,
+                                                 ' ' * len(string.punctuation))
+                                   ])
+def test_translate_from_ordinal(table):
+    s = ["hello", "there", "world", "accéntéd", None, ""]
+    strs = nvstrings.to_device(s)
+    pstrs = pd.Series(s)
+    got = strs.translate(table)
+    expected = pstrs.str.translate(table)
+    assert_eq(got.to_host(), expected)
+
+    s = ["This, of course, is only an example!",
+         "And; will have @all the #punctuation that $money can buy.",
+         "The %percent & the *star along with the (parenthesis) with dashes-and-under_lines.",
+         "Equations: 3+3=6; 3/4 < 1 and > 0"]
+    strs = nvstrings.to_device(s)
+    pstrs = pd.Series(s)
+    got = strs.translate(table)
+    expected = pstrs.str.translate(table)
+    assert_eq(got.to_host(), expected)

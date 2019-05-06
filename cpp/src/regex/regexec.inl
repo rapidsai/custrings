@@ -37,21 +37,23 @@
 struct Relist
 {
     short size, listsize;
-    int pad; // keep data on 8-byte bounday
+    int pad; // keep struct on 8-byte bounday
     int2* ranges;//[LISTSIZE];
-    u_char* inst_ids;//[LISTSIZE];
+    short* inst_ids;//[LISTSIZE];
     u_char* mask;//[LISTBYTES];
-    u_char data[(9*LISTSIZE)+LISTBYTES]; // always last
+    u_char data[((sizeof(ranges[0])+sizeof(inst_ids[0]))*LISTSIZE)+LISTBYTES]; // always last
 
     __host__ __device__ inline static int size_for(int insts)
     {
         int size = 0;
-        size += sizeof(short);                  // size
-        size += sizeof(short);                  // listsize
-        size += sizeof(int);                    // pad
-        size += sizeof(u_char*)*3;              // 3 pointers
-        size += sizeof(int2)*insts;             // ranges bytes
-        size += sizeof(u_char)*insts;           // inst_ids bytes
+        size += sizeof(size);                   // size
+        size += sizeof(listsize);               // listsize
+        size += sizeof(pad);                    // pad
+        size += sizeof(inst_ids);               // ptr
+        size += sizeof(mask);                   // ptr
+        size += sizeof(u_char*);                // data ptr
+        size += sizeof(ranges[0])*insts;        // ranges bytes
+        size += sizeof(inst_ids[0])*insts;      // inst_ids bytes
         size += sizeof(u_char)*((insts+7)/8);   // mask bytes
         size = ((size+7)/8)*8;   // align it too
         return size;
@@ -69,9 +71,9 @@ struct Relist
         listsize = ls;
         u_char* ptr = (u_char*)data;
         ranges = (int2*)ptr;
-        ptr += listsize * sizeof(int2);
-        inst_ids = ptr;
-        ptr += listsize;
+        ptr += listsize * sizeof(ranges[0]);
+        inst_ids = (short*)ptr;
+        ptr += listsize * sizeof(inst_ids[0]);
         mask = ptr;
         reset();
     }
@@ -91,7 +93,7 @@ struct Relist
             if (!readMask(i))
             {
                 writeMask(true, i);
-                inst_ids[size] = (u_char)i;
+                inst_ids[size] = (short)i;
 
                 int2 range;
                 range.x = begin;
@@ -184,31 +186,12 @@ __host__ __device__ inline Reinst* dreprog::get_inst(int idx)
     return insts + idx;
 }
 
-//__device__ char32_t* dreprog::get_class(int idx, int& len)
-//{
-//	if( idx < 0 || idx >= classes_count )
-//		return 0;
-//	u_char* buffer = (u_char*)this;
-//	buffer += sizeof(dreprog) + (insts_count * sizeof(Reinst));
-//	int* offsets = (int*)buffer;
-//	buffer += classes_count * sizeof(int);
-//	char32_t* classes = (char32_t*)buffer;
-//	int offset = offsets[idx];
-//	len = offset;
-//	if( idx==0 )
-//		return classes;
-//	offset = offsets[idx-1];
-//	len -= offset;
-//	classes += offset;
-//	return classes;
-//}
-
 __device__ inline int dreprog::get_class(int idx, dreclass& cls)
 {
     if( idx < 0 || idx >= classes_count )
         return 0;
     u_char* buffer = (u_char*)this;
-    buffer += sizeof(dreprog) + (insts_count * sizeof(Reinst));
+    buffer += sizeof(dreprog) + (insts_count * sizeof(Reinst)) + (starts_count * sizeof(int));
     int* offsets = (int*)buffer;
     buffer += classes_count * sizeof(int);
     char32_t* classes = (char32_t*)buffer;
@@ -227,6 +210,12 @@ __device__ inline int dreprog::get_class(int idx, dreclass& cls)
     return len;
 }
 
+__device__ inline int* dreprog::get_startinst_ids()
+{
+    u_char* buffer = (u_char*)this;
+    int* ids = (int*)(buffer + sizeof(dreprog) + (insts_count * sizeof(Reinst)));
+    return ids;
+}
 
 // execute compiled expression for each character in the provided string
 __device__ inline int dreprog::regexec(custring_view* dstr, Reljunk &jnk, int& begin, int& end, int groupId)
@@ -285,8 +274,14 @@ __device__ inline int dreprog::regexec(custring_view* dstr, Reljunk &jnk, int& b
             itr = custring_view::iterator(*dstr,pos);
         }
 
-        if (pos < eos && match == 0)
-            jnk.list1->activate(startinst_id, pos, 0);
+        if ( ((eos < 0) || (pos < eos)) && match == 0)
+        {
+            //jnk.list1->activate(startinst_id, pos, 0);
+            int i = 0;
+            int* ids = get_startinst_ids();
+            while( ids[i] >=0 )
+                jnk.list1->activate(ids[i++], (groupId==0 ? pos:-1), -1);
+        }
 
         //c = (char32_t)(pos >= txtlen ? 0 : dstr->at(pos) );
         c = (char32_t)(pos >= txtlen ? 0 : *itr); // iterator is many times faster than at()

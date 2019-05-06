@@ -1,41 +1,74 @@
-#
+# Copyright (c) 2018-2019, NVIDIA CORPORATION.
+
+import pytest
+import numpy as np
+import pandas as pd
 import nvstrings
 
-#
 from librmm_cffi import librmm as rmm
-from librmm_cffi import librmm_config as rmm_cfg
-rmm_cfg.use_pool_allocator = True 
-rmm.initialize()
-#
-strs = nvstrings.to_device(["abcdefghij","0123456789","9876543210", None, "accénted", ""])
-print(strs)
 
-print(".slice(2,8):",strs.slice(2,8))
-print(".slice(2,15):",strs.slice(2,15))
-print(".slice(2,8,2):",strs.slice(2,8,2))
-print(".slice(2,8,5):",strs.slice(2,8,5))
+from utils import assert_eq
 
-print(".slice_replace(2,5,z):",strs.slice_replace(2,5,'z'))
-print(".slice_replace(8,8,z):",strs.slice_replace(8,8,'z'))
 
-print(".get(0):",strs.get(0))
-print(".get(3):",strs.get(3))
-print(".get(9):",strs.get(9))
-print(".get(10):",strs.get(10))
+def test_slice_from():
+    strs = nvstrings.to_device(
+        ["hello world", "holy accéntéd", "batman", None, ""])
+    d_arr = rmm.to_device(np.asarray([2, 3], dtype=np.int32))
+    got = strs.slice_from(starts=d_arr.device_ctypes_pointer.value)
+    expected = ['llo world', 'y accéntéd', '', None, '']
+    assert_eq(got, expected)
 
-print(".replace(3,_):",strs.replace('3','_'))
-print(".replace(3,++):",strs.replace('3','++'))
-print(".replace(c,):",strs.replace('c',''))
 
-print(".fillna(''):",strs.fillna(''))
-repl = nvstrings.to_device(["null1","null2","null3","null4","null5","null6"])
-print(".fillna(nvs):",strs.fillna(repl))
+@pytest.mark.parametrize('start', [2, 2, 2, 2])
+@pytest.mark.parametrize('stop', [8, 15, 8, 8])
+@pytest.mark.parametrize('step', [None, None, 2, 5])
+def test_slice(start, stop, step):
+    s = ["abcdefghij", "0123456789", "9876543210", None, "accénted", ""]
+    strs = nvstrings.to_device(s)
+    pstrs = pd.Series(s)
+    got = strs.slice(start, stop, step)
+    expected = pstrs.str.slice(start, stop, step)
+    assert_eq(got.to_host(), expected)
 
-print(".insert(0,--):",strs.insert(0,'--'))
-print(".insert(1,--):",strs.insert(1,'--'))
-print(".insert(9,--):",strs.insert(9,'--'))
-print(".insert(10,--):",strs.insert(10,'--'))
-print(".insert(-1,--):",strs.insert(-1,'--'))
 
-strs = None
-repl = None
+@pytest.mark.parametrize('start', [2, 5])
+@pytest.mark.parametrize('stop', [8, 8])
+@pytest.mark.parametrize('repl', ['z', 'z'])
+def test_slice_replace(start, stop, repl):
+    s = ["abcdefghij", "0123456789", "9876543210", None, "accénted", ""]
+    strs = nvstrings.to_device(s)
+    pstrs = pd.Series(s)
+    got = strs.slice_replace(start, stop, repl)
+    expected = pstrs.str.slice_replace(start, stop, repl)
+    assert_eq(got.to_host(), expected)
+
+
+@pytest.mark.parametrize('index', [0, 3, 9, 10])
+def test_get(index):
+    index = 0
+    s = ["abcdefghij", "0123456789", "9876543210", None, "accénted", ""]
+    strs = nvstrings.to_device(s)
+    got = strs.get(index)
+    expected = ['a', '0', '9', None, 'a', '']
+    assert_eq(got.to_host(), expected)
+
+
+@pytest.mark.parametrize('find', ["3", "3", 'c'])
+@pytest.mark.parametrize('replace', ["_", "++", ''])
+def test_replace(find, replace):
+    s = ["abcdefghij", "0123456789", "9876543210", None, "accénted", ""]
+    pstrs = pd.Series(s)
+    nvstrs = nvstrings.to_device(s)
+    got = nvstrs.replace(find, replace)
+    expected = pstrs.str.replace(find, replace)
+    assert_eq(got, expected)
+
+
+@pytest.mark.parametrize('repl', [''])
+def test_fillna(repl):
+    s = ["abcdefghij", "0123456789", "9876543210", None, "accénted", ""]
+    strs = nvstrings.to_device(s)
+    pstrs = pd.Series(s)
+    got = strs.fillna(repl)
+    expected = pstrs.fillna(repl)
+    assert_eq(got.to_host(), expected)
