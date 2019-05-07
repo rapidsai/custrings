@@ -102,3 +102,8 @@ docker run --runtime=nvidia --rm -it -e NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_
        -v ${PYTHON_CONTAINER_BUILD_DIR}:${PYTHON_BUILD_DIR_IN_CONTAINER} \
        --cap-add=SYS_PTRACE \
        ${DOCKER_IMAGE} bash -c "${COMMAND}"
+
+# Cleanup workspace
+rm .condarc python/record.txt
+rm -rf ${BASE_CONTAINER_BUILD_DIR}
+rm -rf .conda python/tests/__pycache__
