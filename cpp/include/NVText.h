@@ -14,7 +14,6 @@
 * limitations under the License.
 */
 #pragma once
-#include <cstddef>
 
 class NVStrings;
 //
@@ -24,10 +23,16 @@ class NVText
 
 public:
 
-    // previously - create_vocab
+    //
+    static NVStrings* tokenize(NVStrings& strs, const char* delimiter );
+
+    //
+    static NVStrings* tokenize(NVStrings& strs, NVStrings& delimiters );
+
+    //
     static NVStrings* unique_tokens(NVStrings& strs, const char* delimiter = " ");
 
-    // previously - word_count
+    //
     static unsigned int token_count( NVStrings& strs, const char* delimiter, unsigned int* results, bool devmem=true );
 
     //

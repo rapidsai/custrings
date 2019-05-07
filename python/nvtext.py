@@ -5,6 +5,45 @@ import nvstrings as nvs
 import logging
 
 
+def tokenize(strs, delimiter=' '):
+    """
+    Each string is split into tokens using the provided delimiter.
+    The nvstrings instance returned contains the tokens in the order
+    the were found.
+
+    Parameters
+    ----------
+    strs : nvstrings
+        The strings for this operation
+    delimiter : str or nvstrings
+        The string used to locate the split points of each string.
+        Default is space.
+
+    Examples
+    --------
+    >>> import nvstrings, nvtext
+    >>> s = nvstrings.to_device(["hello world",
+    ...                          "goodbye world",
+    ...                          "hello goodbye"])
+    >>> t = nvtext.tokenize(s)
+    >>> print(t)
+    ["hello","world","goodbye","world","hello","goodbye"]
+
+    """
+    rtn = None
+    if delimiter is None:
+        delimiter = ' '
+    if isinstance(delimiter, str):
+        rtn = pyniNVText.n_tokenize(strs, delimiter)
+    if isinstance(delimiter, list):
+        delimiter = nvs.to_device(delimiter)
+    if isinstance(delimiter, nvs.nvstrings):
+        rtn = pyniNVText.n_tokenize_multi(strs, delimiter)
+    if rtn is not None:
+        rtn = nvs.nvstrings(rtn)
+    return rtn
+
+
 def unique_tokens(strs, delimiter=' '):
     """
     Each string is split into tokens using the provided delimiter.
