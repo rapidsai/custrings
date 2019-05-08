@@ -121,10 +121,9 @@ NVStrings* NVStrings::gather( const bool* mask, bool bdevmem )
     }
     // create list of index positions from the mask array
     rmm::device_vector<int> indexes(count);
-    thrust::sequence(execpol->on(0), indexes.begin(), indexes.end() );
     auto d_indexes = indexes.data().get();
-    auto d_indexes_end = thrust::remove_if(execpol->on(0), d_indexes, d_indexes + count,
-        [d_mask] __device__ (int idx) { return !d_mask[idx]; });
+    auto d_indexes_end = thrust::copy_if(execpol->on(0), thrust::make_counting_iterator<int>(0), thrust::make_counting_iterator<int>(count),
+                                         d_indexes, [d_mask] __device__ (int idx) { return d_mask[idx]; });
     // done with the mask
     if( !bdevmem )
         RMM_FREE((void*)d_mask,0);
