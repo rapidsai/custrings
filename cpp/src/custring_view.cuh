@@ -101,6 +101,8 @@ public:
         __device__ inline bool operator==(const iterator& rhs) const;
         __device__ inline bool operator!=(const iterator& rhs) const;
         __device__ inline Char operator*() const;
+        __device__ inline unsigned int position() const;
+        __device__ inline unsigned int byte_offset() const;
     };
     // iterator methods
     __device__ inline iterator begin();

@@ -5,7 +5,7 @@ import nvstrings as nvs
 import logging
 
 
-def tokenize(strs, delimiter=' '):
+def tokenize(strs, delimiter=None):
     """
     Each string is split into tokens using the provided delimiter.
     The nvstrings instance returned contains the tokens in the order
@@ -17,7 +17,7 @@ def tokenize(strs, delimiter=' '):
         The strings for this operation
     delimiter : str or nvstrings
         The string used to locate the split points of each string.
-        Default is space.
+        Default is whitespace.
 
     Examples
     --------
@@ -32,7 +32,7 @@ def tokenize(strs, delimiter=' '):
     """
     rtn = None
     if delimiter is None:
-        delimiter = ' '
+        rtn = pyniNVText.n_tokenize(strs, delimiter)
     if isinstance(delimiter, str):
         rtn = pyniNVText.n_tokenize(strs, delimiter)
     if isinstance(delimiter, list):

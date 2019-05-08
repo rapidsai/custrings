@@ -1,4 +1,17 @@
-# cuStrings/nvStrings 0.7.0 (TBD)
+# cuStrings/nvStrings 0.8.0 (TBD)
+
+## New Features
+
+- PR #298 Added ngrams method to NVText
+
+## Improvements
+
+
+## Bug Fixes
+
+
+
+# cuStrings/nvStrings 0.7.0 (13 May 2019)
 
 Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 

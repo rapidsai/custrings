@@ -381,6 +381,16 @@ __device__ inline Char custring_view::iterator::operator*() const
     return chr;
 }
 
+__device__ inline unsigned int custring_view::iterator::position() const
+{
+    return cpos;
+}
+
+__device__ inline unsigned int custring_view::iterator::byte_offset() const
+{
+    return offset;
+}
+
 __device__ inline custring_view::iterator custring_view::begin()
 {
     return iterator(*this, 0);

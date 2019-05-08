@@ -76,7 +76,7 @@ static PyObject* n_tokenize( PyObject* self, PyObject* args )
     if( strs==0 )
         Py_RETURN_NONE;
 
-    const char* delimiter = " ";
+    const char* delimiter = nullptr;
     PyObject* argDelim = PyTuple_GetItem(args,1);
     if( argDelim != Py_None )
         delimiter = PyUnicode_AsUTF8(argDelim);
@@ -533,6 +533,31 @@ static PyObject* n_edit_distance( PyObject* self, PyObject* args )
     return ret;
 }
 
+static PyObject* n_create_ngrams( PyObject* self, PyObject* args )
+{
+    PyObject* pystrs = PyTuple_GetItem(args,0);
+    NVStrings* strs = strings_from_object(pystrs);
+    if( strs==0 )
+        Py_RETURN_NONE;
+
+    unsigned int ngrams = 0;
+    PyObject* pyngrams = PyTuple_GetItem(args,1);
+    if( pyngrams != Py_None )
+        ngrams = (unsigned int)PyLong_AsLong(pyngrams);
+    
+    const char* separator = " ";
+    PyObject* pysep = PyTuple_GetItem(args,2);
+    if( pysep != Py_None )
+        separator = PyUnicode_AsUTF8(pysep);
+
+    Py_BEGIN_ALLOW_THREADS
+    strs = NVText::create_ngrams(*strs,ngrams,separator);
+    Py_END_ALLOW_THREADS
+    if( strs==0 )
+        Py_RETURN_NONE;
+    return PyLong_FromVoidPtr((void*)strs);
+}
+
 //
 static PyMethodDef s_Methods[] = {
     { "n_tokenize", n_tokenize, METH_VARARGS, "" },
@@ -543,6 +568,7 @@ static PyMethodDef s_Methods[] = {
     { "n_strings_counts", n_strings_counts, METH_VARARGS, "" },
     { "n_tokens_counts", n_tokens_counts, METH_VARARGS, "" },
     { "n_edit_distance", n_edit_distance, METH_VARARGS, "" },
+    { "n_create_ngrams", n_create_ngrams, METH_VARARGS, "" },
     { NULL, NULL, 0, NULL }
 };
 
