@@ -267,6 +267,14 @@ public:
      */
     NVStrings* gather( const int* pos, unsigned int count, bool devmem=true );
     /**
+     * @brief Returns new instance where the corresponding boolean array values are true.
+     *
+     * @param[in] mask Must have the same number of elements as this instance.
+     * @param devmem Indicates whether the mask parameter points to device memory or CPU memory.
+     * @return New instance with the indicated strings.
+     */
+    NVStrings* gather( const bool* mask, bool devmem=true );
+    /**
      * @brief Returns a new instance without the specified strings.
      *
      * @param[in] pos The 0-based index of the strings to be ignored when creating a copy of this instance.

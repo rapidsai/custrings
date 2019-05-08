@@ -3,6 +3,7 @@
 ## New Features
 
 - PR #298 Added ngrams method to NVText
+- PR #299 Added gather method for booleans array
 
 ## Improvements
 

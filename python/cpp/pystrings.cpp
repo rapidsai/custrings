@@ -162,7 +162,7 @@ public:
     //
     bool is_error()               { return ltype==error; }
     const char* get_error_text()  { return errortext.c_str(); }
-    bool is_blist()               { return ltype==blist; }
+    bool is_blist()               { return ltype==blist || (dtype_name.compare("bool")==0); }
     const char* get_name()        { return name.c_str(); }
     bool is_device_type()         { return (ltype==device_ndarray) || (ltype==pointer); }
 
@@ -1802,7 +1802,7 @@ static PyObject* n_rjust( PyObject* self, PyObject* args )
         PyErr_Format(PyExc_ValueError,"fillchar cannot be empty");
         Py_RETURN_NONE;
     }
-    
+
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
     NVStrings* rtn = nullptr;
     Py_BEGIN_ALLOW_THREADS
@@ -3008,7 +3008,6 @@ static PyObject* n_gather( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     PyObject* pyidxs = PyTuple_GetItem(args,1);
-    //std::string cname = pyidxs->ob_type->tp_name;
 
     DataBuffer<int> dbvalues(pyidxs);
     if( dbvalues.is_error() )
@@ -3016,33 +3015,40 @@ static PyObject* n_gather( PyObject* self, PyObject* args )
         PyErr_Format(PyExc_TypeError,"nvstrings.n_gather(): %s",dbvalues.get_error_text());
         Py_RETURN_NONE;
     }
-    if( dbvalues.is_blist() )
-    {
-        PyErr_Format(PyExc_TypeError,"nvstrings.n_gather(): list of bools is not supported");
-        Py_RETURN_NONE;
-    }
-    if( dbvalues.get_type_width()!=sizeof(int) )
+    if( !dbvalues.is_blist() && dbvalues.get_type_width()!=sizeof(int) )
     {
         PyErr_Format(PyExc_TypeError,"nvstrings.n_gather(): values must be of type int32");
         Py_RETURN_NONE;
     }
-    bool bdevmem = dbvalues.is_device_type();
-    int* indexes = dbvalues.get_values();
+
     unsigned int count = dbvalues.get_count();
     if( count==0 )
         count = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,2));
+    bool bdevmem = dbvalues.is_device_type();
 
     NVStrings* rtn = 0;
-    try
+    if( !dbvalues.is_blist() )
     {
+        try
+        {
+            Py_BEGIN_ALLOW_THREADS
+            rtn = tptr->gather(dbvalues.get_values(),count,bdevmem);
+            Py_END_ALLOW_THREADS
+        }
+        catch(const std::out_of_range& eor)
+        {
+            PyErr_Format(PyExc_IndexError,"one or more indexes out of range [0:%u)",tptr->size());
+        }
+    }
+    else
+    {
+        // handle boolean values too
+        DataBuffer<bool> dbmask(pyidxs);
         Py_BEGIN_ALLOW_THREADS
-        rtn = tptr->gather(indexes,count,bdevmem);
+        rtn = tptr->gather(dbmask.get_values(),bdevmem);
         Py_END_ALLOW_THREADS
     }
-    catch(const std::out_of_range& eor)
-    {
-        PyErr_Format(PyExc_IndexError,"one or more indexes out of range [0:%u)",tptr->size());
-    }
+
     //
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
