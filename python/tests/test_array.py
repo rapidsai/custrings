@@ -10,6 +10,13 @@ def test_gather():
     assert got.to_host() == expected
 
 
+def test_gather_bool():
+    strs = nvstrings.to_device(["abc", "defghi", None, "cat"])
+    got = strs.gather([True, False, False, True])
+    expected = ['abc', 'cat']
+    assert got.to_host() == expected
+
+
 def test_sublist():
     strs = nvstrings.to_device(["abc", "defghi", None, "cat"])
     got = strs.sublist([1, 3, 2])

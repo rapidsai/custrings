@@ -105,6 +105,33 @@ NVStrings* NVStrings::gather( const int* pos, unsigned int elems, bool bdevmem )
     return rtn;
 }
 
+// create a new instance containing only the strings where the corresponding mask value is true
+NVStrings* NVStrings::gather( const bool* mask, bool bdevmem )
+{
+    size_t count = size();
+    if( count==0 || mask==nullptr )
+        return new NVStrings(0);
+    // copy mask array to device memory if necessary
+    auto execpol = rmm::exec_policy(0);
+    auto d_mask = mask;
+    if( !bdevmem )
+    {
+        RMM_ALLOC((void**)&d_mask,count*sizeof(mask[0]),0);
+        cudaMemcpyAsync((void*)d_mask,mask,count*sizeof(mask[0]),cudaMemcpyHostToDevice,0);
+    }
+    // create list of index positions from the mask array
+    rmm::device_vector<int> indexes(count);
+    thrust::sequence(execpol->on(0), indexes.begin(), indexes.end() );
+    auto d_indexes = indexes.data().get();
+    auto d_indexes_end = thrust::remove_if(execpol->on(0), d_indexes, d_indexes + count,
+        [d_mask] __device__ (int idx) { return !d_mask[idx]; });
+    // done with the mask
+    if( !bdevmem )
+        RMM_FREE((void*)d_mask,0);
+    count = d_indexes_end - d_indexes;
+    return gather( d_indexes, count, true );
+}
+
 NVStrings* NVStrings::sublist( unsigned int start, unsigned int end, int step )
 {
     unsigned int count = size();
