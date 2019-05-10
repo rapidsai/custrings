@@ -1,4 +1,4 @@
-# cuStrings/nvStrings 0.7.0 (TBD)
+# cuStrings/nvStrings 0.7.0 (10 May 2019)
 
 Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 
