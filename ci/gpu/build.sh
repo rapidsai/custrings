@@ -100,4 +100,4 @@ nvidia-smi
 
 logger "Simple test..."
 cd tests
-pytest -v
+pytest --cache-clear --junitxml=${WORKSPACE}/junit-custrings.xml -v
