@@ -7,6 +7,7 @@
 
 ## Improvements
 
+- PR #302 Add junit test output for py.test
 
 ## Bug Fixes
 
