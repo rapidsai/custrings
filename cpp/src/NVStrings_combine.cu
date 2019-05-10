@@ -1,5 +1,20 @@
+/*
+* Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*     http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
 
-#include <stdlib.h>
+#include <exception>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #include <thrust/device_vector.h>
@@ -10,29 +25,28 @@
 #include "NVStrings.h"
 #include "NVStringsImpl.h"
 #include "custring_view.cuh"
-#include "Timing.h"
 
 //
 NVStrings* NVStrings::cat( NVStrings* others, const char* separator, const char* narep )
 {
     if( others==0 )
-        return 0; // return a copy of ourselves?
+        return nullptr; // return a copy of ourselves?
     unsigned int count = size();
     if( others->size() != count )
-        return 0; // this is not allowed: use assert?
+        throw std::invalid_argument("nvstrings::cat sizes do not match");
 
     auto execpol = rmm::exec_policy(0);
     unsigned int seplen = 0;
     if( separator )
         seplen = (unsigned int)strlen(separator);
-    char* d_sep = 0;
+    char* d_sep = nullptr;
     if( seplen )
     {
         RMM_ALLOC(&d_sep,seplen,0);
         cudaMemcpy(d_sep,separator,seplen,cudaMemcpyHostToDevice);
     }
     unsigned int narlen = 0;
-    char* d_narep = 0;
+    char* d_narep = nullptr;
     if( narep )
     {
         narlen = (unsigned int)strlen(narep);
@@ -44,7 +58,6 @@ NVStrings* NVStrings::cat( NVStrings* others, const char* separator, const char*
     custring_view_array d_others = others->pImpl->getStringsPtr();
 
     // first compute the size of the output
-    double st1 = GetTime();
     rmm::device_vector<size_t> sizes(count,0);
     size_t* d_sizes = sizes.data().get();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
@@ -100,7 +113,6 @@ NVStrings* NVStrings::cat( NVStrings* others, const char* separator, const char*
             RMM_FREE(d_narep,0);
         return rtn;
     }
-    double et1 = GetTime();
     cudaMemset(d_buffer,0,rtn->pImpl->getMemorySize());
     // compute the offset
     rmm::device_vector<size_t> offsets(count,0);
@@ -108,7 +120,6 @@ NVStrings* NVStrings::cat( NVStrings* others, const char* separator, const char*
     // do the thing
     custring_view_array d_results = rtn->pImpl->getStringsPtr();
     size_t* d_offsets = offsets.data().get();
-    double st2 = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_others, d_sep, seplen, d_narep, narlen, d_buffer, d_offsets, d_results] __device__(unsigned int idx){
             char* buffer = d_buffer + d_offsets[idx];
@@ -130,9 +141,7 @@ NVStrings* NVStrings::cat( NVStrings* others, const char* separator, const char*
             //printf("cat:%lu:[]=%d\n",idx,dout->size());
             d_results[idx] = dout;
     });
-    printCudaError(cudaDeviceSynchronize(),"nvs-cat: combining strings");
-    double et2 = GetTime();
-    pImpl->addOpTimes("cat",(et1-st1),(et2-st2));
+    //printCudaError(cudaDeviceSynchronize(),"nvs-cat: combining strings");
 
     if( d_sep )
         RMM_FREE(d_sep,0);
@@ -146,17 +155,17 @@ NVStrings* NVStrings::cat( NVStrings* others, const char* separator, const char*
 NVStrings* NVStrings::join( const char* delimiter, const char* narep )
 {
     if( delimiter==0 )
-        return 0;
+        throw std::invalid_argument("nvstrings::join delimiter cannot be null");
     auto execpol = rmm::exec_policy(0);
     unsigned int dellen = (unsigned int)strlen(delimiter);
-    char* d_delim = 0;
+    char* d_delim = nullptr;
     if( dellen > 0 )
     {
         RMM_ALLOC(&d_delim,dellen,0);
         cudaMemcpy(d_delim,delimiter,dellen,cudaMemcpyHostToDevice);
     }
     unsigned int narlen = 0;
-    char* d_narep = 0;
+    char* d_narep = nullptr;
     if( narep )
     {
         narlen = (unsigned int)strlen(narep);
@@ -201,7 +210,7 @@ NVStrings* NVStrings::join( const char* delimiter, const char* narep )
             d_chars[idx] = nchars;
         });
 
-    cudaDeviceSynchronize();
+    //cudaDeviceSynchronize();
     // compute how much space is required for the giant string
     size_t totalBytes = thrust::reduce(execpol->on(0), lens.begin(), lens.end());
     size_t totalChars = thrust::reduce(execpol->on(0), chars.begin(), chars.end());
@@ -215,7 +224,7 @@ NVStrings* NVStrings::join( const char* delimiter, const char* narep )
     size_t* d_offsets = offsets.data().get();
     // create one big buffer to hold the strings
     NVStrings* rtn = new NVStrings(1);
-    char* d_buffer = 0;
+    char* d_buffer = nullptr;
     RMM_ALLOC(&d_buffer,allocSize,0);
     custring_view_array d_result = rtn->pImpl->getStringsPtr();
     rtn->pImpl->setMemoryBuffer(d_buffer,allocSize);
@@ -249,7 +258,7 @@ NVStrings* NVStrings::join( const char* delimiter, const char* narep )
             char* sptr = d_buffer + 8;
             d_result[0] = custring_view::create_from(d_buffer,sptr,totalBytes);
         });
-    printCudaError(cudaDeviceSynchronize(),"nvs-join");
+    //printCudaError(cudaDeviceSynchronize(),"nvs-join");
 
     if( d_delim )
         RMM_FREE(d_delim,0);

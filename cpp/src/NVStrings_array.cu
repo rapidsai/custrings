@@ -1,5 +1,19 @@
+/*
+* Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*     http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
 
-#include <stdlib.h>
 #include <stdexcept>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
@@ -21,18 +35,18 @@
 
 // create a new instance containing only the strings at the specified positions
 // position values can be in any order and can even be repeated
-NVStrings* NVStrings::gather( int* pos, unsigned int elems, bool bdevmem )
+NVStrings* NVStrings::gather( const int* pos, unsigned int elems, bool bdevmem )
 {
     unsigned int count = size();
     if( count==0 || elems==0 || pos==0 )
         return new NVStrings(0);
 
     auto execpol = rmm::exec_policy(0);
-    int* d_pos = pos;
+    const int* d_pos = pos;
     if( !bdevmem )
     {   // copy indexes to device memory
-        RMM_ALLOC(&d_pos,elems*sizeof(int),0);
-        cudaMemcpy(d_pos,pos,elems*sizeof(int),cudaMemcpyHostToDevice);
+        RMM_ALLOC((void**)&d_pos,elems*sizeof(int),0);
+        cudaMemcpy((void*)d_pos,pos,elems*sizeof(int),cudaMemcpyHostToDevice);
     }
     // get individual sizes
     rmm::device_vector<long> sizes(elems,0);
@@ -57,8 +71,8 @@ NVStrings* NVStrings::gather( int* pos, unsigned int elems, bool bdevmem )
     if( hfirst < 0 )
     {
         if( !bdevmem )
-            RMM_FREE(d_pos,0);
-        throw std::out_of_range("");
+            RMM_FREE((void*)d_pos,0);
+        throw std::out_of_range("nvs.gather position value out of range");
     }
 
     // create output object
@@ -84,54 +98,60 @@ NVStrings* NVStrings::gather( int* pos, unsigned int elems, bool bdevmem )
                 d_results[idx] = custring_view::create_from(buffer,*dstr);
             });
         //
-        printCudaError(cudaDeviceSynchronize(),"nvs-gather");
+        //printCudaError(cudaDeviceSynchronize(),"nvs-gather");
     }
     if( !bdevmem )
-        RMM_FREE(d_pos,0);
+        RMM_FREE((void*)d_pos,0);
     return rtn;
 }
 
-NVStrings* NVStrings::sublist( unsigned int start, unsigned int end, unsigned int step )
+NVStrings* NVStrings::sublist( unsigned int start, unsigned int end, int step )
 {
     unsigned int count = size();
     if( end > count )
         end = count;
-    if( start >= end )
-        return new NVStrings(0);
+    if( start > count )
+        start = count;
     if( step==0 )
         step = 1;
-    unsigned int elems = (end - start + step -1)/step;
+    if( start == end )
+        return new NVStrings(0);
+    if( ((step > 0) && (start > end)) ||
+        ((step < 0) && (start < end)) )
+        return new NVStrings(0);
+    unsigned int elems = (unsigned int)std::abs((int)(end-start));
+    unsigned int abs_step = (unsigned int)std::abs(step);
+    elems = (elems + abs_step -1)/abs_step; // adjust for steps
     auto execpol = rmm::exec_policy(0);
-    rmm::device_vector<unsigned int> indexes(elems);
-    thrust::sequence(execpol->on(0),indexes.begin(),indexes.end(),start,step);
-    return gather((int*)indexes.data().get(),elems,true);
+    rmm::device_vector<int> indexes(elems);
+    thrust::sequence(execpol->on(0),indexes.begin(),indexes.end(),(int)start,step);
+    return gather(indexes.data().get(),elems,true);
 }
 
 // remove the specified strings and return a new instance
-NVStrings* NVStrings::remove_strings( unsigned int* pos, unsigned int elems, bool bdevmem )
+NVStrings* NVStrings::remove_strings( const int* pos, unsigned int elems, bool bdevmem )
 {
     unsigned int count = size();
     if( count==0 || elems==0 || pos==0 )
-        return 0; // return copy of ourselves?
+        return nullptr; // return copy of ourselves?
 
     auto execpol = rmm::exec_policy(0);
-    unsigned int* dpos = pos;
-    if( !bdevmem )
-    {
-        RMM_ALLOC(&dpos,elems*sizeof(unsigned int),0);
-        cudaMemcpy(dpos,pos,elems*sizeof(unsigned int),cudaMemcpyHostToDevice);
-    }
+    int* dpos = nullptr;
+    RMM_ALLOC(&dpos,elems*sizeof(unsigned int),0);
+    if( bdevmem )
+       cudaMemcpy((void*)dpos,pos,elems*sizeof(unsigned int),cudaMemcpyDeviceToDevice);
+    else
+       cudaMemcpy((void*)dpos,pos,elems*sizeof(unsigned int),cudaMemcpyHostToDevice);
     // sort the position values
-    thrust::sort(execpol->on(0),dpos,dpos+elems,thrust::greater<unsigned int>());
+    thrust::sort(execpol->on(0),dpos,dpos+elems,thrust::greater<int>());
     // also should remove duplicates
-    unsigned int* nend = thrust::unique(execpol->on(0),dpos,dpos+elems,thrust::equal_to<unsigned int>());
+    int* nend = thrust::unique(execpol->on(0),dpos,dpos+elems,thrust::equal_to<int>());
     elems = (unsigned int)(nend - dpos);
     if( count < elems )
     {
-        if( !bdevmem )
-            RMM_FREE(dpos,0);
+        RMM_FREE(dpos,0);
         fprintf(stderr,"nvs.remove_strings: more positions (%u) specified than the number of strings (%u)\n",elems,count);
-        return 0;
+        return nullptr;
     }
 
     // build array to hold positions which are not to be removed by marking deleted positions with -1
@@ -150,7 +170,7 @@ NVStrings* NVStrings::remove_strings( unsigned int* pos, unsigned int elems, boo
     unsigned int newCount = (unsigned int)(dend-d_npos);
     // gather string pointers based on indexes in dnpos (new-positions)
     custring_view** d_strings = pImpl->getStringsPtr();
-    rmm::device_vector<custring_view*> newList(newCount,nullptr);           // newList will hold
+    rmm::device_vector<custring_view*> newList(newCount,nullptr);              // newList will hold
     custring_view_array d_newList = newList.data().get();                      // all the remaining
     thrust::gather(execpol->on(0),d_npos,d_npos+newCount,d_strings,d_newList); // strings ptrs
 
@@ -168,8 +188,7 @@ NVStrings* NVStrings::remove_strings( unsigned int* pos, unsigned int elems, boo
     char* d_buffer = rtn->pImpl->createMemoryFor(d_sizes);
     if( d_buffer==0 )
     {
-        if( !bdevmem )
-            RMM_FREE(dpos,0);
+        RMM_FREE(dpos,0);
         return rtn;
     }
     // create offsets
@@ -187,9 +206,8 @@ NVStrings* NVStrings::remove_strings( unsigned int* pos, unsigned int elems, boo
             d_results[idx] = custring_view::create_from(buffer,*dstr);
         });
     //
-    printCudaError(cudaDeviceSynchronize(),"nvs-remove_strings");
-    if( !bdevmem )
-        RMM_FREE(dpos,0);
+    //printCudaError(cudaDeviceSynchronize(),"nvs-remove_strings");
+    RMM_FREE(dpos,0);
     return rtn;
 }
 
@@ -232,12 +250,6 @@ NVStrings* NVStrings::sort( sorttype stype, bool ascending, bool nullfirst )
             return (ascending ? (diff < 0) : (diff > 0));
         });
     //
-    cudaError_t err = cudaDeviceSynchronize();
-    if( err != cudaSuccess )
-    {
-        fprintf(stderr,"nvs-sort(0x%0x,%d):by-key\n",(int)stype,(int)ascending);
-        printCudaError(err);
-    }
     // create offsets from the sorted lengths
     rmm::device_vector<size_t> offsets(count,0);
     size_t* d_offsets = offsets.data().get();
@@ -254,12 +266,6 @@ NVStrings* NVStrings::sort( sorttype stype, bool ascending, bool nullfirst )
             }
         });
     //
-    err = cudaDeviceSynchronize();
-    if( err != cudaSuccess )
-    {
-        fprintf(stderr,"nvs-sort(0x%0x,%d)\n",(unsigned)stype,(int)ascending);
-        printCudaError(err);
-    }
     return rtn;
 }
 
@@ -288,12 +294,6 @@ int NVStrings::order( sorttype stype, bool ascending, unsigned int* indexes, boo
                 diff = lhs->compare(*rhs);
             return (ascending ? (diff < 0) : (diff > 0));
         });
-    cudaError_t err = cudaDeviceSynchronize();
-    if( err != cudaSuccess )
-    {
-        fprintf(stderr,"nvs-order(0x%0x,%d,%p,%d)\n",(int)stype,(int)ascending,indexes,(int)todevice);
-        printCudaError(err);
-    }
     //
     if( !todevice )
     {

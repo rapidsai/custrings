@@ -1,89 +1,218 @@
-#
-import nvstrings
+# Copyright (c) 2018-2019, NVIDIA CORPORATION.
+
 import numpy as np
 
-#
-from librmm_cffi import librmm as rmm
-from librmm_cffi import librmm_config as rmm_cfg
-rmm_cfg.use_pool_allocator = True 
-rmm.initialize()
+import nvstrings
 
-#
-s = nvstrings.to_device(["1234","5678","90",None,"-876","543.2","-0.12",".55","-.002","","de","abc123","123abc"])
-print(s)
-#
-print(".stoi():",s.stoi())
-arr = np.arange(s.size(),dtype=np.int32)
-d_arr = rmm.to_device(arr)
-s.stoi(d_arr.device_ctypes_pointer.value)
-print(".stoi(devptr):",d_arr.copy_to_host())
+from utils import assert_eq
 
-#
-print(".stof():",s.stof())
-arr = np.arange(s.size(),dtype=np.float32)
-d_arr = rmm.to_device(arr)
-s.stof(d_arr.device_ctypes_pointer.value)
-print(".stof(devptr):",d_arr.copy_to_host())
 
-#
-print(".hash():",s.hash())
-arr = np.arange(s.size(),dtype=np.uint32)
-d_arr = rmm.to_device(arr)
-s.hash(d_arr.device_ctypes_pointer.value)
-print(".hash(devptr):",d_arr.copy_to_host())
+def test_hash():
+    s = nvstrings.to_device(
+        ["1234", "5678", "90", None, "-876", "543.2", "-0.12", ".55", "-.002",
+         "", "de", "abc123", "123abc", "456e", "-1.78e+5"])
+    got = s.hash()
+    expected = [1509442, 1632578, 1815, None, 1396170, 50546232, 43034188,
+                45902, 42976497, 0, 3201, 2870530704, 1450620144, 1601840,
+                3024562500]
+    assert_eq(got, expected)
 
-#
-s = nvstrings.to_device(['1234567890', 'de', '1.75', '-34', '+9.8', '7¼', 'x³', '2³', '12⅝','','\t\r\n '])
-print(s)
-arr = np.arange(s.size(),dtype=np.byte)
-d_arr = rmm.to_device(arr)
 
-#
-print(".isalnum():",s.isalnum())
-s.isalnum(d_arr.device_ctypes_pointer.value)
-print(".isalnum(devptr):",d_arr.copy_to_host())
+def test_isalnum():
+    s = nvstrings.to_device(
+        ['1234567890', 'de', '1.75', '-34', '+9.8', '7¼', 'x³', '2³', '12⅝',
+         '', '\t\r\n '])
+    got = s.isalnum()
+    expected = [True, True, False, False, False, True, True, True, True,
+                False, False]
+    assert_eq(got, expected)
 
-#
-print(".isalpha():",s.isalpha())
-s.isalpha(d_arr.device_ctypes_pointer.value)
-print(".isalpha(devptr):",d_arr.copy_to_host())
 
-#
-print(".isdigit():",s.isdigit())
-s.isdigit(d_arr.device_ctypes_pointer.value)
-print(".isdigit(devptr):",d_arr.copy_to_host())
+def test_isalpha():
+    s = nvstrings.to_device(
+        ['1234567890', 'de', '1.75', '-34', '+9.8', '7¼', 'x³', '2³', '12⅝',
+         '', '\t\r\n '])
+    got = s.isalpha()
+    expected = [False, True, False, False, False, False, False, False, False,
+                False, False]
+    assert_eq(got, expected)
 
-#
-print(".isdecimal():",s.isdecimal())
-s.isdecimal(d_arr.device_ctypes_pointer.value)
-print(".isdecimal(devptr):",d_arr.copy_to_host())
 
-#
-print(".isspace():",s.isspace())
-s.isspace(d_arr.device_ctypes_pointer.value)
-print(".isspace(devptr):",d_arr.copy_to_host())
+def test_isdigit():
+    s = nvstrings.to_device(
+        ['1234567890', 'de', '1.75', '-34', '+9.8', '7¼', 'x³', '2³', '12⅝',
+         '', '\t\r\n '])
+    got = s.isdigit()
+    expected = [True, False, False, False, False, False, False, True, False,
+                False, False]
+    assert_eq(got, expected)
 
-#
-print(".isnumeric():",s.isnumeric())
-s.isnumeric(d_arr.device_ctypes_pointer.value)
-print(".isnumeric(devptr):",d_arr.copy_to_host())
 
-s = nvstrings.to_device(["1234","ABCDEF","1A2","cafe"])
-print(s)
-print(".htoi()",s.htoi())
-arr = np.arange(s.size(),dtype=np.uint32)
-d_arr = rmm.to_device(arr)
-s.htoi(d_arr.device_ctypes_pointer.value)
-print(".htoi(devptr)",d_arr.copy_to_host())
-print("itos():",nvstrings.itos(d_arr))
-nulls = np.empty(int(s.size()/8)+1, dtype=np.int8)
-nulls[0] = 11
-arr = d_arr.copy_to_host()
-print("itos(nulls=\\b1011):",nvstrings.itos(arr,nulls=nulls))
+def test_isdecimal():
+    s = nvstrings.to_device(
+        ['1234567890', 'de', '1.75', '-34', '+9.8', '7¼', 'x³', '2³', '12⅝',
+         '', '\t\r\n '])
+    got = s.isdecimal()
+    expected = [True, False, False, False, False, False, False, False, False,
+                False, False]
+    assert_eq(got, expected)
 
-s = nvstrings.to_device(["192.168.0.1","10.0.0.1",None,"","hello"])
-print(s)
-print(".ip2int()",s.ip2int())
-print(nvstrings.int2ip(s.ip2int()))
 
-s = None
+def test_isspace():
+    s = nvstrings.to_device(
+        ['1234567890', 'de', '1.75', '-34', '+9.8', '7¼', 'x³', '2³', '12⅝',
+         '', '\t\r\n '])
+    got = s.isspace()
+    expected = [False, False, False, False, False, False, False, False, False,
+                False, True]
+    assert_eq(got, expected)
+
+
+def test_isnumeric():
+    s = nvstrings.to_device(
+        ['1234567890', 'de', '1.75', '-34', '+9.8', '7¼', 'x³', '2³', '12⅝',
+         '', '\t\r\n '])
+    got = s.isnumeric()
+    expected = [True, False, False, False, False, True, False, True, True,
+                False, False]
+    assert_eq(got, expected)
+
+
+def test_stoi():
+    s = nvstrings.to_device(
+        ["1234", "5678", "90", None, "-876", "543.2", "-0.12", ".55", "-.002",
+         "", "de", "abc123", "123abc", "456e", "-1.78e+5"])
+    got = s.stoi()
+    expected = [1234, 5678, 90, None, -876, 543, 0, 0, 0, 0, 0, 0, 123, 456,
+                -1]
+    assert_eq(got, expected)
+
+
+def test_stol():
+    s = nvstrings.to_device(
+        ["1234", "5678", "90", None, "-876", "543.2", "-0.12", "2.55", "-.002",
+         "", "de", "abc123", "123abc", "456e", "-1.78e+5"])
+    got = s.stol()
+    expected = [1234, 5678, 90, None, -876, 543, 0, 2, 0, 0, 0, 0, 123, 456,
+                -1]
+    assert_eq(got, expected)
+
+
+def test_stof():
+    s = nvstrings.to_device(
+        ["1234", "5678", "90", None, "-876", "543.2", "-0.12", ".55", "-.002",
+         "", "de", "abc123", "123abc", "456e", "-1.78e+5"])
+    got = s.stof()
+    expected = [1234.0, 5678.0, 90.0, None, -876.0, 543.2000122070312,
+                -0.11999999731779099, 0.550000011920929,
+                -0.0020000000949949026, 0.0, 0.0, 0.0, 123.0, 456.0, -178000.0]
+    assert_eq(got, expected)
+
+
+def test_stod():
+    s = nvstrings.to_device(
+        ["1234", "5678", "90", None, "-876", "543.2", "-0.12", "2.553",
+         "-.002", "", "de", "abc123", "123abc", "456e", "-1.78e+5"])
+    got = s.stod()
+    expected = [1234.0, 5678.0, 90.0, None, -876.0, 543.2, -0.12, 2.553,
+                -0.002, 0.0, 0.0, 0.0, 123.0, 456.0, -178000.0]
+    assert_eq(got, expected)
+
+
+def test_htoi():
+    s = nvstrings.to_device(["1234", "ABCDEF", "1A2", "cafe"])
+    got = s.htoi()
+    expected = [4660, 11259375, 418, 51966]
+    assert_eq(got, expected)
+
+
+def test_itos():
+    s = [0, 103, 1053, 8395739]
+    got = nvstrings.itos(s)
+    expected = nvstrings.to_device(['0', '103', '1053', '8395739'])
+    assert_eq(got, expected)
+
+
+def test_ltos():
+    s = [0, 103, -2548485929, 8395794248339]
+    got = nvstrings.ltos(s)
+    expected = nvstrings.to_device(['0', '103', '-2548485929',
+                                    '8395794248339'])
+    assert_eq(got, expected)
+
+
+def test_ftos():
+    s = np.array([0, 103, -254848.5929, 8395794.248339], dtype=np.float32)
+    got = nvstrings.ftos(s)
+    expected = nvstrings.to_device(['0', '103', '-254848.5938', '8395794'])
+    assert_eq(got, expected)
+
+
+def test_dtos():
+    s = np.array([0, 103342.313, -25.4294, 839542223232.794248339],
+                 dtype=np.float64)
+    got = nvstrings.dtos(s)
+    expected = nvstrings.to_device(
+        ['0', '103342.313', '-25.4294', '8.395422232e+11'])
+    assert_eq(got, expected)
+
+
+def test_ip2int():
+    s = nvstrings.to_device(["192.168.0.1", "10.0.0.1", None, "", "hello"])
+    got = s.ip2int()
+    expected = [3232235521, 167772161, None, 0, 0]
+    assert_eq(got, expected)
+
+
+def test_int2ip():
+    ints = [3232235521, 167772161, None, 0, 0]
+    got = nvstrings.int2ip(ints)
+    expected = ['192.168.0.1', '10.0.0.1', '0.0.0.0', '0.0.0.0', '0.0.0.0']
+    assert_eq(got, expected)
+
+
+def test_to_booleans():
+    s = nvstrings.to_device(["true", "false", None, "", "true", 'True'])
+
+    got = s.to_booleans()
+    expected = [False, False, None, False, False, True]
+    assert_eq(got, expected)
+
+    got = s.to_booleans(true='true')
+    expected = [True, False, None, False, True, False]
+    assert_eq(got, expected)
+
+
+def test_from_booleans():
+    s = [True, False, False, True]
+    got = nvstrings.from_booleans(s)
+    expected = ['True', 'False', 'False', 'True']
+    assert_eq(got, expected)
+
+    got = nvstrings.from_booleans(s, nulls=[11])
+    expected = ['True', 'False', None, 'True']
+    assert_eq(got, expected)
+
+
+def test_is_empty():
+    s = nvstrings.to_device(["true", "false", None, "", "true", 'True'])
+    got = s.is_empty()
+    expected = [False, False, None, True, False, False]
+    assert_eq(got, expected)
+
+
+def test_copy():
+    s = nvstrings.to_device(["true", "false", None, "", "true", 'True'])
+    s1 = s.copy()
+    assert_eq(s, s1)
+
+
+def test_to_host():
+    s = nvstrings.to_device(["true", "false", None, "", "true", 'True'])
+    got = s.to_host()
+    expected = ['true', 'false', None, '', 'true', 'True']
+    assert_eq(got, expected)
+
+
+def test_to_device():
+    pass

@@ -1,5 +1,20 @@
+/*
+* Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*     http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
 
-#include <stdlib.h>
+#include <exception>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #include <thrust/device_vector.h>
@@ -12,7 +27,7 @@
 #include "NVStringsImpl.h"
 #include "custring_view.cuh"
 #include "regex/regex.cuh"
-#include "Timing.h"
+
 
 // Extract character from each component at specified position
 NVStrings* NVStrings::get(unsigned int pos)
@@ -25,7 +40,7 @@ NVStrings* NVStrings::get(unsigned int pos)
 NVStrings* NVStrings::slice( int start, int stop, int step )
 {
     if( (stop > 0) && (start > stop) )
-        return 0;
+        throw std::invalid_argument("nvstrings::slice start cannot be greater than stop");
 
     auto execpol = rmm::exec_policy(0);
     unsigned int count = size();
@@ -33,7 +48,6 @@ NVStrings* NVStrings::slice( int start, int stop, int step )
     // compute size of output buffer
     rmm::device_vector<size_t> lengths(count,0);
     size_t* d_lengths = lengths.data().get();
-    double st1 = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, start, stop, step, d_lengths] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -49,14 +63,12 @@ NVStrings* NVStrings::slice( int start, int stop, int step )
     char* d_buffer = rtn->pImpl->createMemoryFor(d_lengths);
     if( d_buffer==0 )
         return rtn;
-    double et1 = GetTime();
     // create offsets
     rmm::device_vector<size_t> offsets(count,0);
     thrust::exclusive_scan(execpol->on(0),lengths.begin(),lengths.end(),offsets.begin());
     // slice it and dice it
     custring_view_array d_results = rtn->pImpl->getStringsPtr();
     size_t* d_offsets = offsets.data().get();
-    double st2 = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, start, stop, step, d_buffer, d_offsets, d_results] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -67,19 +79,11 @@ NVStrings* NVStrings::slice( int start, int stop, int step )
             d_results[idx] = dstr->substr((unsigned)start,(unsigned)len,(unsigned)step,buffer);
         });
     //
-    cudaError_t err = cudaDeviceSynchronize();
-    double et2 = GetTime();
-    if( err != cudaSuccess )
-    {
-        fprintf(stderr,"nvs-slice(%d,%d,%d)\n",start,stop,step);
-        printCudaError(err);
-    }
-    pImpl->addOpTimes("slice",(et1-st1),(et2-st2));
     return rtn;
 }
 
 // Each string is substr'd according to the individual (start,stop) position values
-NVStrings* NVStrings::slice_from( int* starts, int* stops )
+NVStrings* NVStrings::slice_from( const int* starts, const int* stops )
 {
     unsigned int count = size();
     custring_view_array d_strings = pImpl->getStringsPtr();
@@ -87,7 +91,6 @@ NVStrings* NVStrings::slice_from( int* starts, int* stops )
     // compute size of output buffer
     rmm::device_vector<size_t> lengths(count,0);
     size_t* d_lengths = lengths.data().get();
-    double st1 = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, starts, stops, d_lengths] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -105,14 +108,12 @@ NVStrings* NVStrings::slice_from( int* starts, int* stops )
     char* d_buffer = rtn->pImpl->createMemoryFor(d_lengths);
     if( d_buffer==0 )
         return rtn;
-    double et1 = GetTime();
     // create offsets
     rmm::device_vector<size_t> offsets(count,0);
     thrust::exclusive_scan(execpol->on(0),lengths.begin(),lengths.end(),offsets.begin());
     // slice, slice, baby
     custring_view_array d_results = rtn->pImpl->getStringsPtr();
     size_t* d_offsets = offsets.data().get();
-    double st2 = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, starts, stops, d_buffer, d_offsets, d_results] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -125,14 +126,6 @@ NVStrings* NVStrings::slice_from( int* starts, int* stops )
             d_results[idx] = dstr->substr((unsigned)start,(unsigned)len,1,buffer);
         });
     //
-    cudaError_t err = cudaDeviceSynchronize();
-    double et2 = GetTime();
-    if( err != cudaSuccess )
-    {
-        fprintf(stderr,"nvs-slice_from(%p,%p)\n",starts,stops);
-        printCudaError(err);
-    }
-    pImpl->addOpTimes("slice",(et1-st1),(et2-st2));
     return rtn;
 }
 
@@ -192,7 +185,7 @@ int NVStrings::extract_record( const char* pattern, std::vector<NVStrings*>& res
         int size = thrust::reduce(execpol->on(0), sizes, sizes+groups);
         if( size==0 )
             continue;
-        char* d_buffer = 0;
+        char* d_buffer = nullptr;
         RMM_ALLOC(&d_buffer,size,0);
         row->pImpl->setMemoryBuffer(d_buffer,size);
         strings[idx] = row->pImpl->getStringsPtr();
@@ -285,7 +278,7 @@ int NVStrings::extract( const char* pattern, std::vector<NVStrings*>& results)
                     d_lengths[idx] = (size_t)ALIGN_SIZE(size);
                 }
             });
-        cudaDeviceSynchronize();
+        //cudaDeviceSynchronize();
         // create list of strings for this group
         NVStrings* column = new NVStrings(count);
         results.push_back(column); // append here so continue statement will work
@@ -308,12 +301,12 @@ int NVStrings::extract( const char* pattern, std::vector<NVStrings*>& results)
                     d_results[idx] = dstr->substr((unsigned)start,(unsigned)(stop-start),1,d_buffer+d_offsets[idx]);
             });
         //
-        cudaError_t err = cudaDeviceSynchronize();
-        if( err != cudaSuccess )
-        {
-            fprintf(stderr,"nvs-extract(%s): col=%d\n",pattern,col);
-            printCudaError(err);
-        }
+        //cudaError_t err = cudaDeviceSynchronize();
+        //if( err != cudaSuccess )
+        //{
+        //    fprintf(stderr,"nvs-extract(%s): col=%d\n",pattern,col);
+        //    printCudaError(err);
+        //}
         // column already added to results above
     }
     dreprog::destroy(prog);

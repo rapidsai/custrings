@@ -9,24 +9,14 @@ def to_device(strs):
 
     Parameters
     ----------
-
-      strs: list
+    strs : list
         List of Python strings.
 
     Examples
     --------
-
-    .. code-block:: python
-
-    import nvcategory
-
-    c = nvcategory.to_device(['apple','pear','banana','orange','pear'])
-    print(c.keys(),c.values())
-
-    Output:
-
-    .. code-block:: python
-
+    >>> import nvcategory
+    >>> c = nvcategory.to_device(['apple','pear','banana','orange','pear'])
+    >>> print(c.keys(),c.values())
     ['apple', 'banana', 'orange', 'pear'] [0, 3, 1, 2, 3]
 
     """
@@ -42,49 +32,38 @@ def from_offsets(sbuf, obuf, scount, nbuf=None, ncount=0):
 
     Parameters
     ----------
-
-      sbuf : CPU memory address or buffer
+    sbuf : CPU memory address or buffer
         Strings characters encoded as UTF-8.
-
-      obuf : CPU memory address or buffer
+    obuf : CPU memory address or buffer
         Array of int32 byte offsets to beginning of each string in sbuf.
         There should be scount+1 values where the last value is the
         number of bytes in sbuf.
-
-      scount: int
+    scount : int
         Number of strings.
-
-      nbuf: CPU memory address or buffer
+    nbuf : CPU memory address or buffer, optional
         Optional null bitmask in arrow format.
         Strings with no lengths are empty strings unless specified as
         null by this bitmask.
+    ncount : int, optional
+        Optional number of null strings (the default is 0).
 
-      ncount: int
-        Optional number of null strings.
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import nvcategory
 
-      Examples
-      --------
+    Create numpy array for 'a','p','p','l','e' with the utf8 int8 values
+    of 97,112,112,108,101
 
-      .. code-block:: python
-
-      import numpy as np
-      import nvcategory
-
-      # 'a','p','p','l','e' are utf8 int8 values 97,112,112,108,101
-      values = np.array([97, 112, 112, 108, 101], dtype=np.int8)
-      print("values",values.tobytes())
-      offsets = np.array([0,1,2,3,4,5], dtype=np.int32)
-      print("offsets",offsets)
-      c = nvcategory.from_offsets(values,offsets,5)
-      print(c.keys(),c.values())
-
-      Output:
-
-      .. code-block:: python
-
-      values b'apple'
-      offsets [0 1 2 3 4 5]
-      ['a', 'e', 'l', 'p'] [0, 3, 3, 2, 1]
+    >>> values = np.array([97, 112, 112, 108, 101], dtype=np.int8)
+    >>> print("values",values.tobytes())
+    values b'apple'
+    >>> offsets = np.array([0,1,2,3,4,5], dtype=np.int32)
+    >>> print("offsets",offsets)
+    offsets [0 1 2 3 4 5]
+    >>> c = nvcategory.from_offsets(values,offsets,5)
+    >>> print(c.keys(),c.values())
+    ['a', 'e', 'l', 'p'] [0, 3, 3, 2, 1]
 
     """
     rtn = pyniNVCategory.n_createFromOffsets(sbuf, obuf, scount, nbuf, ncount)
@@ -99,27 +78,17 @@ def from_strings(*args):
 
     Parameters
     ----------
-
-      args: variadic
+    args : variadic
         1 or more nvstrings objects
 
     Examples
     --------
-
-    .. code-block:: python
-
-      import nvcategory, nvstrings
-
-      s1 = nvstrings.to_device(['apple','pear','banana'])
-      s2 = nvstrings.to_device(['orange','pear'])
-      c = nvcategory.from_strings(s1,s2)
-      print(c.keys(),c.values())
-
-      Output:
-
-      .. code-block:: python
-
-      ['apple', 'banana', 'orange', 'pear'] [0, 3, 1, 2, 3]
+    >>> import nvcategory, nvstrings
+    >>> s1 = nvstrings.to_device(['apple','pear','banana'])
+    >>> s2 = nvstrings.to_device(['orange','pear'])
+    >>> c = nvcategory.from_strings(s1,s2)
+    >>> print(c.keys(),c.values())
+    ['apple', 'banana', 'orange', 'pear'] [0, 3, 1, 2, 3]
 
     """
     strs = []
@@ -137,27 +106,17 @@ def from_strings_list(list):
 
     Parameters
     ----------
-
-      list: list
+    list : list
         1 or more nvstrings objects
 
     Examples
     --------
-
-    .. code-block:: python
-
-      import nvcategory, nvstrings
-
-      s1 = nvstrings.to_device(['apple','pear','banana'])
-      s2 = nvstrings.to_device(['orange','pear'])
-      c = nvcategory.from_strings_list([s1,s2])
-      print(c.keys(),c.values())
-
-      Output:
-
-      .. code-block:: python
-
-      ['apple', 'banana', 'orange', 'pear'] [0, 3, 1, 2, 3]
+    >>> import nvcategory, nvstrings
+    >>> s1 = nvstrings.to_device(['apple','pear','banana'])
+    >>> s2 = nvstrings.to_device(['orange','pear'])
+    >>> c = nvcategory.from_strings_list([s1,s2])
+    >>> print(c.keys(),c.values())
+    ['apple', 'banana', 'orange', 'pear'] [0, 3, 1, 2, 3]
 
     """
     rtn = pyniNVCategory.n_createCategoryFromNVStrings(list)
@@ -213,24 +172,17 @@ class nvcategory:
 
         Returns
         -------
-          int: number of values
+        int
+            Number of values
 
         Examples
         --------
-
-        .. code-block:: python
-
-          import nvcategory
-          c = nvcategory.to_device(["eee","aaa","eee","dddd"])
-          print(c.values())
-          print(c.size())
-
-        Output:
-
-        .. code-block:: python
-
-          [2, 0, 2, 1]
-          4
+        >>> import nvcategory
+        >>> c = nvcategory.to_device(["eee","aaa","eee","dddd"])
+        >>> print(c.values())
+        [2, 0, 2, 1]
+        >>> print(c.size())
+        4
 
         """
         return pyniNVCategory.n_size(self.m_cptr)
@@ -241,24 +193,17 @@ class nvcategory:
 
         Returns
         -------
-          int: number of keys
+        int
+            Number of keys
 
         Examples
         --------
-
-        .. code-block:: python
-
-          import nvcategory
-          c = nvcategory.to_device(["eee","aaa","eee","dddd"])
-          print(c.keys())
-          print(c.keys_size())
-
-        Output:
-
-        .. code-block:: python
-
-          ['aaa','dddd','eee']
-          3
+        >>> import nvcategory
+        >>> c = nvcategory.to_device(["eee","aaa","eee","dddd"])
+        >>> print(c.keys())
+        ['aaa','dddd','eee']
+        >>> print(c.keys_size())
+        3
 
         """
         return pyniNVCategory.n_keys_size(self.m_cptr)
@@ -269,22 +214,15 @@ class nvcategory:
 
         Returns
         -------
-          nvstrings: keys
+        nvstrings
+            Unique strings (keys)
 
         Examples
         --------
-
-        .. code-block:: python
-
-          import nvcategory
-          c = nvcategory.to_device(["eee","aaa","eee","dddd"])
-          print(c.keys())
-
-        Output:
-
-        .. code-block:: python
-
-          ['aaa','dddd','eee']
+        >>> import nvcategory
+        >>> c = nvcategory.to_device(["eee","aaa","eee","dddd"])
+        >>> print(c.keys())
+        ['aaa','dddd','eee']
 
         """
         rtn = pyniNVCategory.n_get_keys(self.m_cptr)
@@ -298,29 +236,20 @@ class nvcategory:
 
         Parameters
         ----------
-          key : str
+        key : str
             key whose values should be returned
-
-          devptr : GPU memory pointer
+        devptr : GPU memory pointer
             Where index values will be written.
             Must be able to hold int32 values for this key.
 
         Examples
         --------
-
-        .. code-block:: python
-
-          import nvcategory
-          c = nvcategory.to_device(["eee","aaa","eee","dddd"])
-          print(c.indexes_for_key('aaa'))
-          print(c.indexes_for_key('eee'))
-
-        Output:
-
-        .. code-block:: python
-
-          [1]
-          [0, 2]
+        >>> import nvcategory
+        >>> c = nvcategory.to_device(["eee","aaa","eee","dddd"])
+        >>> print(c.indexes_for_key('aaa'))
+        [1]
+        >>> print(c.indexes_for_key('eee'))
+        [0, 2]
 
         """
         return pyniNVCategory.n_get_indexes_for_key(self.m_cptr, key, devptr)
@@ -331,23 +260,15 @@ class nvcategory:
 
         Parameters
         ----------
-          idx : int
+        idx : int
             index value to retrieve
 
         Examples
         --------
-
-        .. code-block:: python
-
-          import nvcategory
-          c = nvcategory.to_device(["eee","aaa","eee","dddd"])
-          print(c.value_for_index(3))
-
-        Output:
-
-        .. code-block:: python
-
-          1
+        >>> import nvcategory
+        >>> c = nvcategory.to_device(["eee","aaa","eee","dddd"])
+        >>> print(c.value_for_index(3))
+        1
 
         """
         return pyniNVCategory.n_get_value_for_index(self.m_cptr, idx)
@@ -358,25 +279,17 @@ class nvcategory:
 
         Parameters
         ----------
-          str : str
+        str : str
             key to retrieve
 
         Examples
         --------
-
-        .. code-block:: python
-
-          import nvcategory
-          c = nvcategory.to_device(["eee","aaa","eee","dddd"])
-          print(c.value('aaa'))
-          print(c.value('eee'))
-
-        Output:
-
-        .. code-block:: python
-
-          0
-          2
+        >>> import nvcategory
+        >>> c = nvcategory.to_device(["eee","aaa","eee","dddd"])
+        >>> print(c.value('aaa'))
+        0
+        >>> print(c.value('eee'))
+        2
 
         """
         return pyniNVCategory.n_get_value_for_string(self.m_cptr, str)
@@ -387,24 +300,16 @@ class nvcategory:
 
         Parameters
         ----------
-          devptr : GPU memory pointer
+        devptr : GPU memory pointer
             Where index values will be written.
             Must be able to hold size() of int32 values.
 
         Examples
         --------
-
-        .. code-block:: python
-
-          import nvcategory
-          c = nvcategory.to_device(["eee","aaa","eee","dddd"])
-          print(c.values())
-
-        Output:
-
-        .. code-block:: python
-
-          [2, 0, 2, 1]
+        >>> import nvcategory
+        >>> c = nvcategory.to_device(["eee","aaa","eee","dddd"])
+        >>> print(c.values())
+        [2, 0, 2, 1]
 
         """
         return pyniNVCategory.n_get_values(self.m_cptr, devptr)
@@ -424,34 +329,24 @@ class nvcategory:
 
         Parameters
         ----------
-          nvs : nvstrings
+        nvs : nvstrings
             New strings to be added.
 
         Examples
         --------
-
-        .. code-block:: python
-
-          import nvcategory, nvstrings
-
-          s1 = nvstrings.to_device(["eee","aaa","eee","dddd"])
-          s2 = nvstrings.to_device(["ggg","eee","aaa"])
-          c1 = nvcategory.from_strings(s1)
-          c2 = c1.add_strings(s2)
-
-          print(c1.keys())
-          print(c1.values())
-          print(c2.keys())
-          print(c2.values())
-
-        Output:
-
-        .. code-block:: python
-
-          ['aaa','dddd','eee']
-          [2, 0, 2, 1]
-          ['aaa','dddd','eee','ggg']
-          [2, 0, 2, 1, 3, 2, 0]
+        >>> import nvcategory, nvstrings
+        >>> s1 = nvstrings.to_device(["eee","aaa","eee","dddd"])
+        >>> s2 = nvstrings.to_device(["ggg","eee","aaa"])
+        >>> c1 = nvcategory.from_strings(s1)
+        >>> c2 = c1.add_strings(s2)
+        >>> print(c1.keys())
+        ['aaa','dddd','eee']
+        >>> print(c1.values())
+        [2, 0, 2, 1]
+        >>> print(c2.keys())
+        ['aaa','dddd','eee','ggg']
+        >>> print(c2.values())
+        [2, 0, 2, 1, 3, 2, 0]
 
         """
         rtn = pyniNVCategory.n_add_strings(self.m_cptr, nvs)
@@ -466,34 +361,24 @@ class nvcategory:
 
         Parameters
         ----------
-          nvs : nvstrings
+        nvs : nvstrings
             strings to be removed.
 
         Examples
         --------
-
-        .. code-block:: python
-
-          import nvcategory, nvstrings
-
-          s1 = nvstrings.to_device(["eee","aaa","eee","dddd"])
-          s2 = nvstrings.to_device(["aaa"])
-          c1 = nvcategory.from_strings(s1)
-          c2 = c1.remove_strings(s2)
-
-          print(c1.keys())
-          print(c1.values())
-          print(c2.keys())
-          print(c2.values())
-
-        Output:
-
-        .. code-block:: python
-
-          ['aaa','dddd','eee']
-          [2, 0, 2, 1]
-          ['dddd', 'eee']
-          [1, 1, 0]
+        >>> import nvcategory, nvstrings
+        >>> s1 = nvstrings.to_device(["eee","aaa","eee","dddd"])
+        >>> s2 = nvstrings.to_device(["aaa"])
+        >>> c1 = nvcategory.from_strings(s1)
+        >>> c2 = c1.remove_strings(s2)
+        >>> print(c1.keys())
+        ['aaa','dddd','eee']
+        >>> print(c1.values())
+        [2, 0, 2, 1]
+        >>> print(c2.keys())
+        ['dddd', 'eee']
+        >>> print(c2.values())
+        [1, 1, 0]
 
         """
         rtn = pyniNVCategory.n_remove_strings(self.m_cptr, nvs)
@@ -507,26 +392,19 @@ class nvcategory:
 
         Returns
         -------
-          nvstrings: full strings list based on values indexes
+        nvstrings
+            Full strings list based on values indexes
 
         Examples
         --------
-
-        .. code-block:: python
-
-          import nvcategory
-          c = nvcategory.to_device(["eee","aaa","eee","dddd"])
-          print(c.keys())
-          print(c.values())
-          print(c.to_strings())
-
-        Output:
-
-        .. code-block:: python
-
-          ['aaa','dddd','eee']
-          [2, 0, 2, 1]
-          ['eee','aaa','eee','dddd']
+        >>> import nvcategory
+        >>> c = nvcategory.to_device(["eee","aaa","eee","dddd"])
+        >>> print(c.keys())
+        ['aaa','dddd','eee']
+        >>> print(c.values())
+        [2, 0, 2, 1]
+        >>> print(c.to_strings())
+        ['eee','aaa','eee','dddd']
 
         """
         rtn = pyniNVCategory.n_to_strings(self.m_cptr)
@@ -540,35 +418,27 @@ class nvcategory:
 
         Parameters
         ----------
-          indexes : List of ints or GPU memory pointer
+        indexes : List of ints or GPU memory pointer
             0-based indexes of keys to return as an nvstrings object
-
-          count : int
+        count : int
             Number of ints if indexes parm is a device pointer.
             Otherwise it is ignored.
 
         Returns
         -------
-          nvstrings: strings list based on indexes
+        nvstrings
+            strings list based on indexes
 
         Examples
         --------
-
-        .. code-block:: python
-
-          import nvcategory
-          c = nvcategory.to_device(["eee","aaa","eee","dddd"])
-          print(c.keys())
-          print(c.values())
-          print(c.gather_strings([0,2,0]))
-
-        Output:
-
-        .. code-block:: python
-
-          ['aaa','dddd','eee']
-          [2, 0, 2, 1]
-          ['aaa','eee','aaa']
+        >>> import nvcategory
+        >>> c = nvcategory.to_device(["eee","aaa","eee","dddd"])
+        >>> print(c.keys())
+        ['aaa','dddd','eee']
+        >>> print(c.values())
+        [2, 0, 2, 1]
+        >>> print(c.gather_strings([0,2,0]))
+        ['aaa','eee','aaa']
 
         """
         rtn = pyniNVCategory.n_gather_strings(self.m_cptr, indexes, count)
@@ -588,34 +458,26 @@ class nvcategory:
 
         Parameters
         ----------
-          indexes : list or GPU memory pointer
+        indexes : list or GPU memory pointer
             List of ints or GPU memory pointer to array of int32 values.
-
-          count : int
+        count : int
             Number of ints if indexes parm is a device pointer.
             Otherwise it is ignored.
 
         Returns
         -------
-          nvcategory: keys and values based on indexes provided
+        nvcategory
+            keys and values based on indexes provided
 
         Examples
         --------
-
-        .. code-block:: python
-
-          import nvcategory
-          c = nvcategory.to_device(["aa","bb","bb","ff","cc","ff"])
-          print(c.keys(),c.values())
-          c = c.gather([1,3,2,3,1,2])
-          print(c.keys(),c.values())
-
-        Output:
-
-        .. code-block:: python
-
-          ['aa', 'bb', 'cc', 'ff'] [0, 1, 1, 3, 2, 3]
-          ['bb', 'cc', 'ff'] [0, 2, 1, 2, 0, 1]
+        >>> import nvcategory
+        >>> c = nvcategory.to_device(["aa","bb","bb","ff","cc","ff"])
+        >>> print(c.keys(),c.values())
+        ['aa', 'bb', 'cc', 'ff'] [0, 1, 1, 3, 2, 3]
+        >>> c = c.gather([1,3,2,3,1,2])
+        >>> print(c.keys(),c.values())
+        ['bb', 'cc', 'ff'] [0, 2, 1, 2, 0, 1]
 
         """
         rtn = pyniNVCategory.n_gather_and_remap(self.m_cptr, indexes, count)
@@ -630,34 +492,26 @@ class nvcategory:
 
         Parameters
         ----------
-          indexes : list or GPU memory pointer
+        indexes : list or GPU memory pointer
             List of ints or GPU memory pointer to array of int32 values.
-
-          count : int
+        count : int
             Number of ints if indexes parm is a device pointer.
             Otherwise it is ignored.
 
         Returns
         -------
-          nvcategory: keys and values based on indexes provided
+        nvcategory
+            keys and values based on indexes provided
 
         Examples
         --------
-
-        .. code-block:: python
-
-          import nvcategory
-          c = nvcategory.to_device(["aa","bb","bb","ff","cc","ff"])
-          print(c.keys(),c.values())
-          c = c.gather([1,3,2,3,1,2])
-          print(c.keys(),c.values())
-
-        Output:
-
-        .. code-block:: python
-
-          ['aa', 'bb', 'cc', 'ff'] [0, 1, 1, 3, 2, 3]
-          ['aa', 'bb', 'cc', 'ff'] [1, 3, 2, 3, 1, 2]
+        >>> import nvcategory
+        >>> c = nvcategory.to_device(["aa","bb","bb","ff","cc","ff"])
+        >>> print(c.keys(),c.values())
+        ['aa', 'bb', 'cc', 'ff'] [0, 1, 1, 3, 2, 3]
+        >>> c = c.gather([1,3,2,3,1,2])
+        >>> print(c.keys(),c.values())
+        ['aa', 'bb', 'cc', 'ff'] [1, 3, 2, 3, 1, 2]
 
         """
         rtn = pyniNVCategory.n_gather(self.m_cptr, indexes, count)
@@ -674,7 +528,7 @@ class nvcategory:
 
         Parameters
         ----------
-          nvcat : nvcategory
+        nvcat : nvcategory
             New cateogry to be merged.
 
         """
@@ -692,7 +546,7 @@ class nvcategory:
 
         Parameters
         ----------
-          nvcat : nvcategory
+        nvcat : nvcategory
             New cateogry to be merged.
 
         """
@@ -708,7 +562,7 @@ class nvcategory:
 
         Parameters
         ----------
-          strs: nvstrings
+        strs : nvstrings
             keys to be added to existing keys
         """
         rtn = pyniNVCategory.n_add_keys(self.m_cptr, strs)
@@ -724,7 +578,7 @@ class nvcategory:
 
         Parameters
         ----------
-          strs: nvstrings
+        strs : nvstrings
             keys to be removed from existing keys
         """
         rtn = pyniNVCategory.n_remove_keys(self.m_cptr, strs)
@@ -750,7 +604,7 @@ class nvcategory:
 
         Parameters
         ----------
-          strs: nvstrings
+        strs : nvstrings
             keys to be used for new category
         """
         rtn = pyniNVCategory.n_set_keys(self.m_cptr, strs)

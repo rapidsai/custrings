@@ -1,5 +1,19 @@
-
-// internal declarations for regex compilier and executor
+/*
+* Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*     http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+#pragma once
 #include <string>
 #include <vector>
 
@@ -56,6 +70,7 @@ class Reprog
     std::vector<Reinst> insts;
     std::vector<Reclass> classes;
     int startinst_id;
+    std::vector<int> startinst_ids; // short-cut to speed-up ORs
     int num_capturing_groups;
 
 public:
@@ -66,20 +81,24 @@ public:
     int add_inst(Reinst inst);
     int add_class(Reclass cls);
 
-    int inst_count() const;
-    int classes_count() const;
     void set_groups_count(int groups);
     int groups_count() const;
 
     const Reinst* insts_data() const;
-
+    int inst_count() const;
     Reinst& inst_at(int id);
+
     Reclass& class_at(int id);
+    int classes_count() const;
+
+    const int* starts_data() const;
+    int starts_count() const;
 
     void set_start_inst(int id);
     int get_start_inst() const;
 
-    void optimize();
+    void optimize1();
+    void optimize2();
     void print(); // for debugging
 };
 

@@ -6,3 +6,7 @@
 *.so
 ##
 cpp/build/
+cpp/doxygen/html/
+python/build
+python/dist
+python/nvstrings_cudaunknown.egg-info

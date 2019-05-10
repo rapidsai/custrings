@@ -1,12 +1,13 @@
 name: custrings_dev
 channels:
-- numba
 - conda-forge
 - defaults
 dependencies:
-- python=>3.5
+- python=>3.6
 - cudatoolkit=9.2=0
-- cmake=3.12
+- cmake>=3.12
 - numba>=0.40
 - cython=0.28.*
 - cffi>=1.10.0
+- librmm=0.7.*
+- pytest

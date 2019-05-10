@@ -1,4 +1,4 @@
 [submodule "thirdparty/rmm"]
 	path = thirdparty/rmm
 	url = https://github.com/rapidsai/rmm.git
-	branch = master
+	branch = branch-0.7

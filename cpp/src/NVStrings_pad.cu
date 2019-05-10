@@ -1,5 +1,19 @@
+/*
+* Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*     http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
 
-#include <stdlib.h>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #include <thrust/device_vector.h>
@@ -11,7 +25,6 @@
 #include "NVStrings.h"
 #include "NVStringsImpl.h"
 #include "custring_view.cuh"
-#include "Timing.h"
 
 
 // duplicate and concatenate the string the number of times specified
@@ -22,7 +35,6 @@ NVStrings* NVStrings::repeat(unsigned int reps)
 
     auto execpol = rmm::exec_policy(0);
     // compute size of output buffer
-    double st1 = GetTime();
     rmm::device_vector<size_t> lengths(count,0);
     size_t* d_lengths = lengths.data().get();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
@@ -47,14 +59,12 @@ NVStrings* NVStrings::repeat(unsigned int reps)
     char* d_buffer = rtn->pImpl->createMemoryFor(d_lengths);
     if( d_buffer==0 )
         return rtn;
-    double et1 = GetTime();
     // create offsets
     rmm::device_vector<size_t> offsets(count,0);
     thrust::exclusive_scan(execpol->on(0),lengths.begin(),lengths.end(),offsets.begin());
     // do the repeat
     custring_view_array d_results = rtn->pImpl->getStringsPtr();
     size_t* d_offsets = offsets.data().get();
-    double st2 = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, reps, d_buffer, d_offsets, d_results] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -68,10 +78,7 @@ NVStrings* NVStrings::repeat(unsigned int reps)
             d_results[idx] = dout;
         });
     //
-    printCudaError(cudaDeviceSynchronize(),"nvs-repeat");
-    double et2 = GetTime();
-    pImpl->addOpTimes("repeat",(et1-st1),(et2-st2));
-
+    //printCudaError(cudaDeviceSynchronize(),"nvs-repeat");
     return rtn;
 }
 
@@ -94,7 +101,7 @@ NVStrings* NVStrings::ljust( unsigned int width, const char* fillchar )
     custring_view_array d_strings = pImpl->getStringsPtr();
 
     auto execpol = rmm::exec_policy(0);
-    if( !fillchar )
+    if( !fillchar || *fillchar==0 )
         fillchar = " ";
     Char d_fillchar = 0;
     unsigned int fcbytes = custring_view::char_to_Char(fillchar,d_fillchar);
@@ -102,7 +109,6 @@ NVStrings* NVStrings::ljust( unsigned int width, const char* fillchar )
     // compute size of output buffer
     rmm::device_vector<size_t> lengths(count,0);
     size_t* d_lengths = lengths.data().get();
-    double st1 = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, width, fcbytes, d_lengths] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -126,14 +132,12 @@ NVStrings* NVStrings::ljust( unsigned int width, const char* fillchar )
     char* d_buffer = rtn->pImpl->createMemoryFor(d_lengths);
     if( d_buffer==0 )
         return rtn; // all strings are null
-    double et1 = GetTime();
     // create offsets
     rmm::device_vector<size_t> offsets(count,0);
     thrust::exclusive_scan(execpol->on(0),lengths.begin(),lengths.end(),offsets.begin());
     // do the padding
     custring_view_array d_results = rtn->pImpl->getStringsPtr();
     size_t* d_offsets = offsets.data().get();
-    double st2 = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, width, d_fillchar, d_buffer, d_offsets, d_results] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -148,10 +152,7 @@ NVStrings* NVStrings::ljust( unsigned int width, const char* fillchar )
             d_results[idx] = dout;
         });
     //
-    printCudaError(cudaDeviceSynchronize(),"nvs-ljust");
-    double et2 = GetTime();
-    pImpl->addOpTimes("ljust",(et1-st1),(et2-st2));
-
+    //printCudaError(cudaDeviceSynchronize(),"nvs-ljust");
     return rtn;
 }
 
@@ -162,7 +163,7 @@ NVStrings* NVStrings::center( unsigned int width, const char* fillchar )
     custring_view** d_strings = pImpl->getStringsPtr();
 
     auto execpol = rmm::exec_policy(0);
-    if( !fillchar )
+    if( !fillchar || *fillchar==0 )
         fillchar = " ";
     Char d_fillchar = 0;
     int fcbytes = custring_view::char_to_Char(fillchar,d_fillchar);
@@ -170,7 +171,6 @@ NVStrings* NVStrings::center( unsigned int width, const char* fillchar )
     // compute size of output buffer
     rmm::device_vector<size_t> lengths(count,0);
     size_t* d_lengths = lengths.data().get();
-    double st1 = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, width, fcbytes, d_lengths] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -195,13 +195,11 @@ NVStrings* NVStrings::center( unsigned int width, const char* fillchar )
     if( d_buffer==0 )
         return rtn;
     // create offsets
-    double et1 = GetTime();
     rmm::device_vector<size_t> offsets(count,0);
     thrust::exclusive_scan(execpol->on(0),lengths.begin(),lengths.end(),offsets.begin());
     // do the padding
     custring_view_array d_results = rtn->pImpl->getStringsPtr();
     size_t* d_offsets = offsets.data().get();
-    double st2 = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, width, d_fillchar, fcbytes, d_buffer, d_offsets, d_results] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -222,10 +220,7 @@ NVStrings* NVStrings::center( unsigned int width, const char* fillchar )
             d_results[idx] = dout;
         });
     //
-    printCudaError(cudaDeviceSynchronize(),"nvs-center");
-    double et2 = GetTime();
-    pImpl->addOpTimes("center",(et1-st1),(et2-st2));
-
+    //printCudaError(cudaDeviceSynchronize(),"nvs-center");
     return rtn;
 }
 
@@ -236,7 +231,7 @@ NVStrings* NVStrings::rjust( unsigned int width, const char* fillchar )
     custring_view** d_strings = pImpl->getStringsPtr();
 
     auto execpol = rmm::exec_policy(0);
-    if( !fillchar )
+    if( !fillchar || *fillchar==0 )
         fillchar = " ";
     Char d_fillchar = 0;
     int fcbytes = custring_view::char_to_Char(fillchar,d_fillchar);
@@ -244,7 +239,6 @@ NVStrings* NVStrings::rjust( unsigned int width, const char* fillchar )
     // compute size of output buffer
     rmm::device_vector<size_t> lengths(count,0);
     size_t* d_lengths = lengths.data().get();
-    double st1 = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, width, fcbytes, d_lengths] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -268,14 +262,12 @@ NVStrings* NVStrings::rjust( unsigned int width, const char* fillchar )
     char* d_buffer = rtn->pImpl->createMemoryFor(d_lengths);
     if( d_buffer==0 )
         return rtn;
-    double et1 = GetTime();
     // create offsets
     rmm::device_vector<size_t> offsets(count,0);
     thrust::exclusive_scan(execpol->on(0),lengths.begin(),lengths.end(),offsets.begin());
     // do the padding
     custring_view** d_results = rtn->pImpl->getStringsPtr();
     size_t* d_offsets = offsets.data().get();
-    double st2 = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<size_t>(0), count,
         [d_strings, width, d_fillchar, d_buffer, d_offsets, d_results] __device__(size_t idx){
             custring_view* dstr = d_strings[idx];
@@ -290,10 +282,7 @@ NVStrings* NVStrings::rjust( unsigned int width, const char* fillchar )
             d_results[idx] = dout;
         });
     //
-    printCudaError(cudaDeviceSynchronize(),"nvs-rjust");
-    double et2 = GetTime();
-    pImpl->addOpTimes("rjust",(et1-st1),(et2-st2));
-
+    //printCudaError(cudaDeviceSynchronize(),"nvs-rjust");
     return rtn;
 }
 
@@ -307,7 +296,6 @@ NVStrings* NVStrings::zfill( unsigned int width )
     // compute size of output buffer
     rmm::device_vector<size_t> lengths(count,0);
     size_t* d_lengths = lengths.data().get();
-    double st1 = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, width, d_lengths] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -331,14 +319,12 @@ NVStrings* NVStrings::zfill( unsigned int width )
     char* d_buffer = rtn->pImpl->createMemoryFor(d_lengths);
     if( d_buffer==0 )
         return rtn;
-    double et1 = GetTime();
     // create offsets
     rmm::device_vector<size_t> offsets(count,0);
     thrust::exclusive_scan(execpol->on(0),lengths.begin(),lengths.end(),offsets.begin());
     // do the fill
     custring_view_array d_results = rtn->pImpl->getStringsPtr();
     size_t* d_offsets = offsets.data().get();
-    double st2 = GetTime();
     thrust::for_each_n(execpol->on(0),
         thrust::make_counting_iterator<size_t>(0), count,
         [d_strings, width, d_buffer, d_offsets, d_results] __device__(size_t idx){
@@ -360,10 +346,7 @@ NVStrings* NVStrings::zfill( unsigned int width )
             d_results[idx] = dout;
         });
     //
-    printCudaError(cudaDeviceSynchronize(),"nvs-zfill");
-    double et2 = GetTime();
-    pImpl->addOpTimes("zfill",(et1-st1),(et2-st2));
-
+    //printCudaError(cudaDeviceSynchronize(),"nvs-zfill");
     return rtn;
 }
 
@@ -384,7 +367,6 @@ NVStrings* NVStrings::wrap( unsigned int width )
     // need to compute the size of each new string
     rmm::device_vector<size_t> sizes(count,0);
     size_t* d_sizes = sizes.data().get();
-    double st1 = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_sizes] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -400,14 +382,12 @@ NVStrings* NVStrings::wrap( unsigned int width )
     char* d_buffer = rtn->pImpl->createMemoryFor(d_sizes);
     if( d_buffer==0 )
         return rtn;
-    double et1 = GetTime();
     // create offsets
     rmm::device_vector<size_t> offsets(count,0);
     thrust::exclusive_scan(execpol->on(0),sizes.begin(),sizes.end(),offsets.begin());
     // do the wrap logic
     custring_view_array d_results = rtn->pImpl->getStringsPtr();
     size_t* d_offsets = offsets.data().get();
-    double st2 = GetTime();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, width, d_buffer, d_offsets, d_results] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
@@ -446,13 +426,11 @@ NVStrings* NVStrings::wrap( unsigned int width )
             d_results[idx] = custring_view::create_from(buffer,buffer,sz);
     });
     //
-    cudaError_t err = cudaDeviceSynchronize();
-    double et2 = GetTime();
-    if( err != cudaSuccess )
-    {
-        fprintf(stderr,"nvs-wrap(%d)\n",width);
-        printCudaError(err);
-    }
-    pImpl->addOpTimes("wrap",(et1-st1),(et2-st2));
+    //cudaError_t err = cudaDeviceSynchronize();
+    //if( err != cudaSuccess )
+    //{
+    //    fprintf(stderr,"nvs-wrap(%d)\n",width);
+    //    printCudaError(err);
+    //}
     return rtn;
 }

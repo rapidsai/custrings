@@ -1,3 +1,75 @@
+# cuStrings/nvStrings 0.7.0 (10 May 2019)
+
+Version jump from 0.3->0.7 is to align with other RAPIDS projects.
+
+## New Features
+
+- PR #281 Added get_info method to show data about strings
+- PR #273 Added tokens_counts method to nvtext
+- PR #265 Added is_empty method
+- PR #260 Support for format-specified date-time to/from string conversion
+- PR #195 Added IPC python bindings
+- PR #204 Added stol/ltos and stod/dtos number converters
+- PR #194 Added method to create strings from array of floats
+- PR #193 Added IPC transfer methods to C++ interface
+- PR #188 Rename rave to nvtext and publish in nvstrings package
+- PR #180 Added edit-distance to rave module
+- PR #176 Added match_strings to nvstrings
+- PR #172 Added to/from boolean conversion methods
+- PR #171 Added conversion to/from subset of ISO8601 format
+- PR #230 Add ngrams function to nvtext module
+- PR #285 Add build script for nightly docs
+- PR #286 Add local build script to cuStrings
+
+
+## Improvements
+
+- PR #289 Improve regex perf for OR clauses
+- PR #283 Check for empty fillchar in pad methods
+- PR #278 Added insert method as alternative to slice_replace insert
+- PR #268 Support negative slicing
+- PR #264 Allow nvstrings parameter to fillna
+- PR #256 Convert device-only custring_view to header-only
+- PR #255 Removed unnecessary cudaDeviceSync calls
+- PR #237 Removed internal util.h from include dir
+- PR #216 Fixed build instructions and removed obsolete doc/build files
+- PR #178 Added compute_statistics to C++ interface
+- PR #173 Added flake8 checks to for /python files
+- PR #167 Added doxygen to NVStrings.h and NVCategory.h
+- PR #183 Align version to 0.7
+- PR #192 Rework CMakeLists and separate RMM, update conda recipe and setup.py
+- PR #181 Update python docstrings to numpydoc style
+- PR #196 Include nvtext in python module setup
+- PR #221 Create separate conda packages for libnvstrings and nvstrings
+- PR #247 Release Python GIl while calling underlying C++ API from python
+- PR #240 Initial suite of nvtext function Python unit tests
+- PR #275 Add cudatoolkit conda dependency
+- PR #291 Use latest release version in update-version CI script
+- PR #267 Add a minimal suite of nvstrings and nvcategory pytests
+
+## Bug Fixes
+
+- PR #276 Fixed token_count counting empty string as token
+- PR #269 Fixed exception on invalid parameter to edit_distance
+- PR #261 Fixed doxygen formatting and updated to 0.7
+- PR #248 Fixed docstring for index,rindex,find,rfind
+- PR #245 Fixed backref to continue replacing
+- PR #234 Added more type-checking to gather method
+- PR #226 Added data pre-check to create_from_index
+- PR #218 Parameter check corrected for pad methods
+- PR #217 Corrected custring.cu method signatures
+- PR #213 Fixing README link to Python API docs
+- PR #211 Re-ordering 2 methods stops invalid-dev-fn when called from cudf
+- PR #207 Fixed handling empty pattern in findall/count
+- PR #202 Allow insert on start=stop in replace
+- PR #201 Fixed some pad examples in nvstrings.py doc comments
+- PR #186 Fixed memory error in booleans to strings method
+- PR #235 Fix anaconda upload script for new conda recipe
+- PR #239 Fix definitions of upload files for conda packages
+- PR #241 Revert split package to individual recipes to avoid run_exports bug
+- PR #274 Updated RPATH/RUNPATH setting to accommodate current install location
+
+
 # cuStrings/nvStrings 0.3.0 (15 Mar 2019)
 
 ## New Features
@@ -73,4 +145,3 @@
 - PR #31 Change NVCategory values type from unsigned to signed int32
 - PR #11 handle unescaped end-brace edge-case
 - PR #157 Fix Python not being found by CMake
-
