@@ -2,7 +2,6 @@
 
 import pyniNVText
 import nvstrings as nvs
-import logging
 
 
 def tokenize(strs, delimiter=None):
@@ -245,7 +244,7 @@ def ngrams(strs, N=2, sep='_'):
     ['this_is', 'is_my', 'my_favorite', 'favorite_book']
     """
     tokens = tokenize(strs)
-    rtn = pyniNVText.n_create_ngrams(tokens,N,sep)
+    rtn = pyniNVText.n_create_ngrams(tokens, N, sep)
     if rtn is not None:
         rtn = nvs.nvstrings(rtn)
     return rtn
