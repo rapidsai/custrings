@@ -244,33 +244,8 @@ def ngrams(strs, N=2, sep='_'):
     >>> print(nvtext.ngrams(dstrings, N=2, sep='_'))
     ['this_is', 'is_my', 'my_favorite', 'favorite_book']
     """
-    logging.warning("ngrams functionlity does not currently scale "
-                    "well to large datasets.")
-
-    # Tokenize
-    tokens = strs.split_record()
-    tokens_combined = nvs.from_strings(tokens)
-
-    pad = nvs.to_device([''])
-    ngram_object = tokens_combined
-    total_num_of_tokens = tokens_combined.size()
-    shifted_token_collection = []
-
-    # Create shifted and padded nvstrings objects
-    for i in range(N - 1):
-        shifted_tokens = tokens_combined.remove_strings(
-            list(range(0, i + 1))
-        )
-        shifted_tokens = shifted_tokens.add_strings(
-            [pad] * (total_num_of_tokens - shifted_tokens.size())
-        )
-        shifted_token_collection.append(shifted_tokens)
-
-    # Create the n-grams from the shifted nvstrings
-    for sequence in shifted_token_collection:
-        ngram_object = ngram_object.cat(sequence, sep)
-
-    ngram_object = ngram_object.remove_strings(
-        list(range(ngram_object.size() - N + 1, ngram_object.size()))
-    )
-    return ngram_object
+    tokens = tokenize(strs)
+    rtn = pyniNVText.n_create_ngrams(tokens,N,sep)
+    if rtn is not None:
+        rtn = nvs.nvstrings(rtn)
+    return rtn
