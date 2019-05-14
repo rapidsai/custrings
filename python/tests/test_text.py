@@ -177,7 +177,8 @@ def test_ngrams():
         'on_my',
         'my_bookshelf'
     ]
-    outcome = nvtext.ngrams(dstrings, N=2, sep='_')
+    tokens = nvtext.tokenize(dstrings)
+    outcome = nvtext.ngrams(tokens, N=2, sep='_')
     assert outcome.to_host() == expected
 
     # trigrams
@@ -191,5 +192,6 @@ def test_ngrams():
         'book-on-my',
         'on-my-bookshelf'
     ]
-    outcome = nvtext.ngrams(dstrings, N=3, sep='-')
+    tokens = nvtext.tokenize(dstrings)
+    outcome = nvtext.ngrams(tokens, N=3, sep='-')
     assert outcome.to_host() == expected
