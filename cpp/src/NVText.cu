@@ -840,9 +840,11 @@ NVStrings* NVText::create_ngrams(NVStrings& strs, unsigned int ngrams, const cha
         ngrams = 2;
     if( separator==nullptr )
         separator = "";
-
-    auto execpol = rmm::exec_policy(0);
     unsigned int count = strs.size();
+    if( count==0 )
+        return strs.copy();
+    
+    auto execpol = rmm::exec_policy(0);
     rmm::device_vector<custring_view*> strings(count,nullptr);
     custring_view** d_strings = strings.data().get();
     strs.create_custring_index(d_strings);

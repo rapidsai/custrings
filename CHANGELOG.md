@@ -4,6 +4,7 @@
 
 - PR #298 Added ngrams method to NVText
 - PR #299 Added gather method for booleans array
+- PR #304 Updated nvtext.ngrams to call C++ function
 
 ## Improvements
 
