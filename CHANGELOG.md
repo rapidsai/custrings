@@ -12,6 +12,7 @@
 
 ## Bug Fixes
 
+- PR #306 Set main label always for libnvstrings
 
 
 # cuStrings/nvStrings 0.7.0 (13 May 2019)
