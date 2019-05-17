@@ -13,6 +13,7 @@
 ## Bug Fixes
 
 - PR #306 Set main label always for libnvstrings
+- PR #307 Update conda dependencies
 
 
 # cuStrings/nvStrings 0.7.0 (13 May 2019)
