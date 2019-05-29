@@ -745,23 +745,19 @@ int NVStrings::ip2int( unsigned int* results, bool bdevmem )
                 d_rtn[idx] = 0;
                 return; // invalid format
             }
-            unsigned int vals[4];
-            unsigned int* pval = vals;
+            unsigned int vals[4] = {0,0,0,0};
             const char* str = dstr->data();
-            int len = dstr->size();
-            for( int i=0; i < len; ++i )
+            int len = dstr->size(), iv = 0;
+            for( int i=0; (i < len) && (iv < 4); ++i )
             {
                 char ch = str[i];
                 if( ch >= '0' && ch <= '9' )
                 {
-                    *pval *= 10;
-                    *pval += (unsigned int)(ch-'0');
+                    vals[iv] *= 10;
+                    vals[iv] += (unsigned int)(ch-'0');
                 }
                 else if( ch=='.' )
-                {
-                    ++pval;
-                    *pval = 0;
-                }
+                    ++iv;
             }
             unsigned int result = (vals[0] * 16777216) + (vals[1] * 65536) + (vals[2] * 256) + vals[3];
             d_rtn[idx] = result;
