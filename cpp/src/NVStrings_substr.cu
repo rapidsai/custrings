@@ -141,8 +141,21 @@ int NVStrings::extract_record( const char* pattern, std::vector<NVStrings*>& res
     auto execpol = rmm::exec_policy(0);
     // compile regex into device object
     const char32_t* ptn32 = to_char32(pattern);
-    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags(),count);
+    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
+    // allocate regex working memory if necessary
+    if( prog->inst_counts() > LISTSIZE )
+    {
+        if( !prog->alloc_relists(count) )
+        {
+            std::ostringstream message;
+            message << "nvstrings::extract_record: number of instructions (" << prog->inst_counts() << ") ";
+            message << "and number of strings (" << count << ") ";
+            message << "exceeds available memory";
+            dreprog::destroy(prog);
+            throw std::invalid_argument(message.str());
+        }
+    }
     //
     int groups = prog->group_counts();
     if( groups==0 )
@@ -237,8 +250,21 @@ int NVStrings::extract( const char* pattern, std::vector<NVStrings*>& results)
     auto execpol = rmm::exec_policy(0);
     // compile regex into device object
     const char32_t* ptn32 = to_char32(pattern);
-    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags(),count);
+    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
+    // allocate regex working memory if necessary
+    if( prog->inst_counts() > LISTSIZE )
+    {
+        if( !prog->alloc_relists(count) )
+        {
+            std::ostringstream message;
+            message << "nvstrings::extract: number of instructions (" << prog->inst_counts() << ") ";
+            message << "and number of strings (" << count << ") ";
+            message << "exceeds available memory";
+            dreprog::destroy(prog);
+            throw std::invalid_argument(message.str());
+        }
+    }
     //
     int groups = prog->group_counts();
     if( groups==0 )

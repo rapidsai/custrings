@@ -248,8 +248,21 @@ int NVStrings::findall_record( const char* pattern, std::vector<NVStrings*>& res
     auto execpol = rmm::exec_policy(0);
     // compile regex into device object
     const char32_t* ptn32 = to_char32(pattern);
-    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags(),count);
+    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
+    // allocate regex working memory if necessary
+    if( prog->inst_counts() > LISTSIZE )
+    {
+        if( !prog->alloc_relists(count) )
+        {
+            std::ostringstream message;
+            message << "nvstrings::findall_record: number of instructions (" << prog->inst_counts() << ") ";
+            message << "and number of strings (" << count << ") ";
+            message << "exceeds available memory";
+            dreprog::destroy(prog);
+            throw std::invalid_argument(message.str());
+        }
+    }
 
     // compute counts of each match and size of the buffers
     custring_view_array d_strings = pImpl->getStringsPtr();
@@ -344,8 +357,21 @@ int NVStrings::findall( const char* pattern, std::vector<NVStrings*>& results )
     auto execpol = rmm::exec_policy(0);
     // compile regex into device object
     const char32_t* ptn32 = to_char32(pattern);
-    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags(),count);
+    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
+    // allocate regex working memory if necessary
+    if( prog->inst_counts() > LISTSIZE )
+    {
+        if( !prog->alloc_relists(count) )
+        {
+            std::ostringstream message;
+            message << "nvstrings::findall: number of instructions (" << prog->inst_counts() << ") ";
+            message << "and number of strings (" << count << ") ";
+            message << "exceeds available memory";
+            dreprog::destroy(prog);
+            throw std::invalid_argument(message.str());
+        }
+    }
 
     // compute counts of each match and size of the buffers
     custring_view_array d_strings = pImpl->getStringsPtr();
@@ -463,7 +489,7 @@ int NVStrings::contains( const char* str, bool* results, bool todevice )
     return matches;
 }
 
-// regex version of contain() above
+// regex version of contains() above
 int NVStrings::contains_re( const char* pattern, bool* results, bool todevice )
 {
     if( pattern==0 || results==0 )
@@ -475,8 +501,21 @@ int NVStrings::contains_re( const char* pattern, bool* results, bool todevice )
     auto execpol = rmm::exec_policy(0);
     // compile regex into device object
     const char32_t* ptn32 = to_char32(pattern);
-    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags(),count);
+    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
+    // allocate regex working memory if necessary
+    if( prog->inst_counts() > LISTSIZE )
+    {
+        if( !prog->alloc_relists(count) )
+        {
+            std::ostringstream message;
+            message << "nvstrings::contains_re: number of instructions (" << prog->inst_counts() << ") ";
+            message << "and number of strings (" << count << ") ";
+            message << "exceeds available memory";
+            dreprog::destroy(prog);
+            throw std::invalid_argument(message.str());
+        }
+    }
 
     bool* d_rtn = results;
     if( !todevice )
@@ -514,8 +553,21 @@ int NVStrings::match( const char* pattern, bool* results, bool bdevmem )
     auto execpol = rmm::exec_policy(0);
     // compile regex into device object
     const char32_t* ptn32 = to_char32(pattern);
-    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags(),count);
+    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
+    // allocate regex working memory if necessary
+    if( prog->inst_counts() > LISTSIZE )
+    {
+        if( !prog->alloc_relists(count) )
+        {
+            std::ostringstream message;
+            message << "nvstrings::match: number of instructions (" << prog->inst_counts() << ") ";
+            message << "and number of strings (" << count << ") ";
+            message << "exceeds available memory";
+            dreprog::destroy(prog);
+            throw std::invalid_argument(message.str());
+        }
+    }
 
     bool* d_rtn = results;
     if( !bdevmem )
@@ -593,8 +645,21 @@ int NVStrings::count_re( const char* pattern, int* results, bool todevice )
     auto execpol = rmm::exec_policy(0);
     // compile regex into device object
     const char32_t* ptn32 = to_char32(pattern);
-    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags(),count);
+    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
+    // allocate regex working memory if necessary
+    if( prog->inst_counts() > LISTSIZE )
+    {
+        if( !prog->alloc_relists(count) )
+        {
+            std::ostringstream message;
+            message << "nvstrings::count_re: number of instructions (" << prog->inst_counts() << ") ";
+            message << "and number of strings (" << count << ") ";
+            message << "exceeds available memory";
+            dreprog::destroy(prog);
+            throw std::invalid_argument(message.str());
+        }
+    }
 
     int* d_rtn = results;
     if( !todevice )

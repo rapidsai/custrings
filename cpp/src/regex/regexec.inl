@@ -30,8 +30,10 @@
 #define IS_UPPER(x) ((x & 32)>0)
 #define IS_LOWER(x) ((x & 64)>0)
 
-//
-#define LISTBYTES 12
+// 128 supports 1024 instructions
+// tried this up to 1024 (8192 instructions)
+// performance degrades the higher the number
+#define LISTBYTES 128
 #define LISTSIZE (LISTBYTES<<3)
 //
 struct Relist
@@ -130,11 +132,6 @@ struct	Reljunk
     int	starttype;
     char32_t startchar;
 };
-
-__device__ inline bool isAlphaNumeric(char32_t c)
-{
-    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9');
-}
 
 __device__ inline void swaplist(Relist*& l1, Relist*& l2)
 {
@@ -341,8 +338,6 @@ __device__ inline int dreprog::regexec(custring_view* dstr, Reljunk &jnk, int& b
                         unsigned int uni = u82u(c);
                         char32_t lc = (char32_t)(pos ? dstr->at(pos-1) : 0);
                         unsigned int luni = u82u(lc);
-                        //bool cur_alphaNumeric = isAlphaNumeric(c);
-                        //bool last_alphaNumeric = ( (pos==0) ? false : isAlphaNumeric((char32_t)dstr->at(pos-1)) );
                         bool cur_alphaNumeric = (uni < 0x010000) && IS_ALPHANUM(unicode_flags[uni]);
                         bool last_alphaNumeric = (luni < 0x010000) && IS_ALPHANUM(unicode_flags[luni]);
                         if( cur_alphaNumeric != last_alphaNumeric )
@@ -357,8 +352,6 @@ __device__ inline int dreprog::regexec(custring_view* dstr, Reljunk &jnk, int& b
                         unsigned int uni = u82u(c);
                         char32_t lc = (char32_t)(pos ? dstr->at(pos-1) : 0);
                         unsigned int luni = u82u(lc);
-                        //bool cur_alphaNumeric = isAlphaNumeric(c);
-                        //bool last_alphaNumeric = ( (pos==0) ? false : isAlphaNumeric((char32_t)dstr->at(pos-1)) );
                         bool cur_alphaNumeric = (uni < 0x010000) && IS_ALPHANUM(unicode_flags[uni]);
                         bool last_alphaNumeric = (luni < 0x010000) && IS_ALPHANUM(unicode_flags[luni]);
                         if( cur_alphaNumeric == last_alphaNumeric )
