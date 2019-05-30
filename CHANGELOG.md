@@ -8,6 +8,7 @@
 
 ## Improvements
 
+- PR #313 Increased regex instruction threshold for stack to 1024
 - PR #302 Add junit test output for py.test
 
 ## Bug Fixes

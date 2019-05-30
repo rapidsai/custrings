@@ -54,8 +54,9 @@ class dreprog
 
 public:
     //
-    static dreprog* create_from(const char32_t* pattern, unsigned char* uflags, unsigned int strscount=0);
+    static dreprog* create_from(const char32_t* pattern, unsigned char* uflags);
     static void destroy(dreprog* ptr);
+    bool alloc_relists(size_t count);
 
     int inst_counts();
     int group_counts();

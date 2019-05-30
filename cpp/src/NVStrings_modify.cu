@@ -15,6 +15,7 @@
 */
 
 #include <exception>
+#include <sstream>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #include <thrust/device_vector.h>
@@ -215,8 +216,22 @@ NVStrings* NVStrings::replace_re( const char* pattern, const char* repl, int max
     auto execpol = rmm::exec_policy(0);
     // compile regex into device object
     const char32_t* ptn32 = to_char32(pattern);
-    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags(),count);
+    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
+    // allocate regex working memory if necessary
+    if( prog->inst_counts() > LISTSIZE )
+    {
+        if( !prog->alloc_relists(count) )
+        {
+            std::ostringstream message;
+            message << "nvstrings::replace_re: number of instructions " << prog->inst_counts();
+            message << " and number of strings " << count;
+            message << " exceeds available memory";
+            dreprog::destroy(prog);
+            throw std::invalid_argument(message.str());
+        }
+    }
+
     //
     // copy replace string to device memory
     if( !repl )
@@ -320,8 +335,21 @@ NVStrings* NVStrings::replace_with_backrefs( const char* pattern, const char* re
     auto execpol = rmm::exec_policy(0);
     // compile regex into device object
     const char32_t* ptn32 = to_char32(pattern);
-    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags(),count);
+    dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
+    // allocate regex working memory if necessary
+    if( prog->inst_counts() > LISTSIZE )
+    {
+        if( !prog->alloc_relists(count) )
+        {
+            std::ostringstream message;
+            message << "nvstrings::replace_with_backrefs: number of instructions (" << prog->inst_counts() << ") ";
+            message << "and number of strings (" << count << ") ";
+            message << "exceeds available memory";
+            dreprog::destroy(prog);
+            throw std::invalid_argument(message.str());
+        }
+    }
     //
     // parse the repl string for backref indicators
     std::vector<thrust::pair<int,int> > brefs;

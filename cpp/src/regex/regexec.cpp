@@ -1,10 +1,13 @@
 //
 #include <memory.h>
 #include <cuda_runtime.h>
+extern "C" {
+#include <rmm/rmm_api.h>
+}
 #include "regex.cuh"
 #include "regcomp.h"
 
-dreprog* dreprog::create_from(const char32_t* pattern, unsigned char* uflags, unsigned int strscount )
+dreprog* dreprog::create_from(const char32_t* pattern, unsigned char* uflags )
 {
     // compile pattern
     Reprog* prog = Reprog::create_from(pattern);
@@ -53,15 +56,6 @@ dreprog* dreprog::create_from(const char32_t* pattern, unsigned char* uflags, un
     rtn->classes_count = classes_count;
     rtn->unicode_flags = uflags;
     rtn->relists_mem = 0;
-    // allocate memory for relist if necessary
-    if( (insts_count > LISTSIZE) && strscount )
-    {
-        int rsz = Relist::size_for(insts_count);
-        size_t rlmsz = rsz*2*strscount; // Reljunk has 2 Relist ptrs
-        void* rmem = 0;
-        RMM_ALLOC(&rmem,rlmsz,0);//cudaMalloc(&rmem,rlmsz);
-        rtn->relists_mem = rmem;
-    }
 
     // compiled prog copied into flat memory
     delete prog;
@@ -78,6 +72,22 @@ void dreprog::destroy(dreprog* prog)
 {
     prog->free_relists();
     RMM_FREE(prog,0);//cudaFree(prog);
+}
+
+bool dreprog::alloc_relists( size_t count )
+{
+    int insts = inst_counts();
+    int rsz = Relist::size_for(insts);
+    size_t rlmsz = rsz*2L*count; // Reljunk has 2 Relist ptrs
+    void* rmem = 0;
+    size_t freeSize=0, totalSize=0;
+    rmmGetInfo(&freeSize,&totalSize,0);
+    if( rlmsz > freeSize )
+        return false;
+    RMM_ALLOC(&rmem,rlmsz,0);
+    //rtn->relists_mem = rmem;
+    cudaMemcpy(&relists_mem,&rmem,sizeof(void*),cudaMemcpyHostToDevice);
+    return true;
 }
 
 void dreprog::free_relists()
