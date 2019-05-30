@@ -15,7 +15,7 @@
 */
 
 #include <memory.h>
-#include <math.h>
+#include <cmath>
 
 
 namespace custr
@@ -72,6 +72,13 @@ namespace custr
         char* ptr = (char*)str;
         if( !ptr || !bytes )
             return 0.0; // probably should be an assert
+        // special strings    
+        if( compare(str,bytes,"nan",3)==0 )
+            return std::numeric_limits<double>::quiet_NaN();
+        if( compare(str,bytes,"inf",3)==0 )
+            return std::numeric_limits<double>::infinity();
+        if( compare(str,bytes,"-inf",4)==0 )
+            return -std::numeric_limits<double>::infinity();
 
         char* end = ptr + bytes;
         double sign = 1.0;

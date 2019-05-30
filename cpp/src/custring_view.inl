@@ -1683,11 +1683,11 @@ __device__ inline double custring_view::stod() const
     if( sz==0 )
         return 0.0;
     if( compare("nan",3)==0 )
-        return NAN;
+        return std::numeric_limits<double>::quiet_NaN();
     if( compare("inf",3)==0 )
-        return INFINITY;
+        return std::numeric_limits<double>::infinity();
     if( compare("-inf",4)==0 )
-        return -INFINITY;
+        return -std::numeric_limits<double>::infinity();
     char* end = ptr + sz;
     double sign = 1.0;
     if(*ptr == '-' || *ptr == '+')
