@@ -15,7 +15,7 @@
 */
 
 #include <exception>
-#include <math.h>  // for isnan, isinf; cmath does not work here
+#include <cmath>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #include <thrust/device_vector.h>
@@ -141,11 +141,11 @@ int NVStrings::stof(float* results, bool todevice)
             if( !dstr )
                 d_rtn[idx] = (float)0;
             else if( (dstr->compare("NaN",3)==0) )
-                d_rtn[idx] = NAN;
+                d_rtn[idx] = std::numeric_limits<float>::quiet_NaN();
             else if( (dstr->compare("Inf",3)==0) )
-                d_rtn[idx] = INFINITY;
+                d_rtn[idx] = std::numeric_limits<float>::infinity();
             else if( (dstr->compare("-Inf",4)==0) )
-                d_rtn[idx] = -INFINITY;
+                d_rtn[idx] = -std::numeric_limits<float>::infinity();
             else
                 d_rtn[idx] = dstr->stof();
 
@@ -179,11 +179,11 @@ int NVStrings::stod(double* results, bool todevice)
             if( !dstr )
                 d_rtn[idx] = 0.0;
             else if( (dstr->compare("NaN",3)==0) )
-                d_rtn[idx] = NAN;
+                d_rtn[idx] = std::numeric_limits<double>::quiet_NaN();
             else if( (dstr->compare("Inf",3)==0) )
-                d_rtn[idx] = INFINITY;
+                d_rtn[idx] = std::numeric_limits<double>::infinity();
             else if( (dstr->compare("-Inf",4)==0) )
-                d_rtn[idx] = -INFINITY;
+                d_rtn[idx] = -std::numeric_limits<double>::infinity();
             else
                 d_rtn[idx] = dstr->stod();
         });
@@ -484,7 +484,7 @@ struct ftos_converter
     __device__ int float_to_string( double value, char* output )
     {
         // check for valid value
-        if( isnan(value) )
+        if( std::isnan(value) )
         {
             memcpy(output,"NaN",3);
             return 3;
@@ -495,7 +495,7 @@ struct ftos_converter
             value = -value;
             bneg = true;
         }
-        if( isinf(value) )
+        if( std::isinf(value) )
         {
             if( bneg )
                 memcpy(output,"-Inf",4);
@@ -557,7 +557,7 @@ struct ftos_converter
     // hold the output string (not including null)
     __device__ int compute_ftos_size( double value )
     {
-        if( isnan(value) )
+        if( std::isnan(value) )
             return 3; // NaN
         bool bneg = false;
         if( value < 0.0 )
@@ -565,7 +565,7 @@ struct ftos_converter
             value = -value;
             bneg = true;
         }
-        if( isinf(value) )
+        if( std::isinf(value) )
             return 3 + (int)bneg; // Inf
 
         // dissect float into parts

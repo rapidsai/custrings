@@ -15,7 +15,7 @@
 */
 
 #include <memory.h>
-#include <math.h>
+#include <cmath>
 
 // 8-byte boundary
 #define ALIGN_SIZE(v) (((v + 7) / 8) * 8)
