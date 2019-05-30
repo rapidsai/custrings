@@ -23,7 +23,7 @@
 typedef unsigned char BYTE;
 
 // this allows overlapping memory segments
-// useful the _apply methods that work within the memory they are provided
+// useful for the methods that work within the memory they are provided
 __host__ __device__ inline void _memmove(void* dest, void* source, size_t len)
 {
     char* dst = (char*)dest;
@@ -87,6 +87,7 @@ __host__ __device__ inline void _fillCharsLengths(const char* str, unsigned int 
     }
 }
 
+// utility for methods allowing for multiple delimiters (e.g. strip)
 __device__ inline bool is_one_of( const char* tgts, Char chr )
 {
     Char tchr = 0;
@@ -101,7 +102,7 @@ __device__ inline bool is_one_of( const char* tgts, Char chr )
     return false;
 }
 
-//
+// vectorized-loader utility
 class vloader
 {
     char* _src;
@@ -125,6 +126,7 @@ public:
     }
 };
 
+// computes the size of the custring_view object needed to manage the given character array
 __host__ __device__ inline unsigned int custring_view::alloc_size(const char* data, unsigned int bytes)
 {
     unsigned int nsz = ALIGN_SIZE(sizeof(custring_view));
@@ -138,6 +140,7 @@ __host__ __device__ inline unsigned int custring_view::alloc_size(const char* da
     return nsz;
 }
 
+// shortcut method requires only the number of characters and the number of bytes
 __host__ __device__ inline unsigned int custring_view::alloc_size(unsigned int bytes, unsigned int nchars)
 {
     unsigned int nsz = ALIGN_SIZE(sizeof(custring_view));
@@ -150,6 +153,7 @@ __host__ __device__ inline unsigned int custring_view::alloc_size(unsigned int b
     return nsz;
 }
 
+// returns the number of bytes managed by this object
 __device__ inline unsigned int custring_view::alloc_size() const
 {
     unsigned int nsz = ALIGN_SIZE(sizeof(custring_view));
@@ -164,6 +168,7 @@ __device__ inline unsigned int custring_view::alloc_size() const
     return nsz;
 }
 
+// create a new instance within the memory provided
 __host__ __device__ inline custring_view* custring_view::create_from(void* buffer, const char* data, unsigned int bytes)
 {
     char* ptr = (char*)buffer;
@@ -178,6 +183,7 @@ __host__ __device__ inline custring_view* custring_view::create_from(void* buffe
     return dout;
 }
 
+// create a new instance using the memory provided
 __device__ inline custring_view* custring_view::create_from(void* buffer, custring_view& str)
 {
     char* ptr = (char*)buffer;
@@ -208,6 +214,7 @@ __device__ inline custring_view* custring_view::create_from(void* buffer, custri
     return dout;
 }
 
+// create an (immutable) empty object
 __device__ inline custring_view* custring_view::create_from(void* buffer)
 {
     char* ptr = (char*)buffer;
@@ -221,6 +228,7 @@ __device__ inline custring_view* custring_view::create_from(void* buffer)
     return dout;
 }
 
+// create a single instance (device) from character array in host memory
 __host__ inline custring_view* custring_view::create_from_host(void* devmem, const char* data, unsigned int size)
 {
     if( data==0 || devmem==0 )
@@ -233,7 +241,7 @@ __host__ inline custring_view* custring_view::create_from_host(void* devmem, con
     return (custring_view*)devmem;
 }
 
-// called to finalize the impl fields
+// called to finalize the metadata components
 __host__ __device__ inline void custring_view::init_fields(unsigned int bytes)
 {
     m_bytes = bytes;
@@ -1674,6 +1682,12 @@ __device__ inline double custring_view::stod() const
     unsigned int sz = size();
     if( sz==0 )
         return 0.0;
+    if( compare("nan",3)==0 )
+        return NAN;
+    if( compare("inf",3)==0 )
+        return INFINITY;
+    if( compare("-inf",4)==0 )
+        return -INFINITY;
     char* end = ptr + sz;
     double sign = 1.0;
     if(*ptr == '-' || *ptr == '+')

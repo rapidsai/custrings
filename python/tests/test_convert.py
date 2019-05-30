@@ -100,8 +100,8 @@ def test_stol():
 
 def test_stof():
     s = nvstrings.to_device(
-        ["1234", "5678", "90", None, "-876", "543.2", "-0.12", ".55", "-.002",
-         "", "de", "abc123", "123abc", "456e", "-1.78e+5"])
+        ["1234", "5678", "90", None, "-876", "543.2", "-0.12", ".55",
+         "-.002", "", "de", "abc123", "123abc", "456e", "-1.78e+5"])
     got = s.stof()
     expected = [1234.0, 5678.0, 90.0, None, -876.0, 543.2000122070312,
                 -0.11999999731779099, 0.550000011920929,
@@ -142,23 +142,26 @@ def test_ltos():
 
 
 def test_ftos():
-    s = np.array([0, 103, -254848.5929, 8395794.248339], dtype=np.float32)
+    s = np.array([0, 103, -254848.5929, 8395794.248339, np.nan, np.inf],
+                 dtype=np.float32)
     got = nvstrings.ftos(s)
-    expected = nvstrings.to_device(['0', '103', '-254848.5938', '8395794'])
+    expected = nvstrings.to_device(
+        ['0', '103', '-254848.5938', '8395794', 'NaN', 'Inf'])
     assert_eq(got, expected)
 
 
 def test_dtos():
-    s = np.array([0, 103342.313, -25.4294, 839542223232.794248339],
+    s = np.array([0, 103342.313, -25.4294, 839542223232.794248339, np.nan],
                  dtype=np.float64)
     got = nvstrings.dtos(s)
     expected = nvstrings.to_device(
-        ['0', '103342.313', '-25.4294', '8.395422232e+11'])
+        ['0', '103342.313', '-25.4294', '8.395422232e+11', 'NaN'])
     assert_eq(got, expected)
 
 
 def test_ip2int():
-    s = nvstrings.to_device(["192.168.0.1", "10.0.0.1", None, "", "hello", "41.186.0.1", "41.197.0.1"])
+    s = nvstrings.to_device(["192.168.0.1", "10.0.0.1", None, "", "hello",
+                             "41.186.0.1", "41.197.0.1"])
     got = s.ip2int()
     expected = [3232235521, 167772161, None, 0, 0, 700055553, 700776449]
     assert_eq(got, expected)
@@ -167,7 +170,8 @@ def test_ip2int():
 def test_int2ip():
     ints = [3232235521, 167772161, None, 0, 0, 700055553, 700776449]
     got = nvstrings.int2ip(ints)
-    expected = ['192.168.0.1', '10.0.0.1', '0.0.0.0', '0.0.0.0', '0.0.0.0', '41.186.0.1', '41.197.0.1']
+    expected = ['192.168.0.1', '10.0.0.1', '0.0.0.0', '0.0.0.0', '0.0.0.0',
+                '41.186.0.1', '41.197.0.1']
     assert_eq(got, expected)
 
 

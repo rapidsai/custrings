@@ -138,10 +138,17 @@ int NVStrings::stof(float* results, bool todevice)
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_rtn] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
-            if( dstr )
-                d_rtn[idx] = dstr->stof();
-            else
+            if( !dstr )
                 d_rtn[idx] = (float)0;
+            else if( (dstr->compare("NaN",3)==0) )
+                d_rtn[idx] = NAN;
+            else if( (dstr->compare("Inf",3)==0) )
+                d_rtn[idx] = INFINITY;
+            else if( (dstr->compare("-Inf",4)==0) )
+                d_rtn[idx] = -INFINITY;
+            else
+                d_rtn[idx] = dstr->stof();
+
         });
     //
     int zeros = thrust::count(execpol->on(0),d_rtn,d_rtn+count,0);
@@ -169,10 +176,16 @@ int NVStrings::stod(double* results, bool todevice)
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_rtn] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
-            if( dstr )
-                d_rtn[idx] = dstr->stod();
-            else
+            if( !dstr )
                 d_rtn[idx] = 0.0;
+            else if( (dstr->compare("NaN",3)==0) )
+                d_rtn[idx] = NAN;
+            else if( (dstr->compare("Inf",3)==0) )
+                d_rtn[idx] = INFINITY;
+            else if( (dstr->compare("-Inf",4)==0) )
+                d_rtn[idx] = -INFINITY;
+            else
+                d_rtn[idx] = dstr->stod();
         });
     //
     int zeros = thrust::count(execpol->on(0),d_rtn,d_rtn+count,0);
