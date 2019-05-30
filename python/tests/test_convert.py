@@ -158,16 +158,16 @@ def test_dtos():
 
 
 def test_ip2int():
-    s = nvstrings.to_device(["192.168.0.1", "10.0.0.1", None, "", "hello"])
+    s = nvstrings.to_device(["192.168.0.1", "10.0.0.1", None, "", "hello", "41.186.0.1", "41.197.0.1"])
     got = s.ip2int()
-    expected = [3232235521, 167772161, None, 0, 0]
+    expected = [3232235521, 167772161, None, 0, 0, 700055553, 700776449]
     assert_eq(got, expected)
 
 
 def test_int2ip():
-    ints = [3232235521, 167772161, None, 0, 0]
+    ints = [3232235521, 167772161, None, 0, 0, 700055553, 700776449]
     got = nvstrings.int2ip(ints)
-    expected = ['192.168.0.1', '10.0.0.1', '0.0.0.0', '0.0.0.0', '0.0.0.0']
+    expected = ['192.168.0.1', '10.0.0.1', '0.0.0.0', '0.0.0.0', '0.0.0.0', '41.186.0.1', '41.197.0.1']
     assert_eq(got, expected)
 
 
