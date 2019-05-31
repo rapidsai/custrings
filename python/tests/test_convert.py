@@ -146,7 +146,7 @@ def test_ftos():
                  dtype=np.float32)
     got = nvstrings.ftos(s)
     expected = nvstrings.to_device(
-        ['0', '103', '-254848.5938', '8395794', 'NaN', 'Inf'])
+        ['0.0', '103.0', '-254848.5938', '8395794.0', 'NaN', 'Inf'])
     assert_eq(got, expected)
 
 
@@ -155,7 +155,7 @@ def test_dtos():
                  dtype=np.float64)
     got = nvstrings.dtos(s)
     expected = nvstrings.to_device(
-        ['0', '103342.313', '-25.4294', '8.395422232e+11', 'NaN'])
+        ['0.0', '103342.313', '-25.4294', '8.395422232e+11', 'NaN'])
     assert_eq(got, expected)
 
 

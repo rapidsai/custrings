@@ -519,9 +519,9 @@ struct ftos_converter
         // integer
         ptr = int2str(integer,ptr);
         // decimal
+        *ptr++ = '.';
         if( decimal_places )
         {
-            *ptr++ = '.';
             char buffer[10];
             char* pb = buffer;
             while( decimal_places-- )
@@ -532,6 +532,8 @@ struct ftos_converter
             while( pb != buffer )  // reverses the digits
                 *ptr++ = *--pb;    // e.g. 54321 -> 12345
         }
+        else
+            *ptr++ = '0'; // always include at least .0
         // exponent
         if( exp10 )
         {
@@ -583,11 +585,11 @@ struct ftos_converter
             ++count;
         } // log10(integer)
         // decimal
+        ++count; // decimal point
         if( decimal_places )
-        {
-            ++count; // decimal point
             count += decimal_places;
-        }
+        else
+            ++count; // always include .0
         // exponent
         if( exp10 )
         {
