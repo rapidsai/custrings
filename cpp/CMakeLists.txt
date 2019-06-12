@@ -133,7 +133,8 @@ add_library(NVStrings SHARED
             src/regex/regcomp.cpp)
 
 add_library(NVCategory SHARED
-            src/NVCategory.cu)
+            src/NVCategory.cu
+            src/numeric_category.cu)
 
 add_library(NVText SHARED
             src/NVText.cu)

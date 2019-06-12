@@ -124,6 +124,15 @@ def from_strings_list(list):
         rtn = nvcategory(rtn)
     return rtn
 
+def from_numbers(narr, nulls=None):
+    """
+    Create a nvcategory object from an array of numbers.
+    """
+    rtn = pyniNVCategory.n_createCategoryFromNumbers(narr, nulls)
+    if rtn is not None:
+        rtn = nvcategory(rtn)
+    return rtn
+
 
 def bind_cpointer(cptr, own=True):
     """Bind an NVCategory C-pointer to a new instance."""
@@ -157,8 +166,8 @@ class nvcategory:
         return str(self.keys())
 
     def __repr__(self):
-        return "<nvcategory keys={},values={}>".format(
-                self.keys_size(), self.size())
+        return "<nvcategory[{}] keys={},values={}>".format(
+                self.keys_type(), self.keys_size(), self.size())
 
     def get_cpointer(self):
         """
@@ -208,14 +217,17 @@ class nvcategory:
         """
         return pyniNVCategory.n_keys_size(self.m_cptr)
 
-    def keys(self):
+    def keys(self, narr=None):
         """
-        Return the unique strings for this category as nvstrings instance.
+        Return the unique keys for this category.
+        String keys are returned as nvstrings instance.
+        Numeric keys require a buffer to fill.
+        Buffer must be able to hold at least keys_size() elements
+        of type keys_type().
 
         Returns
         -------
-        nvstrings
-            Unique strings (keys)
+        nvstrings or None
 
         Examples
         --------
@@ -225,10 +237,16 @@ class nvcategory:
         ['aaa','dddd','eee']
 
         """
-        rtn = pyniNVCategory.n_get_keys(self.m_cptr)
+        rtn = pyniNVCategory.n_get_keys(self.m_cptr, narr)
         if rtn is not None:
             rtn = nvs.nvstrings(rtn)
         return rtn
+
+    def keys_type(self):
+        """
+        Return string with name of the keys type.
+        """
+        return pyniNVCategory.n_keys_type(self.m_cptr)
 
     def indexes_for_key(self, key, devptr=0):
         """
@@ -412,6 +430,11 @@ class nvcategory:
             rtn = nvs.nvstrings(rtn)
         return rtn
 
+    def to_numbers(self, narr, nulls=None):
+        """
+        """
+        return pyniNVCategory.n_to_numbers(self.m_cptr, narr, nulls)
+
     def gather_strings(self, indexes, count=0):
         """
         Return nvstrings instance represented using the specified indexes.
@@ -445,6 +468,12 @@ class nvcategory:
         if rtn is not None:
             rtn = nvs.nvstrings(rtn)
         return rtn
+
+    def gather_numbers(self, indexes, narr, nulls=None):
+        """
+        """
+        return pyniNVCategory.n_gather_numbers(self.m_cptr, 
+                                               indexes, narr, nulls)
 
     def gather_and_remap(self, indexes, count=0):
         """
@@ -555,22 +584,24 @@ class nvcategory:
             rtn = nvcategory(rtn)
         return rtn
 
-    def add_keys(self, strs):
+    def add_keys(self, keys, nulls=None):
         """
         Create new category adding the specified keys and remapping
         values to the new key indexes.
 
         Parameters
         ----------
-        strs : nvstrings
+        keys : nvstrings or ndarray
             keys to be added to existing keys
+        nulls: bitmask
+            ndarray of type uint8
         """
-        rtn = pyniNVCategory.n_add_keys(self.m_cptr, strs)
+        rtn = pyniNVCategory.n_add_keys(self.m_cptr, keys, nulls)
         if rtn is not None:
             rtn = nvcategory(rtn)
         return rtn
 
-    def remove_keys(self, strs):
+    def remove_keys(self, keys, nulls=None):
         """
         Create new category removing the specified keys and remapping
         values to the new key indexes. Values with removed keys are
@@ -578,10 +609,12 @@ class nvcategory:
 
         Parameters
         ----------
-        strs : nvstrings
+        keys : nvstrings or ndarray
             keys to be removed from existing keys
+        nulls: bitmask
+            ndarray of type uint8
         """
-        rtn = pyniNVCategory.n_remove_keys(self.m_cptr, strs)
+        rtn = pyniNVCategory.n_remove_keys(self.m_cptr, keys, nulls)
         if rtn is not None:
             rtn = nvcategory(rtn)
         return rtn
@@ -596,7 +629,7 @@ class nvcategory:
             rtn = nvcategory(rtn)
         return rtn
 
-    def set_keys(self, strs):
+    def set_keys(self, keys, nulls=None):
         """
         Create new category using the specified keys and remapping
         values to the new key indexes. Matching names will have
@@ -604,10 +637,12 @@ class nvcategory:
 
         Parameters
         ----------
-        strs : nvstrings
+        strs : nvstrings or ndarray
             keys to be used for new category
+        nulls: bitmask
+            ndarray of type uint8
         """
-        rtn = pyniNVCategory.n_set_keys(self.m_cptr, strs)
+        rtn = pyniNVCategory.n_set_keys(self.m_cptr, keys, nulls)
         if rtn is not None:
             rtn = nvcategory(rtn)
         return rtn

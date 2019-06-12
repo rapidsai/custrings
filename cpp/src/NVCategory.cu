@@ -585,6 +585,11 @@ NVCategory* NVCategory::copy()
     return rtn;
 }
 
+const char* NVCategory::get_type_name()
+{
+    return "custring";
+}
+
 // return number of items
 unsigned int NVCategory::size()
 {

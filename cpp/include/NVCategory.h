@@ -16,6 +16,7 @@
 #pragma once
 #include <cstddef>
 #include <vector>
+#include "base_category.h"
 
 /**
  * @file NVCategory.h
@@ -44,7 +45,7 @@ class NVCategoryImpl;
  * All methods accept and return only UTF-8 encoded strings.
  * @nosubgrouping
  */
-class NVCategory
+class NVCategory : base_category_type
 {
     NVCategoryImpl* pImpl;
     NVCategory();
@@ -134,6 +135,11 @@ public:
      * @param[in] inst The instance to free.
      */
     static void destroy(NVCategory* inst);
+
+    /**
+     * @brief Returns string name of this category.
+     */
+    const char* get_type_name();
 
     /**
      * @brief Returns the number of values.
