@@ -45,6 +45,7 @@ public:
     const int* values();
     const BYTE* nulls_bitmask();
     bool has_nulls();
+    bool keys_have_null();
 
     void print(const char* prefix="", const char* delimiter=" ");
     const char* get_type_name();
@@ -67,6 +68,6 @@ public:
     numeric_category<T>* gather_values(const int* indexes, size_t count );
 
     // results/nulls must be able to hold size() entries
-    void to_type( T* results, BYTE* nulls=nullptr ); 
+    void to_type( T* results, BYTE* nulls=nullptr );
     void gather_type( const int* indexes, size_t count, T* results, BYTE* nulls=nullptr );
 };

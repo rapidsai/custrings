@@ -663,19 +663,19 @@ static PyObject* n_merge_category( PyObject* self, PyObject* args )
         Py_RETURN_NONE;
     }
     NVCategory* cat = reinterpret_cast<NVCategory*>(tptr);
-    PyObject* pystrs = PyTuple_GetItem(args,1);
-    if( pystrs == Py_None )
+    PyObject* pycat2 = PyTuple_GetItem(args,1);
+    if( pycat2 == Py_None )
     {
         PyErr_Format(PyExc_ValueError,"nvcategory.merge_category: parameter required");
         Py_RETURN_NONE;
     }
-    std::string cname = pystrs->ob_type->tp_name;
+    std::string cname = pycat2->ob_type->tp_name;
     if( cname.compare("nvcategory")!=0 )
     {
         PyErr_Format(PyExc_ValueError,"nvcategory.merge_category: argument must be nvcategory object");
         Py_RETURN_NONE;
     }
-    NVCategory* cat2 = (NVCategory*)PyLong_AsVoidPtr(PyObject_GetAttrString(pystrs,"m_cptr"));
+    NVCategory* cat2 = (NVCategory*)PyLong_AsVoidPtr(PyObject_GetAttrString(pycat2,"m_cptr"));
     if( cat2==0 )
     {
         PyErr_Format(PyExc_ValueError,"nvcategory.merge_category: invalid nvcategory object");
@@ -698,19 +698,19 @@ static PyObject* n_merge_and_remap( PyObject* self, PyObject* args )
     if( tname.compare(string_type_name) )
         return ncat_merge_category(self,args);
     NVCategory* cat = reinterpret_cast<NVCategory*>(tptr);
-    PyObject* pystrs = PyTuple_GetItem(args,1);
-    if( pystrs == Py_None )
+    PyObject* pycat = PyTuple_GetItem(args,1);
+    if( pycat == Py_None )
     {
         PyErr_Format(PyExc_ValueError,"nvcategory.merge_and_remap: parameter required");
         Py_RETURN_NONE;
     }
-    std::string cname = pystrs->ob_type->tp_name;
+    std::string cname = pycat->ob_type->tp_name;
     if( cname.compare("nvcategory")!=0 )
     {
         PyErr_Format(PyExc_ValueError,"nvcategory.merge_and_remap: argument must be nvcategory object");
         Py_RETURN_NONE;
     }
-    NVCategory* cat2 = (NVCategory*)PyLong_AsVoidPtr(PyObject_GetAttrString(pystrs,"m_cptr"));
+    NVCategory* cat2 = (NVCategory*)PyLong_AsVoidPtr(PyObject_GetAttrString(pycat,"m_cptr"));
     if( cat2==0 )
     {
         PyErr_Format(PyExc_ValueError,"nvcategory.merge_and_remap: invalid nvcategory object");

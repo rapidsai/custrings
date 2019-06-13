@@ -207,7 +207,7 @@ numeric_category<T>::numeric_category( const T* items, size_t count, const BYTE*
     int* d_indexes = indexes.data().get();
     thrust::device_vector<int> map_indexes(count);
     int* d_map_indexes = map_indexes.data().get();
-    int* d_map_nend = thrust::copy_if( thrust::device, thrust::make_counting_iterator<int>(0), thrust::make_counting_iterator<int>(count), 
+    int* d_map_nend = thrust::copy_if( thrust::device, thrust::make_counting_iterator<int>(0), thrust::make_counting_iterator<int>(count),
                                        d_map_indexes, copy_unique_functor<T>{items, nulls, d_indexes, d_values} );
     int ucount = (int)(d_map_nend - d_map_indexes);
     thrust::device_vector<int> keys_indexes(ucount); // get the final indexes to the unique keys
@@ -266,6 +266,12 @@ bool numeric_category<T>::has_nulls()
 }
 
 template<typename T>
+bool numeric_category<T>::keys_have_null()
+{
+    return pImpl->bkeyset_includes_null;
+}
+
+template<typename T>
 void numeric_category<T>::print(const char* prefix, const char* delimiter)
 {
     std::cout << prefix;
@@ -278,7 +284,12 @@ void numeric_category<T>::print(const char* prefix, const char* delimiter)
     for( size_t idx=0; idx < count; ++idx )
     {
         if( idx || !pImpl->bkeyset_includes_null )
-            std::cout << h_keys[idx];
+        {
+            if( std::is_same<T,char>::value )
+                std::cout << (int)h_keys[idx]; // want int8
+            else
+                std::cout << h_keys[idx];
+        }
         else
             std::cout << "-";
         std::cout << delimiter;
@@ -345,13 +356,13 @@ size_t numeric_category<T>::get_indexes_for(T key, int* d_results)
     size_t count = size();
     auto fn_values_equal = [index, d_values] __device__ (int idx) { return d_values[idx]==index; };
     if( d_results==nullptr )
-        return thrust::count_if( thrust::device, 
-                                 thrust::make_counting_iterator<int>(0), 
-                                 thrust::make_counting_iterator<int>(count), 
+        return thrust::count_if( thrust::device,
+                                 thrust::make_counting_iterator<int>(0),
+                                 thrust::make_counting_iterator<int>(count),
                                  fn_values_equal );
-    int* nend = thrust::copy_if( thrust::device, 
-                                 thrust::make_counting_iterator<int>(0), 
-                                 thrust::make_counting_iterator<int>(count), 
+    int* nend = thrust::copy_if( thrust::device,
+                                 thrust::make_counting_iterator<int>(0),
+                                 thrust::make_counting_iterator<int>(count),
                                  d_results, fn_values_equal );
     return (size_t)(nend - d_results);
 }
@@ -482,9 +493,9 @@ numeric_category<T>* numeric_category<T>::add_keys( const T* items, size_t count
     thrust::sequence( thrust::device, indexes.begin(), indexes.end() );
     int* d_indexes = indexes.data().get();
     // stable-sort preserves order for keys that match
-    thrust::stable_sort_by_key( thrust::device, d_indexes, d_indexes + both_count, d_xvals, 
+    thrust::stable_sort_by_key( thrust::device, d_indexes, d_indexes + both_count, d_xvals,
                                 sort_update_keys_fn<T>{d_both_keys, kcount, include_null,nulls} );
-    auto nend = thrust::unique_by_key( thrust::device, d_indexes, d_indexes + both_count, d_xvals, 
+    auto nend = thrust::unique_by_key( thrust::device, d_indexes, d_indexes + both_count, d_xvals,
                                        unique_update_keys_fn<T>{d_both_keys, kcount, include_null,nulls} );
     size_t unique_count = nend.second - d_xvals;
     result->pImpl->init_keys(d_both_keys, d_indexes, unique_count);
@@ -956,7 +967,7 @@ numeric_category<T>* numeric_category<T>::gather_values(const int* indexes, size
     return result;
 }
 
-// pre-define these types
+// pre-define these types: matching types in cudf/cpp/include/cudf/types.h
 template<> const char* numeric_category<int>::get_type_name() { return "int32"; };
 template class numeric_category<int>;
 template<> const char* numeric_category<long>::get_type_name() { return "int64"; };
@@ -965,4 +976,6 @@ template<> const char* numeric_category<float>::get_type_name() { return "float3
 template class numeric_category<float>;
 template<> const char* numeric_category<double>::get_type_name() { return "float64"; };
 template class numeric_category<double>;
+template<> const char* numeric_category<char>::get_type_name() { return "int8"; };
+template class numeric_category<char>;
 

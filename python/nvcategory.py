@@ -124,9 +124,25 @@ def from_strings_list(list):
         rtn = nvcategory(rtn)
     return rtn
 
+
 def from_numbers(narr, nulls=None):
     """
     Create a nvcategory object from an array of numbers.
+
+    Parameters
+    ----------
+    narr : ndarray
+        Array of numbers in host or device memory
+    nulls: ndarray
+        Array of type int8 indicating which indexed values are null.
+
+    Examples
+    --------
+    >>> import nvcategory
+    >>> import numpy as np
+    >>> print(nvcategory.from_numbers(np.array([4, 1, 2, 3, 2, 1, 4, 1, 1])))
+    [1, 2, 3, 4]:[3, 0, 1, 2, 1, 0, 3, 0, 0]
+
     """
     rtn = pyniNVCategory.n_createCategoryFromNumbers(narr, nulls)
     if rtn is not None:
@@ -163,7 +179,7 @@ class nvcategory:
         self.m_cptr = 0
 
     def __str__(self):
-        return str(self.keys())
+        return str(self.keys()) + ':' + str(self.values())
 
     def __repr__(self):
         return "<nvcategory[{}] keys={},values={}>".format(
@@ -235,16 +251,35 @@ class nvcategory:
         >>> c = nvcategory.to_device(["eee","aaa","eee","dddd"])
         >>> print(c.keys())
         ['aaa','dddd','eee']
+        >>> import numpy as np
+        >>> narr = np.array([2, 1, 1.25, 1.5, 1, 1.25, 1, 1, 2])
+        >>> nc = nvcategory.from_numbers(narr)
+        >>> keys = np.empty([cat.keys_size()], dtype=narr.dtype)
+        >>> nc.keys(keys)
+        >>> keys.tolist()
+        [1.0, 1.25, 1.5, 2.0]
 
         """
         rtn = pyniNVCategory.n_get_keys(self.m_cptr, narr)
-        if rtn is not None:
-            rtn = nvs.nvstrings(rtn)
-        return rtn
+        if rtn is None:
+            return rtn
+        if isinstance(rtn, list):
+            return rtn
+        return nvs.nvstrings(rtn)
 
     def keys_type(self):
         """
         Return string with name of the keys type.
+
+        Examples
+        --------
+        >>> import nvcategory
+        >>> import numpy as np
+        >>> narr = np.array([2, 1, 1.25, 1.5, 1, 1.25, 1, 1, 2])
+        >>> nc = nvcategory.from_numbers(narr)
+        >>> nc.keys_type()
+        'float64'
+
         """
         return pyniNVCategory.n_keys_type(self.m_cptr)
 
@@ -254,9 +289,9 @@ class nvcategory:
 
         Parameters
         ----------
-        key : str
+        key : str or number
             key whose values should be returned
-        devptr : GPU memory pointer
+        devptr : GPU memory pointer or ndarray
             Where index values will be written.
             Must be able to hold int32 values for this key.
 
@@ -268,6 +303,14 @@ class nvcategory:
         [1]
         >>> print(c.indexes_for_key('eee'))
         [0, 2]
+        >>> import numpy as np
+        >>> narr = np.array([2, 1, 1.25, 1.5, 1, 1.25, 1, 1, 2])
+        >>> nc = nvcategory.from_numbers(narr)
+        >>> count = nc.indexes_for_key(1)
+        >>> idxs = np.empty([count], dtype=np.int32)
+        >>> count = nc.indexes_for_key(1, idxs)
+        >>> idxs.tolist()
+        [1, 4, 6, 7]
 
         """
         return pyniNVCategory.n_get_indexes_for_key(self.m_cptr, key, devptr)
@@ -328,6 +371,13 @@ class nvcategory:
         >>> c = nvcategory.to_device(["eee","aaa","eee","dddd"])
         >>> print(c.values())
         [2, 0, 2, 1]
+        >>> import numpy as np
+        >>> narr = np.array([2, 1, 1.25, 1.5, 1, 1.25, 1, 1, 2])
+        >>> nc = nvcategory.from_numbers(narr)
+        >>> values = np.empty([cat.size()], dtype=np.int32)
+        >>> nc.values(values)
+        >>> values.tolist()
+        [3, 0, 1, 2, 0, 1, 0, 0, 3]
 
         """
         return pyniNVCategory.n_get_values(self.m_cptr, devptr)
@@ -432,6 +482,30 @@ class nvcategory:
 
     def to_numbers(self, narr, nulls=None):
         """
+        Fill array with key numbers as represented by the values
+        in this instance.
+
+        Parameters
+        ----------
+        narr : ndarray
+            Array to fill with numbers. Must be of the same type
+            as the keys for this instance and must be able to hold
+            size() values.
+        nulls : ndarray
+            Array to fill with bits identifying null and non-null
+            entries.
+
+        Examples
+        --------
+        >>> import nvcategory
+        >>> import numpy as np
+        >>> narr = np.array([2, 1, 1.25, 1.5, 1, 1.25, 1, 1, 2])
+        >>> nc = nvcategory.from_numbers(narr)
+        >>> nbrs = np.empty([cat.size()], dtype=narr.dtype)
+        >>> nc.to_numbers(nbrs)
+        >>> nbrs.tolist()
+        [2.0, 1.0, 1.25, 1.5, 1.0, 1.25, 1.0, 1.0, 2.0]
+
         """
         return pyniNVCategory.n_to_numbers(self.m_cptr, narr, nulls)
 
@@ -471,8 +545,33 @@ class nvcategory:
 
     def gather_numbers(self, indexes, narr, nulls=None):
         """
+        Fill buffer with keys values specified by the given indexes.
+
+        Parameters
+        ----------
+        indexes : ndarray of type int32
+            List of integers identifying keys to copy to the output.
+        narr : ndarray
+            Type must match the keys for this instance and hold
+            the number of values indicated by the indexes parameter.
+        nulls : ndarray
+            Bits are set to indicate null and non-null entries in
+            the narr output array.
+
+        Examples
+        --------
+        >>> import nvcategory
+        >>> import numpy as np
+        >>> narr = np.array([2, 1, 1.25, 1.5, 1, 1.25, 1, 1, 2])
+        >>> nc = nvcategory.from_numbers(narr)
+        >>> idxs = np.array([0, 2, 0], dtype=np.int32)
+        >>> nbrs = np.empty([idxs.size], dtype=narr.dtype)
+        >>> nc.gather_numbers(idxs, nbrs)
+        >>> nbrs.tolist()
+        [1.0, 1.5, 1.0]
+
         """
-        return pyniNVCategory.n_gather_numbers(self.m_cptr, 
+        return pyniNVCategory.n_gather_numbers(self.m_cptr,
                                                indexes, narr, nulls)
 
     def gather_and_remap(self, indexes, count=0):
@@ -507,6 +606,11 @@ class nvcategory:
         >>> c = c.gather([1,3,2,3,1,2])
         >>> print(c.keys(),c.values())
         ['bb', 'cc', 'ff'] [0, 2, 1, 2, 0, 1]
+        >>> import numpy as np
+        >>> nc = nvcategory.from_numbers(np.array([2, 1, 5, 4, 1, 5, 1, 1]))
+        >>> indexes = np.array([1, 3, 2, 3, 1, 2], dtype=np.int32)
+        >>> print(nc.gather_and_remap(indexes))
+        [2, 4, 5]:[0, 2, 1, 2, 0, 1]
 
         """
         rtn = pyniNVCategory.n_gather_and_remap(self.m_cptr, indexes, count)
@@ -541,6 +645,11 @@ class nvcategory:
         >>> c = c.gather([1,3,2,3,1,2])
         >>> print(c.keys(),c.values())
         ['aa', 'bb', 'cc', 'ff'] [1, 3, 2, 3, 1, 2]
+        >>> import numpy as np
+        >>> nc = nvcategory.from_numbers(np.array([2, 1, 5, 4, 1, 5, 1, 1]))
+        >>> indexes = np.array([1, 3, 2, 3, 1, 2], dtype=np.int32)
+        >>> print(nc.gather(indexes))
+        [1, 2, 4, 5]:[1, 3, 2, 3, 1, 2]
 
         """
         rtn = pyniNVCategory.n_gather(self.m_cptr, indexes, count)
@@ -558,7 +667,7 @@ class nvcategory:
         Parameters
         ----------
         nvcat : nvcategory
-            New cateogry to be merged.
+            New category to be merged.
 
         """
         rtn = pyniNVCategory.n_merge_category(self.m_cptr, nvcat)
@@ -571,12 +680,25 @@ class nvcategory:
         Create new category incorporating the specified category keys
         and values. This will return a new nvcategory with new key values.
         The index values will appear as if appended.
-        Values will be remapped to the new keys.
+        Values are appended and will be remapped to the new keys.
 
         Parameters
         ----------
         nvcat : nvcategory
-            New cateogry to be merged.
+            New category to be merged.
+
+        Examples
+        --------
+        >>> import nvcategory
+        >>> import numpy as np
+        >>> cat1 = nvcategory.from_numbers(np.array([4, 1, 2, 3, 2, 1, 4]))
+        >>> print(cat1)
+        [1, 2, 3, 4]:[3, 0, 1, 2, 1, 0, 3]
+        >>> cat2 = nvcategory.from_numbers(np.array([2, 4, 3, 0]))
+        >>> print(cat2)
+        [0, 2, 3, 4]:[1, 3, 2, 0]
+        >>> print(cat1.merge_and_remap(cat2))
+        [0, 1, 2, 3, 4]:[4, 1, 2, 3, 2, 1, 4, 2, 4, 3, 0]
 
         """
         rtn = pyniNVCategory.n_merge_and_remap(self.m_cptr, nvcat)
@@ -595,6 +717,17 @@ class nvcategory:
             keys to be added to existing keys
         nulls: bitmask
             ndarray of type uint8
+
+        Examples
+        --------
+        >>> import nvcategory
+        >>> import numpy as np
+        >>> c = nvcategory.from_numbers(np.array([4, 1, 2, 3, 2, 1, 4]))
+        >>> print(c)
+        [1, 2, 3, 4]:[3, 0, 1, 2, 1, 0, 3]
+        >>> print(c.add_keys(np.array([2,1,0,3])))
+        [0, 1, 2, 3, 4]:[4, 1, 2, 3, 2, 1, 4]
+
         """
         rtn = pyniNVCategory.n_add_keys(self.m_cptr, keys, nulls)
         if rtn is not None:
@@ -613,6 +746,17 @@ class nvcategory:
             keys to be removed from existing keys
         nulls: bitmask
             ndarray of type uint8
+
+        Examples
+        --------
+        >>> import nvcategory
+        >>> import numpy as np
+        >>> c = nvcategory.from_numbers(np.array([4, 1, 2, 3, 2, 1, 4]))
+        >>> print(c)
+        [1, 2, 3, 4]:[3, 0, 1, 2, 1, 0, 3]
+        >>> print(c.remove_keys(np.array([4,0])))
+        [1, 2, 3]:[-1, 0, 1, 2, 1, 0, -1]
+
         """
         rtn = pyniNVCategory.n_remove_keys(self.m_cptr, keys, nulls)
         if rtn is not None:
@@ -623,6 +767,20 @@ class nvcategory:
         """
         Create new category removing any keys that have no corresponding
         values. Values are remapped to match the new keyset.
+
+        Examples
+        --------
+        >>> import nvcategory
+        >>> import numpy as np
+        >>> c = nvcategory.from_numbers(np.array([4, 1, 2, 3, 2, 1, 4]))
+        >>> print(c)
+        [1, 2, 3, 4]:[3, 0, 1, 2, 1, 0, 3]
+        >>> nc = c.add_keys(np.array([4,0]))
+        >>> print(nc)
+        [1, 2, 3]:[-1, 0, 1, 2, 1, 0, -1]
+        >>> print(nc.remove_unused_keys())
+        [1, 2, 3, 4]:[3, 0, 1, 2, 1, 0, 3]
+
         """
         rtn = pyniNVCategory.n_remove_unused_keys(self.m_cptr)
         if rtn is not None:
@@ -641,6 +799,17 @@ class nvcategory:
             keys to be used for new category
         nulls: bitmask
             ndarray of type uint8
+
+        Examples
+        --------
+        >>> import nvcategory
+        >>> import numpy as np
+        >>> c = nvcategory.from_numbers(np.array([4, 1, 2, 3, 2, 1, 4]))
+        >>> print(c)
+        [1, 2, 3, 4]:[3, 0, 1, 2, 1, 0, 3]
+        >>> print(c.set_keys(np.array([2, 4, 3, 0])))
+        [0, 2, 3, 4]:[3, -1, 1, 2, 1, -1, 3]
+
         """
         rtn = pyniNVCategory.n_set_keys(self.m_cptr, keys, nulls)
         if rtn is not None:
