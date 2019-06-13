@@ -19,6 +19,7 @@
 - PR #314 Fixed calculation error in ip2int
 - PR #306 Set main label always for libnvstrings
 - PR #307 Update conda dependencies
+- PR #326 Update python doc version
 
 
 # cuStrings/nvStrings 0.7.0 (10 May 2019)
