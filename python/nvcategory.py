@@ -140,8 +140,9 @@ def from_numbers(narr, nulls=None):
     --------
     >>> import nvcategory
     >>> import numpy as np
-    >>> print(nvcategory.from_numbers(np.array([4, 1, 2, 3, 2, 1, 4, 1, 1])))
-    [1, 2, 3, 4]:[3, 0, 1, 2, 1, 0, 3, 0, 0]
+    >>> nc = nvcategory.from_numbers(np.array([4, 1, 2, 3, 2, 1, 4, 1, 1]))
+    >>> print(nc.keys(),nc.values())
+    [1, 2, 3, 4] [3, 0, 1, 2, 1, 0, 3, 0, 0]
 
     """
     rtn = pyniNVCategory.n_createCategoryFromNumbers(narr, nulls)
@@ -179,7 +180,7 @@ class nvcategory:
         self.m_cptr = 0
 
     def __str__(self):
-        return str(self.keys()) + ':' + str(self.values())
+        return str(self.keys())
 
     def __repr__(self):
         return "<nvcategory[{}] keys={},values={}>".format(
@@ -609,8 +610,9 @@ class nvcategory:
         >>> import numpy as np
         >>> nc = nvcategory.from_numbers(np.array([2, 1, 5, 4, 1, 5, 1, 1]))
         >>> indexes = np.array([1, 3, 2, 3, 1, 2], dtype=np.int32)
-        >>> print(nc.gather_and_remap(indexes))
-        [2, 4, 5]:[0, 2, 1, 2, 0, 1]
+        >>> nc1 = nc.gather_and_remap(indexes)
+        >>> print(nc1.keys(),nc1.values())
+        [2, 4, 5] [0, 2, 1, 2, 0, 1]
 
         """
         rtn = pyniNVCategory.n_gather_and_remap(self.m_cptr, indexes, count)
@@ -648,8 +650,9 @@ class nvcategory:
         >>> import numpy as np
         >>> nc = nvcategory.from_numbers(np.array([2, 1, 5, 4, 1, 5, 1, 1]))
         >>> indexes = np.array([1, 3, 2, 3, 1, 2], dtype=np.int32)
-        >>> print(nc.gather(indexes))
-        [1, 2, 4, 5]:[1, 3, 2, 3, 1, 2]
+        >>> nc1 = nc.gather(indexes)
+        >>> print(nc1.keys(),nc1.values())
+        [1, 2, 4, 5] [1, 3, 2, 3, 1, 2]
 
         """
         rtn = pyniNVCategory.n_gather(self.m_cptr, indexes, count)
@@ -692,13 +695,14 @@ class nvcategory:
         >>> import nvcategory
         >>> import numpy as np
         >>> cat1 = nvcategory.from_numbers(np.array([4, 1, 2, 3, 2, 1, 4]))
-        >>> print(cat1)
-        [1, 2, 3, 4]:[3, 0, 1, 2, 1, 0, 3]
+        >>> print(cat1.keys(),cat1.values())
+        [1, 2, 3, 4] [3, 0, 1, 2, 1, 0, 3]
         >>> cat2 = nvcategory.from_numbers(np.array([2, 4, 3, 0]))
-        >>> print(cat2)
-        [0, 2, 3, 4]:[1, 3, 2, 0]
-        >>> print(cat1.merge_and_remap(cat2))
-        [0, 1, 2, 3, 4]:[4, 1, 2, 3, 2, 1, 4, 2, 4, 3, 0]
+        >>> print(cat2.keys(),cat2.values())
+        [0, 2, 3, 4] [1, 3, 2, 0]
+        >>> nc = cat1.merge_and_remap(cat2)
+        >>> print(nc.keys(),nc.values())
+        [0, 1, 2, 3, 4] [4, 1, 2, 3, 2, 1, 4, 2, 4, 3, 0]
 
         """
         rtn = pyniNVCategory.n_merge_and_remap(self.m_cptr, nvcat)
@@ -723,10 +727,11 @@ class nvcategory:
         >>> import nvcategory
         >>> import numpy as np
         >>> c = nvcategory.from_numbers(np.array([4, 1, 2, 3, 2, 1, 4]))
-        >>> print(c)
-        [1, 2, 3, 4]:[3, 0, 1, 2, 1, 0, 3]
-        >>> print(c.add_keys(np.array([2,1,0,3])))
-        [0, 1, 2, 3, 4]:[4, 1, 2, 3, 2, 1, 4]
+        >>> print(c.keys(),c.values())
+        [1, 2, 3, 4] [3, 0, 1, 2, 1, 0, 3]
+        >>> nc = c.add_keys(np.array([2,1,0,3]))
+        >>> print(nc.keys(),nc.values())
+        [0, 1, 2, 3, 4] [4, 1, 2, 3, 2, 1, 4]
 
         """
         rtn = pyniNVCategory.n_add_keys(self.m_cptr, keys, nulls)
@@ -752,10 +757,11 @@ class nvcategory:
         >>> import nvcategory
         >>> import numpy as np
         >>> c = nvcategory.from_numbers(np.array([4, 1, 2, 3, 2, 1, 4]))
-        >>> print(c)
-        [1, 2, 3, 4]:[3, 0, 1, 2, 1, 0, 3]
-        >>> print(c.remove_keys(np.array([4,0])))
-        [1, 2, 3]:[-1, 0, 1, 2, 1, 0, -1]
+        >>> print(c.keys(),c.values())
+        [1, 2, 3, 4] [3, 0, 1, 2, 1, 0, 3]
+        >>> nc = c.remove_keys(np.array([4,0]))
+        >>> print(nc.keys(),nc.values())
+        [1, 2, 3] [-1, 0, 1, 2, 1, 0, -1]
 
         """
         rtn = pyniNVCategory.n_remove_keys(self.m_cptr, keys, nulls)
@@ -773,13 +779,14 @@ class nvcategory:
         >>> import nvcategory
         >>> import numpy as np
         >>> c = nvcategory.from_numbers(np.array([4, 1, 2, 3, 2, 1, 4]))
-        >>> print(c)
-        [1, 2, 3, 4]:[3, 0, 1, 2, 1, 0, 3]
+        >>> print(c.keys(),c.values())
+        [1, 2, 3, 4] [3, 0, 1, 2, 1, 0, 3]
         >>> nc = c.add_keys(np.array([4,0]))
-        >>> print(nc)
-        [1, 2, 3]:[-1, 0, 1, 2, 1, 0, -1]
-        >>> print(nc.remove_unused_keys())
-        [1, 2, 3, 4]:[3, 0, 1, 2, 1, 0, 3]
+        >>> print(nc.keys(),nc.values())
+        [1, 2, 3] [-1, 0, 1, 2, 1, 0, -1]
+        >>> nc1 = nc.remove_unused_keys()
+        >>> print(nc1.keys(),nc1.values())
+        [1, 2, 3, 4] [3, 0, 1, 2, 1, 0, 3]
 
         """
         rtn = pyniNVCategory.n_remove_unused_keys(self.m_cptr)
@@ -805,10 +812,11 @@ class nvcategory:
         >>> import nvcategory
         >>> import numpy as np
         >>> c = nvcategory.from_numbers(np.array([4, 1, 2, 3, 2, 1, 4]))
-        >>> print(c)
-        [1, 2, 3, 4]:[3, 0, 1, 2, 1, 0, 3]
-        >>> print(c.set_keys(np.array([2, 4, 3, 0])))
-        [0, 2, 3, 4]:[3, -1, 1, 2, 1, -1, 3]
+        >>> print(c.keys(),c.values())
+        [1, 2, 3, 4] [3, 0, 1, 2, 1, 0, 3]
+        >>> nc = c.set_keys(np.array([2, 4, 3, 0]))
+        >>> print(nc.keys(),nc.values())
+        [0, 2, 3, 4] [3, -1, 1, 2, 1, -1, 3]
 
         """
         rtn = pyniNVCategory.n_set_keys(self.m_cptr, keys, nulls)
