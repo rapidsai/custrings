@@ -13,6 +13,8 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
+#pragma once
+
 //
 // 8-bit flag for each unicode code-point. 
 // Bit values assigned as follows (76543210):
