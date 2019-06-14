@@ -3,7 +3,6 @@ cuStrings
 
 ### API Design
 
-[cuStrings API](cuStrings-API.pdf)
 
 ### Dependecies
 
