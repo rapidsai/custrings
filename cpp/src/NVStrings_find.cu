@@ -251,7 +251,7 @@ int NVStrings::findall_record( const char* pattern, std::vector<NVStrings*>& res
     dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
     // allocate regex working memory if necessary
-    if( prog->inst_counts() > LISTSIZE )
+    if( prog->inst_counts() > MAX_STACK_INSTS )
     {
         if( !prog->alloc_relists(count) )
         {
@@ -281,7 +281,7 @@ int NVStrings::findall_record( const char* pattern, std::vector<NVStrings*>& res
             while(spos<=end)
             {
                 int epos = end;
-                int result = prog->find(dstr,spos,epos);
+                int result = prog->find(idx,dstr,spos,epos);
                 if(result<=0)
                     break;
                 unsigned int bytes = (dstr->byte_offset_for(epos)-dstr->byte_offset_for(spos));
@@ -360,7 +360,7 @@ int NVStrings::findall( const char* pattern, std::vector<NVStrings*>& results )
     dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
     // allocate regex working memory if necessary
-    if( prog->inst_counts() > LISTSIZE )
+    if( prog->inst_counts() > MAX_STACK_INSTS )
     {
         if( !prog->alloc_relists(count) )
         {
@@ -387,7 +387,7 @@ int NVStrings::findall( const char* pattern, std::vector<NVStrings*>& results )
             while(begin<=nchars)
             {
                 int end = nchars;
-                int result = prog->find(dstr,begin,end);
+                int result = prog->find(idx,dstr,begin,end);
                 if(result<=0)
                     break;
                 ++fnd;
@@ -504,7 +504,7 @@ int NVStrings::contains_re( const char* pattern, bool* results, bool todevice )
     dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
     // allocate regex working memory if necessary
-    if( prog->inst_counts() > LISTSIZE )
+    if( prog->inst_counts() > MAX_STACK_INSTS )
     {
         if( !prog->alloc_relists(count) )
         {
@@ -556,7 +556,7 @@ int NVStrings::match( const char* pattern, bool* results, bool bdevmem )
     dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
     // allocate regex working memory if necessary
-    if( prog->inst_counts() > LISTSIZE )
+    if( prog->inst_counts() > MAX_STACK_INSTS )
     {
         if( !prog->alloc_relists(count) )
         {
@@ -648,7 +648,7 @@ int NVStrings::count_re( const char* pattern, int* results, bool todevice )
     dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
     // allocate regex working memory if necessary
-    if( prog->inst_counts() > LISTSIZE )
+    if( prog->inst_counts() > MAX_STACK_INSTS )
     {
         if( !prog->alloc_relists(count) )
         {
@@ -678,7 +678,7 @@ int NVStrings::count_re( const char* pattern, int* results, bool todevice )
                 while(begin<=nchars)
                 {
                     int end = nchars;
-                    int result = prog->find(dstr,begin,end);
+                    int result = prog->find(idx,dstr,begin,end);
                     if(result<=0)
                         break;
                     ++fnd;
