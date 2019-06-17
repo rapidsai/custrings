@@ -6,6 +6,7 @@
 - PR #299 Added gather method for booleans array
 - PR #304 Updated nvtext.ngrams to call C++ function
 - PR #325 Add test skipping functionality to build.sh
+- PR #332 Accept multiple nvstrings in cat() method
 
 ## Improvements
 
