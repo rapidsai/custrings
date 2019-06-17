@@ -219,7 +219,7 @@ NVStrings* NVStrings::replace_re( const char* pattern, const char* repl, int max
     dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
     // allocate regex working memory if necessary
-    if( prog->inst_counts() > LISTSIZE )
+    if( prog->inst_counts() > MAX_STACK_INSTS )
     {
         if( !prog->alloc_relists(count) )
         {
@@ -338,7 +338,7 @@ NVStrings* NVStrings::replace_with_backrefs( const char* pattern, const char* re
     dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
     // allocate regex working memory if necessary
-    if( prog->inst_counts() > LISTSIZE )
+    if( prog->inst_counts() > MAX_STACK_INSTS )
     {
         if( !prog->alloc_relists(count) )
         {

@@ -144,7 +144,7 @@ int NVStrings::extract_record( const char* pattern, std::vector<NVStrings*>& res
     dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
     // allocate regex working memory if necessary
-    if( prog->inst_counts() > LISTSIZE )
+    if( prog->inst_counts() > MAX_STACK_INSTS )
     {
         if( !prog->alloc_relists(count) )
         {
@@ -253,7 +253,7 @@ int NVStrings::extract( const char* pattern, std::vector<NVStrings*>& results)
     dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
     // allocate regex working memory if necessary
-    if( prog->inst_counts() > LISTSIZE )
+    if( prog->inst_counts() > MAX_STACK_INSTS )
     {
         if( !prog->alloc_relists(count) )
         {

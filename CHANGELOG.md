@@ -13,6 +13,7 @@
 - PR #315 Support NaN, Inf strings in stof and stod
 - PR #313 Increased regex instruction threshold for stack to 1024
 - PR #302 Add junit test output for py.test
+- PR #331 Use stack-size ranges for different regex instruction counts
 
 ## Bug Fixes
 
