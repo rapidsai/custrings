@@ -24,7 +24,8 @@ def test_cat():
     assert_eq(got, expected)
 
     # non-null others, default separator, and na_rep
-    got = strs.cat(["1", "2", "3", "4", "5", "é", None], sep=":", na_rep="_")
+    strs2 = nvstrings.to_device(["1", "2", "3", "4", "5", "é", None])
+    got = strs.cat(strs2, sep=":", na_rep="_")
     expected = ['abc:1', 'def:2', '_:3', ':4', 'jkl:5', 'mno:é', 'accént:_']
     assert_eq(got, expected)
 
@@ -32,6 +33,21 @@ def test_cat():
     strs2 = nvstrings.to_device(["1", "2", "3", None, "5", "é", ""])
     got = strs.cat(strs2)
     expected = ['abc1', 'def2', None, None, 'jkl5', 'mnoé', 'accént']
+    assert_eq(got, expected)
+
+
+def test_cat_multiple():
+    strs = nvstrings.to_device(["abc", "df", None, "", "jkl", "mn", "accént"])
+    strs1 = nvstrings.to_device(["1", "2", "3", "4", "5", "é", None])
+    strs2 = nvstrings.to_device(["1", "2", "3", None, "5", "é", ""])
+    got = strs.cat([strs1, strs2])
+    expected = ['abc11', 'df22', '33', '4', 'jkl55', 'mnéé', 'accént']
+    assert_eq(got, expected)
+
+    got = strs.cat([strs1, strs2], sep=":", na_rep="_")
+    expected = [
+        'abc:1:1', 'df:2:2', '_:3:3', ':4:_', 'jkl:5:5', 'mn:é:é', 'accént:_:'
+        ]
     assert_eq(got, expected)
 
 

@@ -410,6 +410,14 @@ public:
      */
     NVStrings* cat( NVStrings* others, const char* separator, const char* narep=0);
     /**
+     * @brief Concatenates the given list of strings to this instance of strings and returns as new instance.
+     * @param[in] others The number of strings in each item must match this instance.
+     * @param[in] separator Null-terminated CPU string that should appear between each instance.
+     * @param[in] narep Null-terminated CPU string that should represent any null strings found.
+     * @return New instance with this instance concatentated with the provided instances.
+     */
+    NVStrings* cat( std::vector<NVStrings*>& others, const char* separator, const char* narep=0);
+    /**
      * @brief Concatenates all strings into one new string.
      * @param[in] separator Null-terminated CPU string that should appear between each string.
      * @param[in] narep Null-terminated CPU string that should represent any null strings found.
