@@ -1,6 +1,7 @@
 //
 #include <memory.h>
 #include <cuda_runtime.h>
+#include <rmm/rmm.h>
 extern "C" {
 #include <rmm/rmm_api.h>
 }
@@ -77,7 +78,7 @@ void dreprog::destroy(dreprog* prog)
 bool dreprog::alloc_relists( size_t count )
 {
     int insts = inst_counts();
-    int rsz = Relist::size_for(insts);
+    int rsz = Relist::alloc_size(insts);
     size_t rlmsz = rsz*2L*count; // Reljunk has 2 Relist ptrs
     void* rmem = 0;
     size_t freeSize=0, totalSize=0;
