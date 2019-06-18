@@ -241,7 +241,7 @@ public:
      * @brief Copy the list of strings into the provided host memory.
      *
      * Each pointer must point to memory large enough to hold the bytes of each corresponding string.
-     * Null strings will replace the provided pointer at that index with a null pointer.
+     * Null strings should be identified using the set_null_bitarray method.
      * @param[in,out] list The list of pointers to CPU memory to copy each string into.
      * @param start The 0-based index position of the string to copy first.
      * @param end The 0-based index position of the string to copy last.
