@@ -13,7 +13,7 @@ from utils import assert_eq
 def test_slice_from():
     strs = nvstrings.to_device(
         ["hello world", "holy accéntéd", "batman", None, ""])
-    d_arr = rmm.to_device(np.asarray([2, 3], dtype=np.int32))
+    d_arr = rmm.to_device(np.asarray([2, 3, -1, -1, -1], dtype=np.int32))
     got = strs.slice_from(starts=d_arr.device_ctypes_pointer.value)
     expected = ['llo world', 'y accéntéd', '', None, '']
     assert_eq(got, expected)
