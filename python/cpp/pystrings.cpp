@@ -1484,7 +1484,20 @@ static PyObject* n_cat( PyObject* self, PyObject* args )
         for( unsigned int idx=0; idx < count; ++idx )
         {
             PyObject* pystr = PyList_GetItem(argOthers,idx);
-            others.push_back((NVStrings*)PyLong_AsVoidPtr(PyObject_GetAttrString(pystr,"m_cptr")));
+            if( pystr == Py_None )
+            {
+                PyErr_Format(PyExc_ValueError,"others list must not contain None");
+                Py_RETURN_NONE;
+            }
+            std::string cname = pystr->ob_type->tp_name;
+            if( cname.compare("nvstrings")!=0 )
+            {
+                PyErr_Format(PyExc_ValueError,"others list must contain nvstrings objects");
+                Py_RETURN_NONE;
+            }
+            PyObject* pycptr = PyObject_GetAttrString(pystr,"m_cptr");
+            NVStrings* strs = (NVStrings*)PyLong_AsVoidPtr(pycptr);
+            others.push_back(strs);
         }
         Py_BEGIN_ALLOW_THREADS
         rtn = tptr->cat(others,sep,narep);
@@ -1495,7 +1508,7 @@ static PyObject* n_cat( PyObject* self, PyObject* args )
         NVStrings* others = (NVStrings*)PyLong_AsVoidPtr(PyObject_GetAttrString(argOthers,"m_cptr"));
         if( !others )
         {
-            PyErr_Format(PyExc_ValueError,"nvstrings.cat invalid parameter");
+            PyErr_Format(PyExc_ValueError,"invalid parameter");
             Py_RETURN_NONE;
         }
         //printf("others count=%d\n",others->size());
