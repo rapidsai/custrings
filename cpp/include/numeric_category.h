@@ -16,6 +16,7 @@
 #pragma once
 
 #include "base_category.h"
+#include <cstddef>
 
 typedef unsigned char BYTE;
 

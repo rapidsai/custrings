@@ -14,7 +14,7 @@
 * limitations under the License.
 */
 
-#include "../include/numeric_category.h"
+#include "numeric_category.inl"
 
 // see cudf/cpp/include/cudf/types.h for reference
 // these are the integer types

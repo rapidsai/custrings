@@ -14,41 +14,32 @@
 * limitations under the License.
 */
 
-//#include <thrust/execution_policy.h>
-//#include <thrust/device_vector.h>
-//#include <thrust/host_vector.h>
-//#include <thrust/for_each.h>
-//#include <thrust/reduce.h>
-//#include <thrust/scan.h>
-//#include <thrust/copy.h>
-//#include <thrust/sort.h>
-//#include <thrust/count.h>
-//#include <thrust/unique.h>
-//#include <thrust/sequence.h>
-//#include <thrust/gather.h>
-//#include <thrust/tabulate.h>
-//#include "../include/numeric_category.h"
-//
-//#define BYTES_FROM_BITS(c) ((c+7)/8)
-//
-////
-//__host__ __device__ bool is_item_null( const BYTE* nulls, int idx )
-//{
-//    return nulls && ((nulls[idx/8] & (1 << (idx % 8)))==0);
-//}
+#include "../include/numeric_category.h"
+#include <thrust/execution_policy.h>
+#include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
+#include <thrust/for_each.h>
+#include <thrust/reduce.h>
+#include <thrust/scan.h>
+#include <thrust/copy.h>
+#include <thrust/sort.h>
+#include <thrust/count.h>
+#include <thrust/unique.h>
+#include <thrust/sequence.h>
+#include <thrust/gather.h>
+#include <thrust/tabulate.h>
 
-#include "numeric_category.inl"
+#define BYTES_FROM_BITS(c) ((c+7)/8)
 
-size_t count_nulls( const BYTE* nulls, size_t count )
+//
+__host__ __device__ static bool is_item_null( const BYTE* nulls, int idx )
 {
-    if( !nulls || !count )
-        return 0;
-    size_t result = thrust::count_if( thrust::device, thrust::make_counting_iterator<size_t>(0), thrust::make_counting_iterator<size_t>(count),
-            [nulls] __device__ (size_t idx) { return ((nulls[idx/8] & (1 << (idx % 8)))==0); });
-    return result;
+    return nulls && ((nulls[idx/8] & (1 << (idx % 8)))==0);
 }
 
-#if 0 
+size_t count_nulls( const BYTE* nulls, size_t count );
+
+//
 template<typename T>
 class numeric_category_impl
 {
@@ -969,17 +960,3 @@ numeric_category<T>* numeric_category<T>::gather_values(const int* indexes, size
     }
     return result;
 }
-
-// see cudf/cpp/include/cudf/types.h for reference
-template<> const char* numeric_category<int>::get_type_name() { return "int32"; };
-template class numeric_category<int>;
-template<> const char* numeric_category<long>::get_type_name() { return "int64"; };
-template class numeric_category<long>;
-template<> const char* numeric_category<float>::get_type_name() { return "float32"; };
-template class numeric_category<float>;
-template<> const char* numeric_category<double>::get_type_name() { return "float64"; };
-template class numeric_category<double>;
-#endif
-
-template<> const char* numeric_category<char>::get_type_name() { return "int8"; };
-template class numeric_category<char>;
