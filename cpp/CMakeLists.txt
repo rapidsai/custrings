@@ -134,7 +134,9 @@ add_library(NVStrings SHARED
 
 add_library(NVCategory SHARED
             src/NVCategory.cu
-            src/numeric_category.cu)
+            src/numeric_category.cu
+            src/numeric_category_int.cu
+            src/numeric_category_float.cu)
 
 add_library(NVText SHARED
             src/NVText.cu)

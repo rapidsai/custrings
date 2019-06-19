@@ -967,15 +967,7 @@ numeric_category<T>* numeric_category<T>::gather_values(const int* indexes, size
     return result;
 }
 
-// pre-define these types: matching types in cudf/cpp/include/cudf/types.h
-template<> const char* numeric_category<int>::get_type_name() { return "int32"; };
-template class numeric_category<int>;
-template<> const char* numeric_category<long>::get_type_name() { return "int64"; };
-template class numeric_category<long>;
-template<> const char* numeric_category<float>::get_type_name() { return "float32"; };
-template class numeric_category<float>;
-template<> const char* numeric_category<double>::get_type_name() { return "float64"; };
-template class numeric_category<double>;
+// see cudf/cpp/include/cudf/types.h for reference
 template<> const char* numeric_category<char>::get_type_name() { return "int8"; };
 template class numeric_category<char>;
 
