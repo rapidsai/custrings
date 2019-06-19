@@ -129,6 +129,68 @@ NVStrings* NVStrings::slice_from( const int* starts, const int* stops )
     return rtn;
 }
 
+template<size_t stack_size>
+struct extrace_record_sizer_fn
+{
+    dreprog* prog;
+    custring_view_array d_strings;
+    int groups;
+    int* d_lengths;
+    __device__ void operator()(unsigned int idx)
+    {
+        custring_view* dstr = d_strings[idx];
+        if( !dstr )
+            return;
+        u_char data1[stack_size], data2[stack_size];
+        prog->set_stack_mem(data1,data2);
+        int begin = 0, end = dstr->chars_count();
+        if( prog->find(idx,dstr,begin,end) <=0 )
+            return;
+        int* sizes = d_lengths + (idx*groups);
+        for( int col=0; col < groups; ++col )
+        {
+            int spos=begin, epos=end;
+            if( prog->extract(idx,dstr,spos,epos,col) <=0 )
+                continue;
+            unsigned int size = dstr->substr_size(spos,epos); // this is wrong
+            sizes[col] = (size_t)ALIGN_SIZE(size);
+        }
+    }
+};
+
+template<size_t stack_size>
+struct extrace_record_fn
+{
+    dreprog* prog;
+    custring_view_array d_strings;
+    char** d_buffers;
+    int* d_lengths;
+    int groups;
+    custring_view_array* d_rows;
+    __device__ void operator()(unsigned int idx)
+    {
+        custring_view* dstr = d_strings[idx];
+        if( !dstr )
+            return;
+        u_char data1[stack_size], data2[stack_size];
+        prog->set_stack_mem(data1,data2);
+        int begin = 0, end = dstr->chars_count(); // these could have been saved above
+        if( prog->find(idx,dstr,begin,end) <=0 )      // to avoid this call again here
+            return;
+        int* sizes = d_lengths + (idx*groups);
+        char* buffer = (char*)d_buffers[idx];
+        custring_view_array d_row = d_rows[idx];
+        for( int col=0; col < groups; ++col )
+        {
+            int spos=begin, epos=end;
+            if( prog->extract(idx,dstr,spos,epos,col) <=0 )
+                continue;
+            d_row[col] = dstr->substr((unsigned)spos,(unsigned)(epos-spos),1,buffer);
+            buffer += sizes[col];
+        }
+    }
+};
+
 //
 int NVStrings::extract_record( const char* pattern, std::vector<NVStrings*>& results)
 {
@@ -144,7 +206,8 @@ int NVStrings::extract_record( const char* pattern, std::vector<NVStrings*>& res
     dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
     // allocate regex working memory if necessary
-    if( prog->inst_counts() > MAX_STACK_INSTS )
+    int regex_insts = prog->inst_counts();
+    if( regex_insts > MAX_STACK_INSTS )
     {
         if( !prog->alloc_relists(count) )
         {
@@ -167,24 +230,15 @@ int NVStrings::extract_record( const char* pattern, std::vector<NVStrings*>& res
     custring_view_array d_strings = pImpl->getStringsPtr();
     rmm::device_vector<int> lengths(count*groups,0);
     int* d_lengths = lengths.data().get();
-    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-        [prog, d_strings, groups, d_lengths] __device__(unsigned int idx){
-            custring_view* dstr = d_strings[idx];
-            if( !dstr )
-                return;
-            int begin = 0, end = dstr->chars_count();
-            if( prog->find(idx,dstr,begin,end) <=0 )
-                return;
-            int* sizes = d_lengths + (idx*groups);
-            for( int col=0; col < groups; ++col )
-            {
-                int spos=begin, epos=end;
-                if( prog->extract(idx,dstr,spos,epos,col) <=0 )
-                    continue;
-                unsigned int size = dstr->substr_size(spos,epos); // this is wrong
-                sizes[col] = (size_t)ALIGN_SIZE(size);
-            }
-        });
+    if( (regex_insts > MAX_STACK_INSTS) || (regex_insts <= 10) )
+        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+            extrace_record_sizer_fn<RX_STACK_SMALL>{prog, d_strings, groups, d_lengths});
+    else if( regex_insts <= 100 )
+        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+            extrace_record_sizer_fn<RX_STACK_MEDIUM>{prog, d_strings, groups, d_lengths});
+    else
+        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+            extrace_record_sizer_fn<RX_STACK_LARGE>{prog, d_strings, groups, d_lengths});
     //
     cudaDeviceSynchronize();
     // this part will be slow for large number of strings
@@ -207,27 +261,16 @@ int NVStrings::extract_record( const char* pattern, std::vector<NVStrings*>& res
     // copy each subgroup into each rows memory
     custring_view_array* d_rows = strings.data().get();
     char** d_buffers = buffers.data().get();
-    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-        [prog, d_strings, d_buffers, d_lengths, groups, d_rows] __device__(unsigned int idx){
-            custring_view* dstr = d_strings[idx];
-            if( !dstr )
-                return;
-            int begin = 0, end = dstr->chars_count(); // these could have been saved above
-            if( prog->find(idx,dstr,begin,end) <=0 )      // to avoid this call again here
-                return;
-            int* sizes = d_lengths + (idx*groups);
-            char* buffer = (char*)d_buffers[idx];
-            custring_view_array d_row = d_rows[idx];
-            for( int col=0; col < groups; ++col )
-            {
-                int spos=begin, epos=end;
-                if( prog->extract(idx,dstr,spos,epos,col) <=0 )
-                    continue;
-                d_row[col] = dstr->substr((unsigned)spos,(unsigned)(epos-spos),1,buffer);
-                buffer += sizes[col];
-            }
-        });
-        //
+    if( (regex_insts > MAX_STACK_INSTS) || (regex_insts <= 10) )
+        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+            extrace_record_fn<RX_STACK_SMALL>{prog, d_strings, d_buffers, d_lengths, groups, d_rows});
+    else if( regex_insts <= 100 )
+        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+            extrace_record_fn<RX_STACK_MEDIUM>{prog, d_strings, d_buffers, d_lengths, groups, d_rows});
+    else
+        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+            extrace_record_fn<RX_STACK_LARGE>{prog, d_strings, d_buffers, d_lengths, groups, d_rows});
+    //
     cudaError_t err = cudaDeviceSynchronize();
     if( err != cudaSuccess )
     {
@@ -238,6 +281,37 @@ int NVStrings::extract_record( const char* pattern, std::vector<NVStrings*>& res
     return groups;
 }
 
+template<size_t stack_size>
+struct extract_sizer_fn
+{
+    dreprog* prog;
+    custring_view_array d_strings;
+    int col;
+    int* d_begins;
+    int* d_ends;
+    size_t* d_lengths;
+    __device__ void operator()(unsigned int idx)
+    {
+        u_char data1[stack_size], data2[stack_size];
+        prog->set_stack_mem(data1,data2);
+        custring_view* dstr = d_strings[idx];
+        d_begins[idx] = -1;
+        d_ends[idx] = -1;
+        if( !dstr )
+            return;
+        int begin=0, end=dstr->chars_count();
+        int result = prog->find(idx,dstr,begin,end);
+        if( result > 0 )
+            result = prog->extract(idx,dstr,begin,end,col);
+        if( result > 0 )
+        {
+            d_begins[idx] = begin;
+            d_ends[idx] = end;
+            unsigned int size = dstr->substr_size(begin,end-begin);
+            d_lengths[idx] = (size_t)ALIGN_SIZE(size);
+        }
+    }
+};
 // column-major version of extract() method above
 int NVStrings::extract( const char* pattern, std::vector<NVStrings*>& results)
 {
@@ -253,7 +327,9 @@ int NVStrings::extract( const char* pattern, std::vector<NVStrings*>& results)
     dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
     // allocate regex working memory if necessary
-    if( prog->inst_counts() > MAX_STACK_INSTS )
+    int regex_insts = prog->inst_counts();
+    if( regex_insts > MAX_STACK_INSTS )
+
     {
         if( !prog->alloc_relists(count) )
         {
@@ -285,26 +361,15 @@ int NVStrings::extract( const char* pattern, std::vector<NVStrings*>& results)
     {
         // first, build two vectors of (begin,end) position values;
         // also get the lengths of the substrings
-        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-            [prog, d_strings, col, d_begins, d_ends, d_lengths] __device__(unsigned int idx) {
-                custring_view* dstr = d_strings[idx];
-                d_begins[idx] = -1;
-                d_ends[idx] = -1;
-                if( !dstr )
-                    return;
-                int begin=0, end=dstr->chars_count();
-                int result = prog->find(idx,dstr,begin,end);
-                if( result > 0 )
-                    result = prog->extract(idx,dstr,begin,end,col);
-                if( result > 0 )
-                {
-                    d_begins[idx] = begin;
-                    d_ends[idx] = end;
-                    unsigned int size = dstr->substr_size(begin,end-begin);
-                    d_lengths[idx] = (size_t)ALIGN_SIZE(size);
-                }
-            });
-        //cudaDeviceSynchronize();
+        if( (regex_insts > MAX_STACK_INSTS) || (regex_insts <= 10) )
+            thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+                extract_sizer_fn<RX_STACK_SMALL>{prog, d_strings, col, d_begins, d_ends, d_lengths});
+        else if( regex_insts <= 100 )
+            thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+                extract_sizer_fn<RX_STACK_MEDIUM>{prog, d_strings, col, d_begins, d_ends, d_lengths});
+        else
+            thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+                extract_sizer_fn<RX_STACK_LARGE>{prog, d_strings, col, d_begins, d_ends, d_lengths});
         // create list of strings for this group
         NVStrings* column = new NVStrings(count);
         results.push_back(column); // append here so continue statement will work
@@ -326,13 +391,6 @@ int NVStrings::extract( const char* pattern, std::vector<NVStrings*>& results)
                 if( stop > start )
                     d_results[idx] = dstr->substr((unsigned)start,(unsigned)(stop-start),1,d_buffer+d_offsets[idx]);
             });
-        //
-        //cudaError_t err = cudaDeviceSynchronize();
-        //if( err != cudaSuccess )
-        //{
-        //    fprintf(stderr,"nvs-extract(%s): col=%d\n",pattern,col);
-        //    printCudaError(err);
-        //}
         // column already added to results above
     }
     dreprog::destroy(prog);
