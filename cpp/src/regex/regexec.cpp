@@ -56,7 +56,9 @@ dreprog* dreprog::create_from(const char32_t* pattern, unsigned char* uflags )
     rtn->starts_count = starts_count;
     rtn->classes_count = classes_count;
     rtn->unicode_flags = uflags;
-    rtn->relists_mem = 0;
+    rtn->relists_mem = nullptr;
+    rtn->stack_mem1 = nullptr;
+    rtn->stack_mem2 = nullptr;
 
     // compiled prog copied into flat memory
     delete prog;
