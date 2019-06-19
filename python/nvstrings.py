@@ -2034,7 +2034,7 @@ class nvstrings:
         --------
         >>> import nvstrings
         >>> s = nvstrings.to_device(["hello","there","world"])
-        >>> print(s.endsswith('d'))
+        >>> print(s.endswith('d'))
         [False, False, True]
 
         """

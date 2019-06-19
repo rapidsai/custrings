@@ -21,6 +21,7 @@
 - PR #306 Set main label always for libnvstrings
 - PR #307 Update conda dependencies
 - PR #326 Update python doc version
+- PR #329 Fixed documentation errors in source code
 - PR #334 Regex stack-size logic moved to host code
 
 
