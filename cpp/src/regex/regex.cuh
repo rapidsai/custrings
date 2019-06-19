@@ -43,6 +43,8 @@ class dreprog
     int insts_count, starts_count, classes_count;
     unsigned char* unicode_flags;
     void* relists_mem;
+    u_char* stack_mem1;
+    u_char* stack_mem2;
 
     dreprog() {}
     ~dreprog() {}
@@ -65,6 +67,8 @@ public:
     int inst_counts();
     int group_counts();
 
+    __device__ inline void set_stack_mem(u_char* s1, u_char* s2);
+
     __host__ __device__ inline Reinst* get_inst(int idx);
     __device__ inline int get_class(int idx, dreclass& cls);
     __device__ inline int* get_startinst_ids();
@@ -77,5 +81,13 @@ public:
 };
 
 #define MAX_STACK_INSTS 1000
+
+// 10128 ≈ 1000 instructions
+// Formula is from data_size_for calculaton
+// bytes = (8+2)*x + (x/8) = 10.125x < 11x  where x is number of insts
+
+#define RX_STACK_SMALL  112
+#define RX_STACK_MEDIUM 1104
+#define RX_STACK_LARGE  10128
 
 #include "regexec.inl"

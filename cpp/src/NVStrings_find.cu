@@ -236,6 +236,75 @@ unsigned int NVStrings::find_multiple( NVStrings& strs, int* results, bool todev
     return rtn;
 }
 
+template<size_t stack_size>
+struct findall_record_sizer_fn
+{
+    dreprog* prog;
+    custring_view_array d_strings;
+    int* d_counts;
+    int* d_sizes;
+    __device__ void operator()(unsigned int idx)
+    {
+        custring_view* dstr = d_strings[idx];
+        if( !dstr )
+            return;
+        u_char data1[stack_size], data2[stack_size];
+        prog->set_stack_mem(data1,data2);
+        unsigned int tsize = 0;;
+        int fnd = 0, end = (int)dstr->chars_count();
+        int spos = 0;
+        while(spos<=end)
+        {
+            int epos = end;
+            int result = prog->find(idx,dstr,spos,epos);
+            if(result<=0)
+                break;
+            unsigned int bytes = (dstr->byte_offset_for(epos)-dstr->byte_offset_for(spos));
+            unsigned int nchars = (epos-spos);
+            unsigned int size = custring_view::alloc_size(bytes,nchars);
+            tsize += ALIGN_SIZE(size);
+            ++fnd;
+            spos = epos>spos ? epos : spos + 1;
+        }
+        d_sizes[idx] = tsize;
+        d_counts[idx] = fnd;
+    }
+};
+
+template<size_t stack_size>
+struct findall_record_fn
+{
+    dreprog* prog;
+    custring_view_array d_strings;
+    int* d_counts;
+    char** d_buffers;
+    int* d_sizes;
+    custring_view_array* d_rows;
+    __device__ void operator()(unsigned int idx)
+    {
+        custring_view* dstr = d_strings[idx];
+        if( !dstr )
+            return;
+        int dcount = d_counts[idx];
+        if( dcount < 1 )
+            return;
+        u_char data1[stack_size], data2[stack_size];
+        prog->set_stack_mem(data1,data2);
+        char* buffer = (char*)d_buffers[idx];
+        custring_view_array drow = d_rows[idx];
+        int spos = 0, nchars = (int)dstr->chars_count();
+        for( int i=0; i < dcount; ++i )
+        {
+            int epos = nchars;
+            prog->find(idx,dstr,spos,epos);
+            custring_view* str = dstr->substr((unsigned)spos,(unsigned)(epos-spos),1,buffer);
+            drow[i] = str;
+            buffer += ALIGN_SIZE(str->alloc_size());
+            spos = epos>spos ? epos : spos + 1;
+        }
+    }
+};
+
 // for each string, return substring(s) which match specified pattern
 int NVStrings::findall_record( const char* pattern, std::vector<NVStrings*>& results )
 {
@@ -251,7 +320,8 @@ int NVStrings::findall_record( const char* pattern, std::vector<NVStrings*>& res
     dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
     // allocate regex working memory if necessary
-    if( prog->inst_counts() > MAX_STACK_INSTS )
+    int regex_insts = prog->inst_counts();
+    if( regex_insts > MAX_STACK_INSTS )
     {
         if( !prog->alloc_relists(count) )
         {
@@ -270,30 +340,15 @@ int NVStrings::findall_record( const char* pattern, std::vector<NVStrings*>& res
     int* d_sizes = sizes.data().get();
     rmm::device_vector<int> counts(count,0);
     int* d_counts = counts.data().get();
-    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-        [prog, d_strings, d_counts, d_sizes] __device__(unsigned int idx){
-            custring_view* dstr = d_strings[idx];
-            if( !dstr )
-                return;
-            unsigned int tsize = 0;;
-            int fnd = 0, end = (int)dstr->chars_count();
-            int spos = 0;
-            while(spos<=end)
-            {
-                int epos = end;
-                int result = prog->find(idx,dstr,spos,epos);
-                if(result<=0)
-                    break;
-                unsigned int bytes = (dstr->byte_offset_for(epos)-dstr->byte_offset_for(spos));
-                unsigned int nchars = (epos-spos);
-                unsigned int size = custring_view::alloc_size(bytes,nchars);
-                tsize += ALIGN_SIZE(size);
-                ++fnd;
-                spos = epos>spos ? epos : spos + 1;
-            }
-            d_sizes[idx] = tsize;
-            d_counts[idx] = fnd;
-        });
+    if( (regex_insts > MAX_STACK_INSTS) || (regex_insts <= 10) )
+        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+            findall_record_sizer_fn<RX_STACK_SMALL>{prog, d_strings, d_counts, d_sizes});
+    else if( regex_insts <= 100 )
+        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+            findall_record_sizer_fn<RX_STACK_MEDIUM>{prog, d_strings, d_counts, d_sizes});
+    else
+        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+            findall_record_sizer_fn<RX_STACK_LARGE>{prog, d_strings, d_counts, d_sizes});
     cudaDeviceSynchronize();
     //
     // create rows of buffers
@@ -319,32 +374,89 @@ int NVStrings::findall_record( const char* pattern, std::vector<NVStrings*>& res
     custring_view_array* d_rows = rows.data().get();
     rmm::device_vector<char*> buffers(hbuffers); // copies hbuffers to device
     char** d_buffers = buffers.data().get();
-    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-        [prog, d_strings, d_counts, d_buffers, d_sizes, d_rows] __device__(unsigned int idx){
-            custring_view* dstr = d_strings[idx];
-            if( !dstr )
-                return;
-            int dcount = d_counts[idx];
-            if( dcount < 1 )
-                return;
-            char* buffer = (char*)d_buffers[idx];
-            custring_view_array drow = d_rows[idx];
-            int spos = 0, nchars = (int)dstr->chars_count();
-            for( int i=0; i < dcount; ++i )
-            {
-                int epos = nchars;
-                prog->find(idx,dstr,spos,epos);
-                custring_view* str = dstr->substr((unsigned)spos,(unsigned)(epos-spos),1,buffer);
-                drow[i] = str;
-                buffer += ALIGN_SIZE(str->alloc_size());
-                spos = epos>spos ? epos : spos + 1;
-            }
-        });
+    if( (regex_insts > MAX_STACK_INSTS) || (regex_insts <= 10) )
+        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+            findall_record_fn<RX_STACK_SMALL>{prog, d_strings, d_counts, d_buffers, d_sizes, d_rows});
+    else if( regex_insts <= 100 )
+        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+            findall_record_fn<RX_STACK_MEDIUM>{prog, d_strings, d_counts, d_buffers, d_sizes, d_rows});
+    else
+        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+            findall_record_fn<RX_STACK_LARGE>{prog, d_strings, d_counts, d_buffers, d_sizes, d_rows});
     //
     printCudaError(cudaDeviceSynchronize(),"nvs-findall_record");
     dreprog::destroy(prog);
     return (int)results.size();
 }
+
+template<size_t stack_size>
+struct findall_sizer_fn
+{
+    dreprog* prog;
+    custring_view_array d_strings;
+    int* d_counts;
+    __device__ void operator()(unsigned int idx)
+    {
+        custring_view* dstr = d_strings[idx];
+        if( !dstr )
+            return;
+        u_char data1[stack_size], data2[stack_size];
+        prog->set_stack_mem(data1,data2);
+        int fnd = 0, nchars = (int)dstr->chars_count();
+        int begin = 0;
+        while(begin<=nchars)
+        {
+            int end = nchars;
+            int result = prog->find(idx,dstr,begin,end);
+            if(result<=0)
+                break;
+            ++fnd;
+            begin = end>begin ? end : begin + 1;
+        }
+        d_counts[idx] = fnd;
+    }
+};
+
+template<size_t stack_size>
+struct findall_fn
+{
+    dreprog* prog;
+    custring_view_array d_strings;
+    int* d_counts;
+    int col;
+    thrust::pair<const char*,size_t>* d_indexes;
+    __device__ void operator()(unsigned int idx)
+    {
+        custring_view* dstr = d_strings[idx];
+        d_indexes[idx].first = nullptr;   // initialize to
+        d_indexes[idx].second = 0;        // null string
+        if( !dstr || (col >= d_counts[idx]) )
+            return;
+        u_char data1[stack_size], data2[stack_size];
+        prog->set_stack_mem(data1,data2);
+        int spos = 0, nchars = (int)dstr->chars_count();
+        int epos = nchars;
+        prog->find(idx,dstr,spos,epos);
+        for( int c=0; c < col; ++c )
+        {
+            spos = epos>spos ? epos : spos + 1;
+            epos = nchars;
+            prog->find(idx,dstr,spos,epos);
+        }
+        // this will be the string for this column
+        if( spos < epos )
+        {
+            spos = dstr->byte_offset_for(spos); // convert char pos
+            epos = dstr->byte_offset_for(epos); // to byte offset
+            d_indexes[idx].first = dstr->data() + spos;
+            d_indexes[idx].second = (epos-spos);
+        }
+        else
+        {   // create empty string instead of a null one
+            d_indexes[idx].first = dstr->data();
+        }
+    }
+};
 
 // same as findall but strings are returned organized in column-major
 int NVStrings::findall( const char* pattern, std::vector<NVStrings*>& results )
@@ -360,7 +472,8 @@ int NVStrings::findall( const char* pattern, std::vector<NVStrings*>& results )
     dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
     // allocate regex working memory if necessary
-    if( prog->inst_counts() > MAX_STACK_INSTS )
+    int regex_insts = prog->inst_counts();
+    if( regex_insts > MAX_STACK_INSTS )
     {
         if( !prog->alloc_relists(count) )
         {
@@ -377,24 +490,15 @@ int NVStrings::findall( const char* pattern, std::vector<NVStrings*>& results )
     custring_view_array d_strings = pImpl->getStringsPtr();
     rmm::device_vector<int> counts(count,0);
     int* d_counts = counts.data().get();
-    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-        [prog, d_strings, d_counts] __device__(unsigned int idx){
-            custring_view* dstr = d_strings[idx];
-            if( !dstr )
-                return;
-            int fnd = 0, nchars = (int)dstr->chars_count();
-            int begin = 0;
-            while(begin<=nchars)
-            {
-                int end = nchars;
-                int result = prog->find(idx,dstr,begin,end);
-                if(result<=0)
-                    break;
-                ++fnd;
-                begin = end>begin ? end : begin + 1;
-            }
-            d_counts[idx] = fnd;
-        });
+    if( (regex_insts > MAX_STACK_INSTS) || (regex_insts <= 10) )
+        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+            findall_sizer_fn<RX_STACK_SMALL>{prog, d_strings, d_counts});
+    else if( regex_insts <= 100 )
+        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+            findall_sizer_fn<RX_STACK_MEDIUM>{prog, d_strings, d_counts});
+    else
+        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+            findall_sizer_fn<RX_STACK_LARGE>{prog, d_strings, d_counts});
     int columns = *thrust::max_element(execpol->on(0), counts.begin(), counts.end() );
     // boundary case: if no columns, return one null column (issue #119)
     if( columns==0 )
@@ -406,43 +510,15 @@ int NVStrings::findall( const char* pattern, std::vector<NVStrings*>& results )
         // build index for each string -- collect pointers and lengths
         rmm::device_vector< thrust::pair<const char*,size_t> > indexes(count);
         thrust::pair<const char*,size_t>* d_indexes = indexes.data().get();
-        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-            [prog, d_strings, d_counts, col, d_indexes] __device__(unsigned int idx){
-                custring_view* dstr = d_strings[idx];
-                d_indexes[idx].first = nullptr;   // initialize to
-                d_indexes[idx].second = 0;        // null string
-                if( !dstr || (col >= d_counts[idx]) )
-                    return;
-                int spos = 0, nchars = (int)dstr->chars_count();
-                int epos = nchars;
-                prog->find(idx,dstr,spos,epos);
-                for( int c=0; c < col; ++c )
-                {
-                    spos = epos>spos ? epos : spos + 1;
-                    epos = nchars;
-                    prog->find(idx,dstr,spos,epos);
-                }
-                // this will be the string for this column
-                if( spos < epos )
-                {
-                    spos = dstr->byte_offset_for(spos); // convert char pos
-                    epos = dstr->byte_offset_for(epos); // to byte offset
-                    d_indexes[idx].first = dstr->data() + spos;
-                    d_indexes[idx].second = (epos-spos);
-                }
-                else
-                {   // create empty string instead of a null one
-                    d_indexes[idx].first = dstr->data();
-                }
-
-            });
-        //cudaError_t err = cudaDeviceSynchronize();
-        //if( err != cudaSuccess )
-        //{
-        //    fprintf(stderr,"nvs-findall(%s): col=%d\n",pattern,col);
-        //    printCudaError(err);
-        //}
-        // build new instance from the index
+        if( (regex_insts > MAX_STACK_INSTS) || (regex_insts <= 10) )
+            thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+                findall_fn<RX_STACK_SMALL>{prog, d_strings, d_counts, col, d_indexes});
+        else if( regex_insts <= 100 )
+            thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+                findall_fn<RX_STACK_MEDIUM>{prog, d_strings, d_counts, col, d_indexes});
+        else
+            thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+                findall_fn<RX_STACK_LARGE>{prog, d_strings, d_counts, col, d_indexes});
         NVStrings* column = NVStrings::create_from_index((std::pair<const char*,size_t>*)d_indexes,count);
         results.push_back(column);
     }
@@ -489,6 +565,24 @@ int NVStrings::contains( const char* str, bool* results, bool todevice )
     return matches;
 }
 
+template<size_t stack_size>
+struct contains_fn
+{
+    dreprog* prog;
+    custring_view_array d_strings;
+    bool* d_rtn;
+    __device__ void operator()(unsigned int idx)
+    {
+        u_char data1[stack_size], data2[stack_size];
+        prog->set_stack_mem(data1,data2);
+        custring_view* dstr = d_strings[idx];
+        if( dstr )
+            d_rtn[idx] = prog->contains(idx,dstr)==1;
+        else
+            d_rtn[idx] = false;
+    }
+};
+
 // regex version of contains() above
 int NVStrings::contains_re( const char* pattern, bool* results, bool todevice )
 {
@@ -504,7 +598,8 @@ int NVStrings::contains_re( const char* pattern, bool* results, bool todevice )
     dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
     // allocate regex working memory if necessary
-    if( prog->inst_counts() > MAX_STACK_INSTS )
+    int regex_insts = prog->inst_counts();
+    if( regex_insts > MAX_STACK_INSTS )
     {
         if( !prog->alloc_relists(count) )
         {
@@ -522,14 +617,15 @@ int NVStrings::contains_re( const char* pattern, bool* results, bool todevice )
         RMM_ALLOC(&d_rtn,count*sizeof(bool),0);
 
     custring_view_array d_strings = pImpl->getStringsPtr();
-    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-        [d_strings, prog, d_rtn] __device__(unsigned int idx){
-            custring_view* dstr = d_strings[idx];
-            if( dstr )
-                d_rtn[idx] = prog->contains(idx,dstr)==1;
-            else
-                d_rtn[idx] = false;
-        });
+    if( (regex_insts > MAX_STACK_INSTS) || (regex_insts <= 10) )
+        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+            contains_fn<RX_STACK_SMALL>{prog, d_strings, d_rtn});
+    else if( regex_insts <= 100 )
+        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+            contains_fn<RX_STACK_MEDIUM>{prog, d_strings, d_rtn});
+    else
+        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+            contains_fn<RX_STACK_LARGE>{prog, d_strings, d_rtn});
     // count the number of successful finds
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
@@ -540,6 +636,24 @@ int NVStrings::contains_re( const char* pattern, bool* results, bool todevice )
     dreprog::destroy(prog);
     return matches;
 }
+
+template<size_t stack_size>
+struct match_fn
+{
+    dreprog* prog;
+    custring_view_array d_strings;
+    bool* d_rtn;
+    __device__ void operator()(unsigned int idx)
+    {
+        u_char data1[stack_size], data2[stack_size];
+        prog->set_stack_mem(data1,data2);
+        custring_view* dstr = d_strings[idx];
+        if( dstr )
+            d_rtn[idx] = prog->match(idx,dstr)==1;
+        else
+            d_rtn[idx] = false;
+    }
+};
 
 // match is like contains() except the pattern must match the beginning of the string only
 int NVStrings::match( const char* pattern, bool* results, bool bdevmem )
@@ -556,7 +670,8 @@ int NVStrings::match( const char* pattern, bool* results, bool bdevmem )
     dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
     // allocate regex working memory if necessary
-    if( prog->inst_counts() > MAX_STACK_INSTS )
+    int regex_insts = prog->inst_counts();
+    if( regex_insts > MAX_STACK_INSTS )
     {
         if( !prog->alloc_relists(count) )
         {
@@ -574,16 +689,18 @@ int NVStrings::match( const char* pattern, bool* results, bool bdevmem )
         RMM_ALLOC(&d_rtn,count*sizeof(bool),0);
 
     custring_view_array d_strings = pImpl->getStringsPtr();
-    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-        [d_strings, prog, d_rtn] __device__(unsigned int idx){
-            custring_view* dstr = d_strings[idx];
-            if( dstr )
-                d_rtn[idx] = prog->match(idx,dstr)==1;
-            else
-                d_rtn[idx] = false;
-        });
+    if( (regex_insts > MAX_STACK_INSTS) || (regex_insts <= 10) )
+        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+            match_fn<RX_STACK_SMALL>{prog, d_strings, d_rtn});
+    else if( regex_insts <= 100 )
+        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+            match_fn<RX_STACK_MEDIUM>{prog, d_strings, d_rtn});
+    else
+        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+            match_fn<RX_STACK_LARGE>{prog, d_strings, d_rtn});
+
     // count the number of successful finds
-    int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
+        int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !bdevmem )
     {   // copy result back to host
         cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
@@ -633,6 +750,37 @@ int NVStrings::match_strings( NVStrings& strs, bool* results, bool bdevmem )
     return matches;
 }
 
+template<size_t stack_size>
+struct count_fn
+{
+    dreprog* prog;
+    custring_view_array d_strings;
+    int* d_rtn;
+    __device__ void operator()(unsigned int idx)
+    {
+        u_char data1[stack_size], data2[stack_size];
+        prog->set_stack_mem(data1,data2);
+        custring_view* dstr = d_strings[idx];
+        int fnd = -1;
+        if( dstr )
+        {
+            fnd = 0;
+            int nchars = (int)dstr->chars_count();
+            int begin = 0;
+            while(begin<=nchars)
+            {
+                int end = nchars;
+                int result = prog->find(idx,dstr,begin,end);
+                if(result<=0)
+                    break;
+                ++fnd;
+                begin = end>begin ? end : begin + 1;
+            }
+        }
+        d_rtn[idx] = fnd;
+    }
+};
+
 // counts number of times the regex pattern matches a string within each string
 int NVStrings::count_re( const char* pattern, int* results, bool todevice )
 {
@@ -648,7 +796,8 @@ int NVStrings::count_re( const char* pattern, int* results, bool todevice )
     dreprog* prog = dreprog::create_from(ptn32,get_unicode_flags());
     delete ptn32;
     // allocate regex working memory if necessary
-    if( prog->inst_counts() > MAX_STACK_INSTS )
+    int regex_insts = prog->inst_counts();
+    if( regex_insts > MAX_STACK_INSTS )
     {
         if( !prog->alloc_relists(count) )
         {
@@ -666,27 +815,15 @@ int NVStrings::count_re( const char* pattern, int* results, bool todevice )
         RMM_ALLOC(&d_rtn,count*sizeof(int),0);
 
     custring_view_array d_strings = pImpl->getStringsPtr();
-    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-        [d_strings, prog, d_rtn] __device__(unsigned int idx){
-            custring_view* dstr = d_strings[idx];
-            int fnd = -1;
-            if( dstr )
-            {
-                fnd = 0;
-                int nchars = (int)dstr->chars_count();
-                int begin = 0;
-                while(begin<=nchars)
-                {
-                    int end = nchars;
-                    int result = prog->find(idx,dstr,begin,end);
-                    if(result<=0)
-                        break;
-                    ++fnd;
-                    begin = end>begin ? end : begin + 1;
-                }
-            }
-            d_rtn[idx] = fnd;
-        });
+    if( (regex_insts > MAX_STACK_INSTS) || (regex_insts <= 10) )
+        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+            count_fn<RX_STACK_SMALL>{prog, d_strings, d_rtn});
+    else if( regex_insts <= 100 )
+        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+            count_fn<RX_STACK_MEDIUM>{prog, d_strings, d_rtn});
+    else
+        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+            count_fn<RX_STACK_LARGE>{prog, d_strings, d_rtn});
     // count the number of successful finds
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
