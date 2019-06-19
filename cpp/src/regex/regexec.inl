@@ -21,12 +21,6 @@
 #include "../unicode/is_flags.h"
 #include "../util.h"
 
-// 10125 = 1000 instructions
-// Formula is from data_size_for calculaton below
-// bytes = (8+2)*x + (x/8) = 10.125x ≈ 10x
-#define MAX_STACK_DATA_BYTES 10128
-// value must be divisible by 8 for addresses to be aligned
-
 //
 struct Relist
 {
@@ -159,6 +153,11 @@ __device__ inline bool dreclass::is_match(char32_t ch)
     return false;
 }
 
+__device__ inline void dreprog::set_stack_mem(u_char* s1, u_char* s2)
+{
+    stack_mem1 = s1;
+    stack_mem2 = s2;
+}
 
 __host__ __device__ inline Reinst* dreprog::get_inst(int idx)
 {
@@ -485,14 +484,9 @@ __device__ inline int dreprog::call_regexec( unsigned idx, custring_view* dstr, 
         Relist relist1, relist2;
         jnk.list1 = &relist1;
         jnk.list2 = &relist2;
-        // using stack memory is most efficient but we want to keep the size to a minimum
-        // so we have a small, medium, and large cases handled here
-        int data_size = Relist::data_size_for(insts_count);
-        if( data_size < 96 )
-            return call_regexec_small(dstr,jnk,begin,end,groupid);
-        if( data_size < 1000 )
-            return call_regexec_medium(dstr,jnk,begin,end,groupid);
-        return call_regexec_large(dstr,jnk,begin,end,groupid);
+        jnk.list1->set_data((short)insts_count,stack_mem1);
+        jnk.list2->set_data((short)insts_count,stack_mem2);
+        return regexec(dstr,jnk,begin,end,groupid);
     }
 
     int relsz = Relist::alloc_size(insts_count);
@@ -502,29 +496,5 @@ __device__ inline int dreprog::call_regexec( unsigned idx, custring_view* dstr, 
     jnk.list2 = (Relist*)(drel + relsz); // second one
     jnk.list1->set_data((short)insts_count); // essentially this is
     jnk.list2->set_data((short)insts_count); // substitute ctor call
-    return regexec(dstr,jnk,begin,end,groupid);
-}
-
-__device__ inline int dreprog::call_regexec_small( custring_view* dstr, Reljunk& jnk, int& begin, int& end, int groupid )
-{
-    u_char data1[96], data2[96];  // must be divisible by 8
-    jnk.list1->set_data((short)insts_count,data1);
-    jnk.list2->set_data((short)insts_count,data2);
-    return regexec(dstr,jnk,begin,end,groupid);
-}
-
-__device__ inline int dreprog::call_regexec_medium( custring_view* dstr, Reljunk& jnk, int& begin, int& end, int groupid )
-{
-    u_char data1[1000], data2[1000];  // must be divisible by 8
-    jnk.list1->set_data((short)insts_count,data1);
-    jnk.list2->set_data((short)insts_count,data2);
-    return regexec(dstr,jnk,begin,end,groupid);
-}
-
-__device__ inline int dreprog::call_regexec_large( custring_view* dstr, Reljunk& jnk, int& begin, int& end, int groupid )
-{
-    u_char data1[MAX_STACK_DATA_BYTES], data2[MAX_STACK_DATA_BYTES];  // must be divisible by 8
-    jnk.list1->set_data((short)insts_count,data1);
-    jnk.list2->set_data((short)insts_count,data2);
     return regexec(dstr,jnk,begin,end,groupid);
 }

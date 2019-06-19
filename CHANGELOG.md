@@ -21,7 +21,8 @@
 - PR #306 Set main label always for libnvstrings
 - PR #307 Update conda dependencies
 - PR #326 Update python doc version
-- PR #335 The to_host logic for null strings should not modify input array
+- PR #335 to_host no longer overwrites input pointers for null strings
+- PR #334 Regex stack-size logic moved to host code
 
 
 # cuStrings/nvStrings 0.7.0 (10 May 2019)
