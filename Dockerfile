@@ -11,8 +11,6 @@ ADD thirdparty /nvstrings/thirdparty
 WORKDIR /nvstrings/cpp
 
 ENV CONDA_ENV=cudf
-ENV PYNI_PATH=/conda/envs/${CONDA_ENV}
-ENV PYTHON_VERSION=3.7
 
 RUN locale-gen en_US.UTF-8  
 ENV LANG en_US.UTF-8  
@@ -22,6 +20,7 @@ ENV LC_ALL en_US.UTF-8
 # Remove the cudf installed nvstrings
 RUN source activate ${CONDA_ENV} && \
     conda remove nvstrings && \
+    conda remove libnvstrings && \
     pip install cmake_setuptools
 
 # Build
