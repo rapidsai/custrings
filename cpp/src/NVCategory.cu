@@ -363,12 +363,12 @@ NVCategory* NVCategory::create_from_strings(std::vector<NVStrings*>& strs)
 }
 
 // bitmask is in arrow format
-NVCategory* NVCategory::create_from_offsets(const char* strs, unsigned int count, const int* offsets, const unsigned char* nullbitmask, int nulls)
+NVCategory* NVCategory::create_from_offsets(const char* strs, unsigned int count, const int* offsets, const unsigned char* nullbitmask, int nulls, bool bdevmem)
 {
     NVCategory* rtn = new NVCategory;
     if( count==0 )
         return rtn;
-    NVStrings* dstrs = NVStrings::create_from_offsets(strs,count,offsets,nullbitmask,nulls);
+    NVStrings* dstrs = NVStrings::create_from_offsets(strs,count,offsets,nullbitmask,nulls,bdevmem);
     std::pair<const char*,size_t>* indexes = nullptr;
     RMM_ALLOC(&indexes, count * sizeof(std::pair<const char*,size_t>),0);
     dstrs->create_index(indexes); // try using the custring one; may be more efficient

@@ -109,10 +109,11 @@ public:
      *                        The bits are organized as specified in the Arrow format. If no nulls, this parameter can be null.
      *                        The size of this byte array should be at least (count+7)/8 bytes.
      * @param nulls The number of nulls identified by the \p nullbitmask.
+     * @param devmem Set to true (default) if pointers are to device memory.
      *
      * @return Instance with the strings copied into device memory.
      */
-    static NVStrings* create_from_offsets(const char* strs, int count, const int* offsets, const unsigned char* nullbitmask=0, int nulls=0);
+    static NVStrings* create_from_offsets(const char* strs, int count, const int* offsets, const unsigned char* nullbitmask=0, int nulls=0, bool devmem=true);
     /**
      * @brief Create an instance from other NVStrings instances.
      *

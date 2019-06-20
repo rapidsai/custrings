@@ -66,5 +66,6 @@ unsigned short* get_charcases();
 int NVStrings_init_from_strings(NVStringsImpl* pImpl, const char** strs, unsigned int count );
 int NVStrings_init_from_indexes( NVStringsImpl* pImpl, std::pair<const char*,size_t>* indexes, unsigned int count, bool bdevmem, NVStrings::sorttype stype );
 int NVStrings_init_from_offsets( NVStringsImpl* pImpl, const char* strs, int count, const int* offsets, const unsigned char* bitmask, int nulls );
+int NVStrings_init_from_device_offsets( NVStringsImpl* pImpl, const char* strs, int count, const int* offsets, const unsigned char* bitmask, int nulls );
 int NVStrings_copy_strings( NVStringsImpl* pImpl, std::vector<NVStrings*>& strslist );
 int NVStrings_fixup_pointers( NVStringsImpl* pImpl, char* baseaddr );

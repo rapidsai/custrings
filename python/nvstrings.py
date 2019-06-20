@@ -100,7 +100,7 @@ def from_csv(csv, column, lines=0, flags=0):
     return rtn
 
 
-def from_offsets(sbuf, obuf, scount, nbuf=None, ncount=0):
+def from_offsets(sbuf, obuf, scount, nbuf=None, ncount=0, bdevmem=False):
     """
     Create nvstrings object from byte-array of characters encoded in UTF-8.
 
@@ -120,6 +120,8 @@ def from_offsets(sbuf, obuf, scount, nbuf=None, ncount=0):
         null by this bitmask.
     ncount : int, optional
         Optional number of null strings (the default is 0).
+    bdevmem : boolean
+        Default (False) interprets memory pointers as CPU memory.
 
     Examples
     --------
@@ -140,7 +142,8 @@ def from_offsets(sbuf, obuf, scount, nbuf=None, ncount=0):
     ['a', 'p', 'p', 'l', 'e']
 
     """
-    rtn = pyniNVStrings.n_createFromOffsets(sbuf, obuf, scount, nbuf, ncount)
+    rtn = pyniNVStrings.n_createFromOffsets(sbuf, obuf, scount, nbuf, ncount,
+                                            bdevmem)
     if rtn is not None:
         rtn = nvstrings(rtn)
     return rtn

@@ -114,10 +114,14 @@ NVStrings* NVStrings::create_from_index(std::pair<const char*,size_t>* strs, uns
     return rtn;
 }
 
-NVStrings* NVStrings::create_from_offsets(const char* strs, int count, const int* offsets, const unsigned char* nullbitmask, int nulls)
+NVStrings* NVStrings::create_from_offsets(const char* strs, int count, const int* offsets, const unsigned char* nullbitmask, int nulls, bool bdevmem)
 {
     NVStrings* rtn = new NVStrings(count);
-    if( count )
+    if( !count )
+        return rtn;
+    if( bdevmem )
+        NVStrings_init_from_device_offsets(rtn->pImpl,strs,count,offsets,nullbitmask,nulls);
+    else
         NVStrings_init_from_offsets(rtn->pImpl,strs,count,offsets,nullbitmask,nulls);
     return rtn;
 }
