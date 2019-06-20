@@ -27,7 +27,7 @@ RUN source activate ${CONDA_ENV} && \
 # Build
 RUN source activate ${CONDA_ENV} && \
     mkdir build && cd build && \
-    cmake .. && make -j install
+    cmake .. -DCMAKE_INSTALL_PREFIX=${CONDA_PREFIX} && make -j install
 
 # Install
 WORKDIR /nvstrings/python
