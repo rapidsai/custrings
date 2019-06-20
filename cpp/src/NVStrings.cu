@@ -336,10 +336,10 @@ int NVStrings::to_host(char** list, int start, int end)
         if( h_strings[idx]==0 )
             continue;
         size_t offset = h_offsets[idx];
-        size_t len = h_offsets[idx+1] - offset;
+        size_t length = h_offsets[idx+1] - offset;
         const char* p_data = h_buffer + offset;
         if( list[idx] )
-            memcpy(list[idx], p_data, len-1);
+            memcpy(list[idx], p_data, length-1);
     }
     delete h_buffer;
     return 0;
