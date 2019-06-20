@@ -287,10 +287,7 @@ int NVStrings::to_host(char** list, int start, int end)
     cudaError_t err = cudaSuccess;
     size_t msize = thrust::reduce(execpol->on(0),lens.begin(),lens.end());
     if( msize==0 )
-    {
-        memset(list,0,count*sizeof(char*));
         return 0; // every string is null so we are done
-    }
 
     // allocate device memory to copy strings temporarily
     char* d_buffer = nullptr;
@@ -318,14 +315,6 @@ int NVStrings::to_host(char** list, int start, int end)
                 *(optr + len) = 0;
             }
         });
-    //
-    //err = cudaDeviceSynchronize();
-    //if( err != cudaSuccess )
-    //{
-    //    printCudaError(err,"nvs-to_host: copying strings device to device");
-    //    RMM_FREE(d_buffer,0);
-    //    return (int)err;
-    //}
 
     // copy strings to host
     char* h_buffer = new char[msize];
@@ -345,19 +334,12 @@ int NVStrings::to_host(char** list, int start, int end)
     for( unsigned int idx=0; idx < count; ++idx )
     {
         if( h_strings[idx]==0 )
-        {
-            list[idx] = 0;
             continue;
-        }
         size_t offset = h_offsets[idx];
-        size_t len = h_offsets[idx+1] - offset;
+        size_t length = h_offsets[idx+1] - offset;
         const char* p_data = h_buffer + offset;
-        //char* h_data = new char[len]; // make memory on the host
-        //h_data[len-1] = 0; // null terminate for the caller
-        //memcpy(h_data, p_data, len-1);
-        //list[idx] = h_data;
         if( list[idx] )
-            memcpy(list[idx], p_data, len-1);
+            memcpy(list[idx], p_data, length-1);
     }
     delete h_buffer;
     return 0;

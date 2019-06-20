@@ -286,10 +286,8 @@ static PyObject* n_createHostStrings( PyObject* self, PyObject* args )
     for( unsigned int idx=0; idx < count; ++idx )
     {
         char* str = list[idx];
-        //printf("[%s]\n",str);
-        if( str )
+        if( lens[idx]>=0 )
         {
-            //printf("{%s}\n",str);
             PyList_SetItem(ret, idx, PyUnicode_FromString((const char*)str));
         }
         else
