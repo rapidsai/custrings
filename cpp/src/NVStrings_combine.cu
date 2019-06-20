@@ -150,6 +150,137 @@ NVStrings* NVStrings::cat( NVStrings* others, const char* separator, const char*
     return rtn;
 }
 
+//
+NVStrings* NVStrings::cat( std::vector<NVStrings*>& others, const char* separator, const char* narep )
+{
+    if( others.size()==0 )
+        return nullptr; // return a copy of ourselves?
+    unsigned int count = size();
+    for( auto itr=others.begin(); itr!=others.end(); itr++ )
+        if( (*itr)->size() != count )
+            throw std::invalid_argument("nvstrings::cat sizes do not match");
+
+    auto execpol = rmm::exec_policy(0);
+    custring_view* d_separator = nullptr;
+    if( separator )
+    {
+        unsigned int seplen = (unsigned int)strlen(separator);
+        unsigned int sep_size = custring_view::alloc_size(separator,seplen);
+        RMM_ALLOC(&d_separator,sep_size,0);
+        custring_view::create_from_host(d_separator,separator,seplen);
+    }
+    custring_view* d_narep = nullptr;
+    if( narep )
+    {
+        unsigned int narlen = (unsigned int)strlen(narep);
+        unsigned int nar_size = custring_view::alloc_size(narep,narlen);
+        RMM_ALLOC(&d_narep,nar_size,0);
+        custring_view::create_from_host(d_narep,narep,narlen);
+    }
+
+    custring_view_array d_strings = pImpl->getStringsPtr();
+    rmm::device_vector<custring_view_array> dothers;
+    for( auto itr=others.begin(); itr!=others.end(); itr++ )
+        dothers.push_back((*itr)->pImpl->getStringsPtr());
+    custring_view_array* d_others = dothers.data().get();
+    unsigned int others_count = (unsigned int)others.size();
+
+    // first compute the size of the output
+    rmm::device_vector<size_t> sizes(count,0);
+    size_t* d_sizes = sizes.data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_strings, d_others, others_count, d_separator, d_narep, d_sizes] __device__(unsigned int idx){
+            custring_view* dstr = d_strings[idx];
+            int nchars = 0;
+            int bytes = 0;
+            if( dstr )
+            {
+                nchars += dstr->chars_count();
+                bytes += dstr->size();
+            }
+            else if( d_narep )
+            {
+                nchars += d_narep->chars_count();
+                bytes += d_narep->size();
+            }
+
+            for( unsigned int jdx=0; jdx < others_count; ++jdx )
+            {
+                custring_view_array dcat2 = d_others[jdx];
+                dstr = dcat2[idx];
+                // separator
+                if( d_separator )
+                {
+                    nchars += d_separator->chars_count();
+                    bytes += d_separator->size();
+                }
+                if( dstr )
+                {
+                    nchars += dstr->chars_count();
+                    bytes += dstr->size();
+                }
+                else if( d_narep )
+                {
+                    nchars += d_narep->chars_count();
+                    bytes += d_narep->size();
+                }
+            }
+            int size = custring_view::alloc_size(bytes,nchars);
+            //printf("cat:%lu:size=%d\n",idx,size);
+            size = ALIGN_SIZE(size);
+            d_sizes[idx] = size;
+        });
+
+    // allocate the memory for the output
+    NVStrings* rtn = new NVStrings(count);
+    char* d_buffer = rtn->pImpl->createMemoryFor(d_sizes);
+    if( d_buffer==0 )
+    {
+        if( d_separator )
+            RMM_FREE(d_separator,0);
+        if( d_narep )
+            RMM_FREE(d_narep,0);
+        return rtn;
+    }
+    cudaMemset(d_buffer,0,rtn->pImpl->getMemorySize());
+    // compute the offset
+    rmm::device_vector<size_t> offsets(count,0);
+    thrust::exclusive_scan(execpol->on(0),sizes.begin(),sizes.end(),offsets.begin());
+    // do the thing
+    custring_view_array d_results = rtn->pImpl->getStringsPtr();
+    size_t* d_offsets = offsets.data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_strings, d_others, others_count, d_separator, d_narep, d_buffer, d_offsets, d_results] __device__(unsigned int idx){
+            char* buffer = d_buffer + d_offsets[idx];
+            custring_view* dstr = d_strings[idx];
+            custring_view* dout = custring_view::create_from(buffer,0,0); // init empty string
+            if( dstr )
+                dout->append(*dstr);
+            else if( d_narep )
+                dout->append(*d_narep);
+            for( unsigned int jdx=0; jdx < others_count; ++jdx )
+            {
+                custring_view_array dcat2 = d_others[jdx];
+                dstr = dcat2[idx];
+                if( d_separator )
+                    dout->append(*d_separator);
+                if( dstr )
+                    dout->append(*dstr);
+                else if( d_narep )
+                    dout->append(*d_narep);
+            }
+            //printf("cat:%lu:[]=%d\n",idx,dout->size());
+            d_results[idx] = dout;
+    });
+    //printCudaError(cudaDeviceSynchronize(),"nvs-cat: combining strings");
+
+    if( d_separator )
+        RMM_FREE(d_separator,0);
+    if( d_narep )
+        RMM_FREE(d_narep,0);
+    return rtn;
+}
+
 // this returns one giant string joining all the strings
 // in the list with the delimiter string between each one
 NVStrings* NVStrings::join( const char* delimiter, const char* narep )

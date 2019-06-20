@@ -881,11 +881,10 @@ class nvstrings:
 
         Parameters
         ----------
-        others : List of str
+        others : nvstrings or list of nvstrings
             Strings to be appended.
-            The number of strings must match size() of this instance.
-            This must be either a Python array of strings or another
-            nvstrings instance.
+            The number of strings in the arg(s) must match size() of
+            this instance.
         sep : str
             If specified, this separator will be appended to each string
             before appending the others.
