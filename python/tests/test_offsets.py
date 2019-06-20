@@ -5,6 +5,7 @@ import numpy as np
 import nvstrings
 
 from utils import assert_eq
+from librmm_cffi import librmm as rmm
 
 
 def test_from_offsets():
@@ -38,6 +39,22 @@ def test_from_offsets_ctypes_data():
     bitmask = np.array([5], dtype=np.int8)
     s = nvstrings.from_offsets(values.ctypes.data, offsets.ctypes.data, 3,
                                bitmask.ctypes.data, 1)
+    expected = ['apple', None, 'pear']
+    assert_eq(s, expected)
+
+
+def test_from_offsets_dev_data():
+    values = np.array([97, 112, 112, 108, 101, 112, 101, 97, 114],
+                      dtype=np.int8)
+    offsets = np.array([0, 5, 5, 9], dtype=np.int32)
+    bitmask = np.array([5], dtype=np.int8)
+    values = rmm.to_device(values)
+    offsets = rmm.to_device(offsets)
+    bitmask = rmm.to_device(bitmask)
+    s = nvstrings.from_offsets(values.device_ctypes_pointer.value,
+                               offsets.device_ctypes_pointer.value, 3,
+                               bitmask.device_ctypes_pointer.value, 1,
+                               True)
     expected = ['apple', None, 'pear']
     assert_eq(s, expected)
 

@@ -313,12 +313,11 @@ int NVStrings_init_from_indexes( NVStringsImpl* pImpl, std::pair<const char*,siz
     return (int)err;
 }
 
-// build strings from array of device pointers and sizes
+// build strings from pointer and array of offsets
 int NVStrings_init_from_offsets( NVStringsImpl* pImpl, const char* strs, int count, const int* offsets, const unsigned char* bitmask, int nulls )
 {
     if( count==nulls )
         return 0; // if all are nulls then we are done
-    setlocale(LC_NUMERIC, "");
     cudaError_t err = cudaSuccess;
     auto execpol = rmm::exec_policy(0);
 
@@ -382,7 +381,55 @@ int NVStrings_init_from_offsets( NVStringsImpl* pImpl, const char* strs, int cou
         });
     //
     pImpl->setMemoryBuffer(d_flatstrs,nbytes);
-    return (int)err;;
+    return (int)err;
+}
+
+// build strings from array of device pointers and sizes
+int NVStrings_init_from_device_offsets( NVStringsImpl* pImpl, const char* strs, int count, const int* offsets, const unsigned char* bitmask, int nulls )
+{
+    if( count==nulls )
+        return 0; // if all are nulls then we are done
+    auto execpol = rmm::exec_policy(0);
+
+    // first compute the size of each string
+    rmm::device_vector<size_t> sizes(count,0);
+    size_t* d_sizes = sizes.data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [strs, offsets, bitmask, d_sizes] __device__(unsigned int idx){
+            if( bitmask && ((bitmask[idx/8] & (1 << (idx % 8)))==0) ) // from arrow spec
+                return;
+            int offset = offsets[idx];
+            int len = offsets[idx+1] - offset;
+            const char* str = strs + offset;
+            int nchars = custring_view::chars_in_string(str,len);
+            int bytes = custring_view::alloc_size(len,nchars);
+            d_sizes[idx] = ALIGN_SIZE(bytes);
+        });
+
+    // copy whole thing to device memory
+    char* d_buffer = pImpl->createMemoryFor(d_sizes);
+    if( !d_buffer )
+        return 0; // nothing to do
+
+    // copy offsets and lengths to device memory
+    rmm::device_vector<size_t> out_offsets(count,0);
+    thrust::exclusive_scan(execpol->on(0),sizes.begin(),sizes.end(),out_offsets.begin());
+    size_t* d_out_offsets = out_offsets.data().get();
+
+    // initialize custring objects in device memory
+    custring_view_array d_strings = pImpl->getStringsPtr();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [strs, offsets, bitmask, d_buffer, d_out_offsets, d_strings] __device__(unsigned int idx){
+            if( bitmask && ((bitmask[idx/8] & (1 << (idx % 8)))==0) )
+                return; // null string
+            int offset = offsets[idx];
+            int len = offsets[idx+1] - offset;
+            const char* in_str = strs + offset;
+            char* out_str = d_buffer + d_out_offsets[idx];
+            d_strings[idx] = custring_view::create_from(out_str,in_str,len);
+        });
+    //
+    return 0;
 }
 
 int NVStrings_copy_strings( NVStringsImpl* pImpl, std::vector<NVStrings*>& strslist )

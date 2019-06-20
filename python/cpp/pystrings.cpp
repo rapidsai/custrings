@@ -423,13 +423,17 @@ static PyObject* n_createFromOffsets( PyObject* self, PyObject* args )
         ncount = (int)PyLong_AsLong(pyncount);
     }
 
+    PyObject* pybmem = PyTuple_GetItem(args,5);
+    bool bdevmem = (bool)PyObject_IsTrue(pybmem);
+
     //printf(" ptrs=%p,%p,%p\n",sbuffer,obuffer,nbuffer);
     //printf(" scount=%d,ncount=%d\n",scount,ncount);
+    //printf(" bdevmem=%d\n",(int)bdevmem);
     // create strings object from these buffers
     NVStrings* rtn = nullptr;
     Py_BEGIN_ALLOW_THREADS
     rtn = NVStrings::create_from_offsets(sbuffer,scount,obuffer,
-                                         nbuffer,ncount);
+                                         nbuffer,ncount,bdevmem);
     Py_END_ALLOW_THREADS
 
     if( PyObject_CheckBuffer(pysbuf) )

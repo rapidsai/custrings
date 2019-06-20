@@ -175,12 +175,15 @@ static PyObject* n_createFromOffsets( PyObject* self, PyObject* args )
         ncount = (unsigned int)PyLong_AsLong(pyncount);
     }
 
+    PyObject* pybmem = PyTuple_GetItem(args,5);
+    bool bdevmem = (bool)PyObject_IsTrue(pybmem);
+
     //printf(" ptrs=%p,%p,%p\n",sbuffer,obuffer,nbuffer);
     //printf(" scount=%d,ncount=%d\n",scount,ncount);
     // create strings object from these buffers
     NVCategory* rtn = nullptr;
     Py_BEGIN_ALLOW_THREADS
-    rtn = NVCategory::create_from_offsets(sbuffer,scount,obuffer,nbuffer,ncount);
+    rtn = NVCategory::create_from_offsets(sbuffer,scount,obuffer,nbuffer,ncount,bdevmem);
     Py_END_ALLOW_THREADS
 
     if( PyObject_CheckBuffer(pysbuf) )
