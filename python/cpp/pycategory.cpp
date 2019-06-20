@@ -22,7 +22,10 @@
 #include <stdexcept>
 #include <nvstrings/NVCategory.h>
 #include <nvstrings/NVStrings.h>
+#include <nvstrings/numeric_category.h>
+#include "numeric_category.h"
 
+const char* string_type_name = "custring";
 //
 //
 //
@@ -192,72 +195,121 @@ static PyObject* n_createFromOffsets( PyObject* self, PyObject* args )
     Py_RETURN_NONE;
 }
 
+//
+static PyObject* n_createCategoryFromNumbers( PyObject* self, PyObject* args )
+{
+    return ncat_createCategoryFromBuffer(self,args);
+}
+
+
 // called by destructor in python class
 static PyObject* n_destroyCategory( PyObject* self, PyObject* args )
 {
-    NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    //printf("destroy: self=%p,args=%p,ptr=%p\n",(void*)self,(void*)args,(void*)tptr);
+    base_category_type* tptr = (base_category_type*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    std::string tname = tptr->get_type_name();
+    if( tname.compare(string_type_name) )
+        return ncat_destroyCategory(self,args);
     Py_BEGIN_ALLOW_THREADS
-    NVCategory::destroy(tptr);
+    NVCategory::destroy(reinterpret_cast<NVCategory*>(tptr));
     Py_END_ALLOW_THREADS
     return PyLong_FromLong(0);
 }
 
 static PyObject* n_size( PyObject* self, PyObject* args )
 {
-    NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    size_t count = tptr->size();
+    base_category_type* tptr = (base_category_type*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    std::string tname = tptr->get_type_name();
+    if( tname.compare(string_type_name) )
+        return ncat_size(self,args);
+    NVCategory* cat = reinterpret_cast<NVCategory*>(tptr);
+    size_t count = cat->size();
     return PyLong_FromLong(count);
 }
 
 static PyObject* n_keys_size( PyObject* self, PyObject* args )
 {
-    NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    size_t count = tptr->keys_size();
+    base_category_type* tptr = (base_category_type*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    std::string tname = tptr->get_type_name();
+    if( tname.compare(string_type_name) )
+        return ncat_keys_size(self,args);
+    NVCategory* cat = reinterpret_cast<NVCategory*>(tptr);
+    size_t count = cat->keys_size();
     return PyLong_FromLong(count);
 }
 
 static PyObject* n_get_keys( PyObject* self, PyObject* args )
 {
-    NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    base_category_type* tptr = (base_category_type*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    std::string tname = tptr->get_type_name();
+    if( tname.compare(string_type_name) )
+        return ncat_get_keys(self,args);
+    NVCategory* cat = reinterpret_cast<NVCategory*>(tptr);
     NVStrings* strs = nullptr;
     Py_BEGIN_ALLOW_THREADS
-    strs = tptr->get_keys();
+    strs = cat->get_keys();
     Py_END_ALLOW_THREADS
     if( strs )
         return PyLong_FromVoidPtr((void*)strs);
     Py_RETURN_NONE;
 }
 
+static PyObject* n_keys_type( PyObject* self, PyObject* args )
+{
+    base_category_type* tptr = reinterpret_cast<base_category_type*>(PyLong_AsVoidPtr(PyTuple_GetItem(args,0)));
+    std::string type_name;
+    Py_BEGIN_ALLOW_THREADS
+    type_name = tptr->get_type_name();
+    Py_END_ALLOW_THREADS
+    return PyUnicode_FromString(type_name.c_str());
+}
+
 static PyObject* n_get_value_for_index( PyObject* self, PyObject* args )
 {
-    NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    base_category_type* tptr = (base_category_type*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    std::string tname = tptr->get_type_name();
+    if( tname.compare(string_type_name) )
+    {
+        PyErr_Format(PyExc_ValueError,"method not implemented for this category type (%s)", tname.c_str() );
+        Py_RETURN_NONE;
+    }
+    NVCategory* cat = reinterpret_cast<NVCategory*>(tptr);
     unsigned int index = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,1));
     int value = 0;
     Py_BEGIN_ALLOW_THREADS
-    value = tptr->get_value(index);
+    value = cat->get_value(index);
     Py_END_ALLOW_THREADS
     return PyLong_FromLong(value);
 }
 
 static PyObject* n_get_value_for_string( PyObject* self, PyObject* args )
 {
-    NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    base_category_type* tptr = (base_category_type*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    std::string tname = tptr->get_type_name();
+    if( tname.compare(string_type_name) )
+    {
+        PyErr_Format(PyExc_ValueError,"method not implemented for this category type (%s)", tname.c_str() );
+        Py_RETURN_NONE;
+    }
+    NVCategory* cat = reinterpret_cast<NVCategory*>(tptr);
     PyObject* argStr = PyTuple_GetItem(args,1);
     int rtn = -1;
     const char* str = 0;
     if( argStr != Py_None )
         str = PyUnicode_AsUTF8(argStr);
     Py_BEGIN_ALLOW_THREADS
-    rtn = tptr->get_value(str);
+    rtn = cat->get_value(str);
     Py_END_ALLOW_THREADS
     return PyLong_FromLong(rtn);
 }
 
 static PyObject* n_get_values( PyObject* self, PyObject* args )
 {
-    NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    unsigned int count = tptr->size();
+    base_category_type* tptr = (base_category_type*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    std::string tname = tptr->get_type_name();
+    if( tname.compare(string_type_name) )
+        return ncat_get_values(self,args);
+    NVCategory* cat = reinterpret_cast<NVCategory*>(tptr);
+    unsigned int count = cat->size();
     PyObject* ret = PyList_New(count);
     if( count==0 )
         return ret;
@@ -265,7 +317,7 @@ static PyObject* n_get_values( PyObject* self, PyObject* args )
     if( devptr )
     {
         Py_BEGIN_ALLOW_THREADS
-        tptr->get_values(devptr);
+        cat->get_values(devptr);
         Py_END_ALLOW_THREADS
         return PyLong_FromVoidPtr((void*)devptr);
     }
@@ -273,7 +325,7 @@ static PyObject* n_get_values( PyObject* self, PyObject* args )
     // copy to host option
     int* rtn = new int[count];
     Py_BEGIN_ALLOW_THREADS
-    tptr->get_values(rtn,false);
+    cat->get_values(rtn,false);
     Py_END_ALLOW_THREADS
     for(unsigned idx=0; idx < count; idx++)
         PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));
@@ -283,17 +335,25 @@ static PyObject* n_get_values( PyObject* self, PyObject* args )
 
 static PyObject* n_get_values_cpointer( PyObject* self, PyObject* args )
 {
-    NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    base_category_type* tptr = (base_category_type*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    std::string tname = tptr->get_type_name();
+    if( tname.compare(string_type_name) )
+        return ncat_values_cpointer(self,args);
+    NVCategory* cat = reinterpret_cast<NVCategory*>(tptr);
     const int * vptr = nullptr;
     Py_BEGIN_ALLOW_THREADS
-    vptr = tptr->values_cptr();
+    vptr = cat->values_cptr();
     Py_END_ALLOW_THREADS
     return PyLong_FromVoidPtr((void*)vptr);
 }
 
 static PyObject* n_get_indexes_for_key( PyObject* self, PyObject* args )
 {
-    NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    base_category_type* tptr = (base_category_type*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    std::string tname = tptr->get_type_name();
+    if( tname.compare(string_type_name) )
+        return ncat_get_indexes_for_key(self,args);
+    NVCategory* cat = reinterpret_cast<NVCategory*>(tptr);
     PyObject* argStr = PyTuple_GetItem(args,1);
     int* devptr = (int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,2));
     const char* str = 0;
@@ -303,7 +363,7 @@ static PyObject* n_get_indexes_for_key( PyObject* self, PyObject* args )
     {
         int count = 0;
         Py_BEGIN_ALLOW_THREADS
-        count = tptr->get_indexes_for(str,devptr);
+        count = cat->get_indexes_for(str,devptr);
         Py_END_ALLOW_THREADS
         if( count < 0 )
             PyErr_Format(PyExc_ValueError,"nvcategory: string not found in keys");
@@ -312,7 +372,7 @@ static PyObject* n_get_indexes_for_key( PyObject* self, PyObject* args )
     //
     int count = 0;
     Py_BEGIN_ALLOW_THREADS
-    count = tptr->get_indexes_for(str,0,false);
+    count = cat->get_indexes_for(str,0,false);
     Py_END_ALLOW_THREADS
     if( count < 0 )
     {
@@ -325,7 +385,7 @@ static PyObject* n_get_indexes_for_key( PyObject* self, PyObject* args )
     // copy to host option
     int* rtn = new int[count];
     Py_BEGIN_ALLOW_THREADS
-    tptr->get_indexes_for(str,rtn,false);
+    cat->get_indexes_for(str,rtn,false);
     Py_END_ALLOW_THREADS
     for(int idx=0; idx < count; idx++)
         PyList_SetItem(ret, idx, PyLong_FromLong((long)rtn[idx]));
@@ -335,7 +395,14 @@ static PyObject* n_get_indexes_for_key( PyObject* self, PyObject* args )
 
 static PyObject* n_add_strings( PyObject* self, PyObject* args )
 {
-    NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    base_category_type* tptr = (base_category_type*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    std::string tname = tptr->get_type_name();
+    if( tname.compare(string_type_name) )
+    {
+        PyErr_Format(PyExc_ValueError,"invalid category type (%s) for this method", tname.c_str() );
+        Py_RETURN_NONE;
+    }
+    NVCategory* cat = reinterpret_cast<NVCategory*>(tptr);
     PyObject* pystrs = PyTuple_GetItem(args,1);
     if( pystrs == Py_None )
     {
@@ -357,7 +424,7 @@ static PyObject* n_add_strings( PyObject* self, PyObject* args )
 
     NVCategory* rtn = nullptr;
     Py_BEGIN_ALLOW_THREADS
-    rtn = tptr->add_strings(*strs);
+    rtn = cat->add_strings(*strs);
     Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
@@ -366,7 +433,14 @@ static PyObject* n_add_strings( PyObject* self, PyObject* args )
 
 static PyObject* n_remove_strings( PyObject* self, PyObject* args )
 {
-    NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    base_category_type* tptr = (base_category_type*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    std::string tname = tptr->get_type_name();
+    if( tname.compare(string_type_name) )
+    {
+        PyErr_Format(PyExc_ValueError,"invalid category type (%s) for this method", tname.c_str() );
+        Py_RETURN_NONE;
+    }
+    NVCategory* cat = reinterpret_cast<NVCategory*>(tptr);
     PyObject* pystrs = PyTuple_GetItem(args,1);
     if( pystrs == Py_None )
     {
@@ -388,7 +462,7 @@ static PyObject* n_remove_strings( PyObject* self, PyObject* args )
 
     NVCategory* rtn = nullptr;
     Py_BEGIN_ALLOW_THREADS
-    rtn = tptr->remove_strings(*strs);
+    rtn = cat->remove_strings(*strs);
     Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
@@ -397,19 +471,45 @@ static PyObject* n_remove_strings( PyObject* self, PyObject* args )
 
 static PyObject* n_to_strings( PyObject* self, PyObject* args )
 {
-    NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    base_category_type* tptr = (base_category_type*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    std::string tname = tptr->get_type_name();
+    if( tname.compare(string_type_name) )
+    {
+        PyErr_Format(PyExc_ValueError,"invalid category type (%s) for this method -- use to_numbers() instead", tname.c_str() );
+        Py_RETURN_NONE;
+    }
+    NVCategory* cat = reinterpret_cast<NVCategory*>(tptr);
     NVStrings* strs = nullptr;
     Py_BEGIN_ALLOW_THREADS
-    strs = tptr->to_strings();
+    strs = cat->to_strings();
     Py_END_ALLOW_THREADS
     if( strs )
         return PyLong_FromVoidPtr((void*)strs);
     Py_RETURN_NONE;
 }
 
+static PyObject* n_to_numbers( PyObject* self, PyObject* args )
+{
+    base_category_type* tptr = (base_category_type*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    std::string tname = tptr->get_type_name();
+    if( tname.compare(string_type_name)==0 )
+    {
+        PyErr_Format(PyExc_ValueError,"invalid category type for this method -- use to_strings() instead");
+        Py_RETURN_NONE;
+    }
+    return ncat_to_type(self,args);
+}
+
 static PyObject* n_gather_strings( PyObject* self, PyObject* args )
 {
-    NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    base_category_type* tptr = (base_category_type*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    std::string tname = tptr->get_type_name();
+    if( tname.compare(string_type_name) )
+    {
+        PyErr_Format(PyExc_ValueError,"invalid category type (%s) for this method -- use gather_numbers() instead", tname.c_str() );
+        Py_RETURN_NONE;
+    }
+    NVCategory* cat = reinterpret_cast<NVCategory*>(tptr);
     PyObject* pyidxs = PyTuple_GetItem(args,1);
     std::string cname = pyidxs->ob_type->tp_name;
     NVStrings* rtn = 0;
@@ -426,7 +526,7 @@ static PyObject* n_gather_strings( PyObject* self, PyObject* args )
             }
             //
             Py_BEGIN_ALLOW_THREADS
-            rtn = tptr->gather_strings(indexes,count,false);
+            rtn = cat->gather_strings(indexes,count,false);
             Py_END_ALLOW_THREADS
             delete indexes;
         }
@@ -436,22 +536,38 @@ static PyObject* n_gather_strings( PyObject* self, PyObject* args )
             int* indexes = (int*)PyLong_AsVoidPtr(pyidxs);
             unsigned int count = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,2));
             Py_BEGIN_ALLOW_THREADS
-            rtn = tptr->gather_strings(indexes,count);
+            rtn = cat->gather_strings(indexes,count);
             Py_END_ALLOW_THREADS
         }
     }
     catch(const std::out_of_range& eor)
     {
-        PyErr_Format(PyExc_IndexError,"one or more indexes out of range [0:%u)",tptr->keys_size());
+        PyErr_Format(PyExc_IndexError,"one or more indexes out of range [0:%u)",cat->keys_size());
     }
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
 }
 
+static PyObject* n_gather_numbers( PyObject* self, PyObject* args )
+{
+    base_category_type* tptr = (base_category_type*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    std::string tname = tptr->get_type_name();
+    if( tname.compare(string_type_name)==0 )
+    {
+        PyErr_Format(PyExc_ValueError,"invalid category type for this method -- use gather_strings() instead");
+        Py_RETURN_NONE;
+    }
+    return ncat_gather_type(self,args);
+}
+
 static PyObject* n_gather( PyObject* self, PyObject* args )
 {
-    NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    base_category_type* tptr = (base_category_type*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    std::string tname = tptr->get_type_name();
+    if( tname.compare(string_type_name) )
+        return ncat_gather(self,args);
+    NVCategory* cat = reinterpret_cast<NVCategory*>(tptr);
     PyObject* pyidxs = PyTuple_GetItem(args,1);
     std::string cname = pyidxs->ob_type->tp_name;
     NVCategory* rtn = 0;
@@ -468,7 +584,7 @@ static PyObject* n_gather( PyObject* self, PyObject* args )
             }
             //
             Py_BEGIN_ALLOW_THREADS
-            rtn = tptr->gather(indexes,count,false);
+            rtn = cat->gather(indexes,count,false);
             Py_END_ALLOW_THREADS
             delete indexes;
         }
@@ -478,13 +594,13 @@ static PyObject* n_gather( PyObject* self, PyObject* args )
             int* indexes = (int*)PyLong_AsVoidPtr(pyidxs);
             unsigned int count = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,2));
             Py_BEGIN_ALLOW_THREADS
-            rtn = tptr->gather(indexes,count);
+            rtn = cat->gather(indexes,count);
             Py_END_ALLOW_THREADS
         }
     }
     catch(const std::out_of_range& eor)
     {
-        PyErr_Format(PyExc_IndexError,"one or more indexes out of range [0:%u)",tptr->keys_size());
+        PyErr_Format(PyExc_IndexError,"one or more indexes out of range [0:%u)",cat->keys_size());
     }
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
@@ -493,7 +609,11 @@ static PyObject* n_gather( PyObject* self, PyObject* args )
 
 static PyObject* n_gather_and_remap( PyObject* self, PyObject* args )
 {
-    NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    base_category_type* tptr = (base_category_type*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    std::string tname = tptr->get_type_name();
+    if( tname.compare(string_type_name) )
+        return ncat_gather_and_remap(self,args);
+    NVCategory* cat = reinterpret_cast<NVCategory*>(tptr);
     PyObject* pyidxs = PyTuple_GetItem(args,1);
     std::string cname = pyidxs->ob_type->tp_name;
     NVCategory* rtn = 0;
@@ -510,7 +630,7 @@ static PyObject* n_gather_and_remap( PyObject* self, PyObject* args )
             }
             //
             Py_BEGIN_ALLOW_THREADS
-            rtn = tptr->gather_and_remap(indexes,count,false);
+            rtn = cat->gather_and_remap(indexes,count,false);
             Py_END_ALLOW_THREADS
             delete indexes;
         }
@@ -520,13 +640,13 @@ static PyObject* n_gather_and_remap( PyObject* self, PyObject* args )
             int* indexes = (int*)PyLong_AsVoidPtr(pyidxs);
             unsigned int count = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,2));
             Py_BEGIN_ALLOW_THREADS
-            rtn = tptr->gather_and_remap(indexes,count);
+            rtn = cat->gather_and_remap(indexes,count);
             Py_END_ALLOW_THREADS
         }
     }
     catch(const std::out_of_range& eor)
     {
-        PyErr_Format(PyExc_IndexError,"one or more indexes out of range [0:%u)",tptr->keys_size());
+        PyErr_Format(PyExc_IndexError,"one or more indexes out of range [0:%u)",cat->keys_size());
     }
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
@@ -535,20 +655,27 @@ static PyObject* n_gather_and_remap( PyObject* self, PyObject* args )
 
 static PyObject* n_merge_category( PyObject* self, PyObject* args )
 {
-    NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    PyObject* pystrs = PyTuple_GetItem(args,1);
-    if( pystrs == Py_None )
+    base_category_type* tptr = (base_category_type*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    std::string tname = tptr->get_type_name();
+    if( tname.compare(string_type_name) )
+    {
+        PyErr_Format(PyExc_ValueError,"method not implemented for this category type (%s)", tname.c_str() );
+        Py_RETURN_NONE;
+    }
+    NVCategory* cat = reinterpret_cast<NVCategory*>(tptr);
+    PyObject* pycat2 = PyTuple_GetItem(args,1);
+    if( pycat2 == Py_None )
     {
         PyErr_Format(PyExc_ValueError,"nvcategory.merge_category: parameter required");
         Py_RETURN_NONE;
     }
-    std::string cname = pystrs->ob_type->tp_name;
+    std::string cname = pycat2->ob_type->tp_name;
     if( cname.compare("nvcategory")!=0 )
     {
         PyErr_Format(PyExc_ValueError,"nvcategory.merge_category: argument must be nvcategory object");
         Py_RETURN_NONE;
     }
-    NVCategory* cat2 = (NVCategory*)PyLong_AsVoidPtr(PyObject_GetAttrString(pystrs,"m_cptr"));
+    NVCategory* cat2 = (NVCategory*)PyLong_AsVoidPtr(PyObject_GetAttrString(pycat2,"m_cptr"));
     if( cat2==0 )
     {
         PyErr_Format(PyExc_ValueError,"nvcategory.merge_category: invalid nvcategory object");
@@ -557,7 +684,7 @@ static PyObject* n_merge_category( PyObject* self, PyObject* args )
 
     NVCategory* rtn = nullptr;
     Py_BEGIN_ALLOW_THREADS
-    rtn = tptr->merge_category(*cat2);
+    rtn = cat->merge_category(*cat2);
     Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
@@ -566,20 +693,24 @@ static PyObject* n_merge_category( PyObject* self, PyObject* args )
 
 static PyObject* n_merge_and_remap( PyObject* self, PyObject* args )
 {
-    NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    PyObject* pystrs = PyTuple_GetItem(args,1);
-    if( pystrs == Py_None )
+    base_category_type* tptr = (base_category_type*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    std::string tname = tptr->get_type_name();
+    if( tname.compare(string_type_name) )
+        return ncat_merge_category(self,args);
+    NVCategory* cat = reinterpret_cast<NVCategory*>(tptr);
+    PyObject* pycat = PyTuple_GetItem(args,1);
+    if( pycat == Py_None )
     {
         PyErr_Format(PyExc_ValueError,"nvcategory.merge_and_remap: parameter required");
         Py_RETURN_NONE;
     }
-    std::string cname = pystrs->ob_type->tp_name;
+    std::string cname = pycat->ob_type->tp_name;
     if( cname.compare("nvcategory")!=0 )
     {
         PyErr_Format(PyExc_ValueError,"nvcategory.merge_and_remap: argument must be nvcategory object");
         Py_RETURN_NONE;
     }
-    NVCategory* cat2 = (NVCategory*)PyLong_AsVoidPtr(PyObject_GetAttrString(pystrs,"m_cptr"));
+    NVCategory* cat2 = (NVCategory*)PyLong_AsVoidPtr(PyObject_GetAttrString(pycat,"m_cptr"));
     if( cat2==0 )
     {
         PyErr_Format(PyExc_ValueError,"nvcategory.merge_and_remap: invalid nvcategory object");
@@ -588,7 +719,7 @@ static PyObject* n_merge_and_remap( PyObject* self, PyObject* args )
 
     NVCategory* rtn = nullptr;
     Py_BEGIN_ALLOW_THREADS
-    rtn = tptr->merge_and_remap(*cat2);
+    rtn = cat->merge_and_remap(*cat2);
     Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
@@ -597,7 +728,11 @@ static PyObject* n_merge_and_remap( PyObject* self, PyObject* args )
 
 static PyObject* n_add_keys( PyObject* self, PyObject* args )
 {
-    NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    base_category_type* tptr = (base_category_type*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    std::string tname = tptr->get_type_name();
+    if( tname.compare(string_type_name) )
+        return ncat_add_keys(self,args);
+    NVCategory* cat = reinterpret_cast<NVCategory*>(tptr);
     PyObject* pystrs = PyTuple_GetItem(args,1);
     if( pystrs == Py_None )
     {
@@ -619,7 +754,7 @@ static PyObject* n_add_keys( PyObject* self, PyObject* args )
 
     NVCategory* rtn = nullptr;
     Py_BEGIN_ALLOW_THREADS
-    rtn = tptr->add_keys_and_remap(*strs);
+    rtn = cat->add_keys_and_remap(*strs);
     Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
@@ -628,7 +763,11 @@ static PyObject* n_add_keys( PyObject* self, PyObject* args )
 
 static PyObject* n_remove_keys( PyObject* self, PyObject* args )
 {
-    NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    base_category_type* tptr = (base_category_type*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    std::string tname = tptr->get_type_name();
+    if( tname.compare(string_type_name) )
+        return ncat_remove_keys(self,args);
+    NVCategory* cat = reinterpret_cast<NVCategory*>(tptr);
     PyObject* pystrs = PyTuple_GetItem(args,1);
     if( pystrs == Py_None )
     {
@@ -650,7 +789,7 @@ static PyObject* n_remove_keys( PyObject* self, PyObject* args )
 
     NVCategory* rtn = nullptr;
     Py_BEGIN_ALLOW_THREADS
-    rtn = tptr->remove_keys_and_remap(*strs);
+    rtn = cat->remove_keys_and_remap(*strs);
     Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
@@ -659,10 +798,14 @@ static PyObject* n_remove_keys( PyObject* self, PyObject* args )
 
 static PyObject* n_remove_unused_keys( PyObject* self, PyObject* args )
 {
-    NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    base_category_type* tptr = (base_category_type*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    std::string tname = tptr->get_type_name();
+    if( tname.compare(string_type_name) )
+        return ncat_remove_unused(self,args);
+    NVCategory* cat = reinterpret_cast<NVCategory*>(tptr);
     NVCategory* rtn = nullptr;
     Py_BEGIN_ALLOW_THREADS
-    rtn = tptr->remove_unused_keys_and_remap();
+    rtn = cat->remove_unused_keys_and_remap();
     Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
@@ -671,7 +814,11 @@ static PyObject* n_remove_unused_keys( PyObject* self, PyObject* args )
 
 static PyObject* n_set_keys( PyObject* self, PyObject* args )
 {
-    NVCategory* tptr = (NVCategory*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    base_category_type* tptr = (base_category_type*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    std::string tname = tptr->get_type_name();
+    if( tname.compare(string_type_name) )
+        return ncat_set_keys(self,args);
+    NVCategory* cat = reinterpret_cast<NVCategory*>(tptr);
     PyObject* pystrs = PyTuple_GetItem(args,1);
     if( pystrs == Py_None )
     {
@@ -693,7 +840,7 @@ static PyObject* n_set_keys( PyObject* self, PyObject* args )
 
     NVCategory* rtn = nullptr;
     Py_BEGIN_ALLOW_THREADS
-    rtn = tptr->set_keys_and_remap(*strs);
+    rtn = cat->set_keys_and_remap(*strs);
     Py_END_ALLOW_THREADS
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
@@ -704,10 +851,12 @@ static PyObject* n_set_keys( PyObject* self, PyObject* args )
 static PyMethodDef s_Methods[] = {
     { "n_createCategoryFromHostStrings", n_createCategoryFromHostStrings, METH_VARARGS, "" },
     { "n_createCategoryFromNVStrings", n_createCategoryFromNVStrings, METH_VARARGS, "" },
+    { "n_createCategoryFromNumbers", n_createCategoryFromNumbers, METH_VARARGS, "" },
     { "n_createFromOffsets", n_createFromOffsets, METH_VARARGS, "" },
     { "n_destroyCategory", n_destroyCategory, METH_VARARGS, "" },
     { "n_size", n_size, METH_VARARGS, "" },
     { "n_keys_size", n_keys_size, METH_VARARGS, "" },
+    { "n_keys_type", n_keys_type, METH_VARARGS, "" },
     { "n_get_keys", n_get_keys, METH_VARARGS, "" },
     { "n_get_indexes_for_key", n_get_indexes_for_key, METH_VARARGS, "" },
     { "n_get_value_for_index", n_get_value_for_index, METH_VARARGS, "" },
@@ -717,7 +866,9 @@ static PyMethodDef s_Methods[] = {
     { "n_add_strings", n_add_strings, METH_VARARGS, "" },
     { "n_remove_strings", n_remove_strings, METH_VARARGS, "" },
     { "n_to_strings", n_to_strings, METH_VARARGS, "" },
+    { "n_to_numbers", n_to_numbers, METH_VARARGS, "" },
     { "n_gather_strings", n_gather_strings, METH_VARARGS, "" },
+    { "n_gather_numbers", n_gather_numbers, METH_VARARGS, "" },
     { "n_gather", n_gather, METH_VARARGS, "" },
     { "n_gather_and_remap", n_gather_and_remap, METH_VARARGS, "" },
     { "n_merge_category", n_merge_category, METH_VARARGS, "" },

@@ -6,6 +6,7 @@
 - PR #299 Added gather method for booleans array
 - PR #304 Updated nvtext.ngrams to call C++ function
 - PR #325 Add test skipping functionality to build.sh
+- PR #327 Allow numeric keys in nvcategory
 
 ## Improvements
 
@@ -22,6 +23,7 @@
 - PR #307 Update conda dependencies
 - PR #326 Update python doc version
 - PR #335 to_host no longer overwrites input pointers for null strings
+- PR #329 Fixed documentation errors in source code
 - PR #334 Regex stack-size logic moved to host code
 
 
