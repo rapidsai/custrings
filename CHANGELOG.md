@@ -27,7 +27,7 @@
 - PR #335 to_host no longer overwrites input pointers for null strings
 - PR #329 Fixed documentation errors in source code
 - PR #334 Regex stack-size logic moved to host code
-
+- PR #343 Fixed a flag which is necessary for conda install in Dockerfile
 
 # cuStrings/nvStrings 0.7.0 (10 May 2019)
 
