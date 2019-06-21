@@ -158,7 +158,7 @@ link_directories("${CMAKE_BINARY_DIR}/lib"
 # - library targets -------------------------------------------------------------------------------
 
 add_library(pyniNVStrings SHARED pystrings.cpp)
-add_library(pyniNVCategory SHARED pycategory.cpp)
+add_library(pyniNVCategory SHARED pycategory.cpp numeric_category.cpp)
 add_library(pyniNVText SHARED pytext.cpp)
 
 if (WIN32)

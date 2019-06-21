@@ -15,6 +15,8 @@
 - PR #299 Added gather method for booleans array
 - PR #304 Updated nvtext.ngrams to call C++ function
 - PR #325 Add test skipping functionality to build.sh
+- PR #332 Accept multiple nvstrings in cat() method
+- PR #327 Allow numeric keys in nvcategory
 
 ## Improvements
 
@@ -23,6 +25,7 @@
 - PR #313 Increased regex instruction threshold for stack to 1024
 - PR #302 Add junit test output for py.test
 - PR #331 Use stack-size ranges for different regex instruction counts
+- PR #341 Support device memory in from_offsets
 
 ## Bug Fixes
 
@@ -30,7 +33,10 @@
 - PR #306 Set main label always for libnvstrings
 - PR #307 Update conda dependencies
 - PR #326 Update python doc version
-
+- PR #335 to_host no longer overwrites input pointers for null strings
+- PR #329 Fixed documentation errors in source code
+- PR #334 Regex stack-size logic moved to host code
+- PR #343 Fixed a flag which is necessary for conda install in Dockerfile
 
 # cuStrings/nvStrings 0.7.0 (10 May 2019)
 
