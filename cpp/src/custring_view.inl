@@ -1830,17 +1830,6 @@ __device__ inline bool custring_view::ends_with(custring_view& str) const
     return find(str, sz - bytes) >= 0;
 }
 
-__device__ inline unsigned int custring_view::hash() const
-{
-    unsigned int sz = size();
-    char* sptr = (char*)data();
-    unsigned int seed = 31; // prime number
-    unsigned int hash = 0;
-    for(unsigned int i = 0; i < sz; i++)
-        hash = hash * seed + sptr[i];
-    return hash;
-}
-
 __host__ __device__ inline unsigned int custring_view::bytes_in_char(Char chr)
 {
     unsigned int count = 1;
