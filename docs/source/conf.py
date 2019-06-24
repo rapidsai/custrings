@@ -186,3 +186,7 @@ intersphinx_mapping = {'https://docs.python.org/': None}
 # Config numpydoc
 numpydoc_show_inherited_class_members = False
 numpydoc_class_members_toctree = False
+
+
+def setup(app):
+    app.add_stylesheet('params.css')
