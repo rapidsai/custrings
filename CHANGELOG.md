@@ -28,6 +28,8 @@
 - PR #329 Fixed documentation errors in source code
 - PR #334 Regex stack-size logic moved to host code
 - PR #343 Fixed a flag which is necessary for conda install in Dockerfile
+- PR #347 Configure Sphinx to render params correctly
+
 
 # cuStrings/nvStrings 0.7.0 (10 May 2019)
 
