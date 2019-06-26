@@ -6,6 +6,8 @@
 
 ## Bug Fixes
 
+- PR #353 Fixed sizer calculation for multiple replaces
+
 
 # cuStrings/nvStrings 0.8.0 (TBD)
 
