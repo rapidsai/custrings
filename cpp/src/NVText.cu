@@ -29,11 +29,305 @@
 #include "custring.cuh"
 #include "NVText.h"
 
-//static void printCudaError( cudaError_t err, const char* prefix="\t" )
-//{
-//    if( err != cudaSuccess )
-//        fprintf(stderr,"%s: %s(%d):%s\n",prefix,cudaGetErrorName(err),(int)err,cudaGetErrorString(err));
-//}
+typedef custring_view** custring_view_array;
+
+// common token counter for all split methods
+struct nvtext_token_counter
+{
+    custring_view_array d_strings;
+    custring_view* d_delimiter;
+    size_t* d_counts;
+    //
+    nvtext_token_counter(custring_view_array d_strings, custring_view* d_delimiter, size_t* d_counts)
+    : d_strings(d_strings), d_delimiter(d_delimiter), d_counts(d_counts) {}
+    __device__ void operator()(unsigned int idx)
+    {
+        custring_view* dstr = d_strings[idx];
+        if( dstr )
+            d_counts[idx] = dstr->split_size(d_delimiter->data(),d_delimiter->size(),0,-1);
+    }
+};
+
+// special-case token counter for whitespace delimiter
+// leading and trailing and duplicate delimiters are ignored
+struct nvtext_whitespace_token_counter
+{
+    custring_view_array d_strings;
+    size_t* d_counts;
+
+    // count the 'words' only between non-whitespace characters
+    nvtext_whitespace_token_counter(custring_view_array d_strings, size_t* d_counts)
+    : d_strings(d_strings), d_counts(d_counts) {}
+    __device__ void operator()(unsigned int idx)
+    {
+        custring_view* dstr = d_strings[idx];
+        if( !dstr )
+            return;
+        int dcount = 0;
+        bool spaces = true;
+        custring_view::iterator itr = dstr->begin();
+        while( itr != dstr->end() )
+        {
+            Char ch = *itr;
+            if( spaces == (ch <= ' ') )
+                itr++;
+            else
+            {
+                dcount += (int)spaces;
+                spaces = !spaces;
+            }
+        }
+        if( dcount==0 )
+            dcount = 1; // always allow empty string
+        d_counts[idx] = dcount;
+    }
+};
+
+// return a set of tokens of all the strings in the target instance
+// order needs to preserved so row-split like operation is required
+NVStrings* NVText::tokenize(NVStrings& strs)
+{
+    auto execpol = rmm::exec_policy(0);
+    unsigned int count = strs.size();
+    rmm::device_vector<custring_view*> strings(count,nullptr);
+    custring_view** d_strings = strings.data().get();
+    strs.create_custring_index(d_strings);
+    // count how many tokens in each string
+    rmm::device_vector<size_t> counts(count,0);
+    size_t* d_counts = counts.data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        nvtext_whitespace_token_counter(d_strings,d_counts));
+
+    // compute the total number of tokens
+    size_t tokens_count = thrust::reduce(execpol->on(0), counts.begin(), counts.end());
+    // create token-index offsets
+    rmm::device_vector<size_t> offsets(count,0);
+    thrust::exclusive_scan( execpol->on(0), counts.begin(), counts.end(), offsets.begin() );
+    size_t* d_offsets = offsets.data().get();
+    // build a list of pointers to each token
+    rmm::device_vector< thrust::pair<const char*,size_t> > tokens(tokens_count);
+    thrust::pair<const char*,size_t>* d_tokens = tokens.data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_strings, d_counts, d_offsets, d_tokens] __device__(unsigned int idx) {
+            custring_view* dstr = d_strings[idx];
+            if( !dstr )
+                return;
+            size_t token_count = d_counts[idx];
+            if( token_count==0 )
+                return;
+            auto dstr_tokens = d_tokens + d_offsets[idx];
+            int spos = 0, nchars = dstr->chars_count();
+            int epos = nchars, tidx = 0;
+            bool spaces = true;
+            //for( int tidx=0; tidx < token_count; ++tidx )
+            for( auto itr=dstr->begin(); itr!=dstr->end(); itr++ )
+            {
+                Char ch = *itr;
+                if( spaces == (ch <= ' ') )
+                {
+                    if( spaces )
+                        spos = itr.position()+1;
+                    else
+                        epos = itr.position()+1;
+                    continue;
+                }
+                if( !spaces ) //
+                {
+                    epos = itr.position();
+                    int spos_bo = dstr->byte_offset_for(spos); // convert char pos
+                    int epos_bo = dstr->byte_offset_for(epos); // to byte offset
+                    dstr_tokens[tidx].first = dstr->data() + spos_bo;
+                    dstr_tokens[tidx].second = (epos_bo-spos_bo);
+                    ++tidx;
+                    spos = epos + 1;
+                    epos = nchars;
+                }
+                spaces = !spaces;
+            }
+            if( spos < nchars )
+            {
+                int spos_bo = dstr->byte_offset_for(spos);
+                dstr_tokens[tidx].first = dstr->data() + spos_bo;
+                dstr_tokens[tidx].second = (dstr->size()-spos_bo);
+            }
+        });
+    // remove any empty strings -- occurs if two delimiters are next to each other
+    auto end = thrust::remove_if(execpol->on(0), d_tokens, d_tokens + tokens_count,
+        [] __device__ ( thrust::pair<const char*,size_t> w ) { return w.second==0; } );
+    unsigned int nsize = (unsigned int)(end - d_tokens); // new token count
+    //
+    // build strings object from tokens elements
+    return NVStrings::create_from_index((std::pair<const char*,size_t>*)d_tokens,nsize);
+}
+
+// same with specific delimiter
+NVStrings* NVText::tokenize(NVStrings& strs, const char* delimiter)
+{
+    if( delimiter==nullptr || *delimiter==0 )
+        return NVText::tokenize(strs);
+    unsigned int delim_length = (unsigned int)strlen(delimiter);
+    unsigned int delim_size = custring_view::alloc_size(delimiter,delim_length);
+    custring_view* d_delimiter = nullptr;
+    auto execpol = rmm::exec_policy(0);
+    RMM_ALLOC(&d_delimiter,delim_size,0);
+    custring_view::create_from_host(d_delimiter,delimiter,delim_length);
+
+    unsigned int count = strs.size();
+    rmm::device_vector<custring_view*> strings(count,nullptr);
+    custring_view** d_strings = strings.data().get();
+    strs.create_custring_index(d_strings);
+    // count how many tokens in each string
+    rmm::device_vector<size_t> counts(count,0);
+    size_t* d_counts = counts.data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        nvtext_token_counter(d_strings,d_delimiter,d_counts));
+
+    // compute the total number of tokens
+    size_t tokens_count = thrust::reduce(execpol->on(0), counts.begin(), counts.end());
+    // create token-index offsets
+    rmm::device_vector<size_t> offsets(count,0);
+    thrust::exclusive_scan( execpol->on(0), counts.begin(), counts.end(), offsets.begin() );
+    size_t* d_offsets = offsets.data().get();
+    // build a list of pointers to each token
+    rmm::device_vector< thrust::pair<const char*,size_t> > tokens(tokens_count);
+    thrust::pair<const char*,size_t>* d_tokens = tokens.data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_strings, d_delimiter, d_counts, d_offsets, d_tokens] __device__(unsigned int idx) {
+            custring_view* dstr = d_strings[idx];
+            if( !dstr )
+                return;
+            size_t token_count = d_counts[idx];
+            if( token_count==0 )
+                return;
+            auto dstr_tokens = d_tokens + d_offsets[idx];
+            int spos = 0, nchars = dstr->chars_count();
+            int epos = nchars;
+            for( int tidx=0; tidx < token_count; ++tidx )
+            {
+                epos = dstr->find(*d_delimiter,spos);
+                if( epos < 0 )
+                    epos = nchars;
+                int spos_bo = dstr->byte_offset_for(spos); // convert char pos
+                int epos_bo = dstr->byte_offset_for(epos); // to byte offset
+                dstr_tokens[tidx].first = dstr->data() + spos_bo;
+                dstr_tokens[tidx].second = (epos_bo-spos_bo);
+                // position past the delimiter
+                spos = epos + d_delimiter->chars_count();
+            }
+        });
+    // remove any empty strings -- occurs if two delimiters are next to each other
+    auto end = thrust::remove_if(execpol->on(0), d_tokens, d_tokens + tokens_count,
+        [] __device__ ( thrust::pair<const char*,size_t> w ) { return w.second==0; } );
+    unsigned int nsize = (unsigned int)(end - d_tokens); // new token count
+    //
+    RMM_FREE(d_delimiter,0);
+    // build strings object from tokens elements
+    return NVStrings::create_from_index((std::pair<const char*,size_t>*)d_tokens,nsize);
+}
+
+// same but with multiple delimiters
+NVStrings* NVText::tokenize(NVStrings& strs, NVStrings& delims )
+{
+    unsigned int delims_count = delims.size();
+    if( delims_count==0 )
+        return NVText::tokenize(strs);
+    auto execpol = rmm::exec_policy(0);
+    rmm::device_vector<custring_view*> delimiters(delims_count,nullptr);
+    custring_view** d_delimiters = delimiters.data().get();
+    delims.create_custring_index(d_delimiters);
+
+    unsigned int count = strs.size();
+    rmm::device_vector<custring_view*> strings(count,nullptr);
+    custring_view** d_strings = strings.data().get();
+    strs.create_custring_index(d_strings);
+
+    // count how many tokens in each string
+    rmm::device_vector<size_t> counts(count,0);
+    size_t* d_counts = counts.data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_strings, d_delimiters, delims_count, d_counts] __device__(unsigned int idx){
+            custring_view* d_string = d_strings[idx];
+            if( !d_string )
+                return;
+            int tokens = 1;
+            const char* sptr = d_string->data();
+            const char* eptr = sptr + d_string->size();
+            while( sptr < eptr )
+            {
+                int incr = 1;
+                for( int didx=0; didx < delims_count; ++didx )
+                {
+                    custring_view* d_delim = d_delimiters[didx];
+                    if( !d_delim || d_delim->empty() )
+                        continue;
+                    if( d_delim->compare(sptr,d_delim->size()) !=0 )
+                        continue;
+                    ++tokens;
+                    incr = d_delim->size();
+                    break;
+                }
+                sptr += incr;
+            }
+            d_counts[idx] = tokens;
+        });
+
+    // compute the total number of tokens
+    size_t tokens_count = thrust::reduce(execpol->on(0), counts.begin(), counts.end());
+    // create token-index offsets
+    rmm::device_vector<size_t> offsets(count,0);
+    thrust::exclusive_scan( execpol->on(0), counts.begin(), counts.end(), offsets.begin() );
+    size_t* d_offsets = offsets.data().get();
+    // build a list of pointers to each token
+    rmm::device_vector< thrust::pair<const char*,size_t> > tokens(tokens_count);
+    thrust::pair<const char*,size_t>* d_tokens = tokens.data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_strings, d_delimiters, delims_count, d_counts, d_offsets, d_tokens] __device__(unsigned int idx) {
+            custring_view* d_string = d_strings[idx];
+            if( !d_string )
+                return;
+            size_t token_count = d_counts[idx];
+            if( token_count==0 )
+                return;
+            auto dstr_tokens = d_tokens + d_offsets[idx];
+            const char* data = d_string->data();
+            const char* sptr = data;
+            auto size = d_string->size();
+            const char* eptr = sptr + size;
+            int spos = 0, tidx = 0;
+            while( sptr < eptr )
+            {
+                int incr = 1;
+                for( int didx=0; didx < delims_count; ++didx )
+                {
+                    custring_view* d_delim = d_delimiters[didx];
+                    if( !d_delim || d_delim->empty() )
+                        continue;
+                    if( d_delim->compare(sptr,d_delim->size()) !=0 )
+                        continue;
+                    // found delimiter
+                    dstr_tokens[tidx].first = data + spos;
+                    dstr_tokens[tidx].second = ((sptr - data) - spos);
+                    ++tidx;
+                    incr = d_delim->size();
+                    spos = (sptr - data) + incr;
+                    break;
+                }
+                sptr += incr;
+            }
+            if( (tidx < token_count) && (spos < size) )
+            {
+                dstr_tokens[tidx].first = data + spos;
+                dstr_tokens[tidx].second = size - spos;
+            }
+        });
+    // remove any empty strings -- occurs if two delimiters are next to each other
+    auto end = thrust::remove_if(execpol->on(0), d_tokens, d_tokens + tokens_count,
+        [] __device__ ( thrust::pair<const char*,size_t> w ) { return w.second==0; } );
+    unsigned int nsize = (unsigned int)(end - d_tokens); // new token count
+    //
+    // build strings object from tokens elements
+    return NVStrings::create_from_index((std::pair<const char*,size_t>*)d_tokens,nsize);
+}
 
 // return unique set of tokens within all the strings using the specified delimiter
 NVStrings* NVText::unique_tokens(NVStrings& strs, const char* delimiter )
@@ -537,4 +831,89 @@ unsigned int NVText::edit_distance( distance_type algo, NVStrings& strs1, NVStri
         RMM_FREE(d_rtn,0);
     }
     return 0;
+}
+
+//
+NVStrings* NVText::create_ngrams(NVStrings& strs, unsigned int ngrams, const char* separator )
+{
+    if( ngrams==0 )
+        ngrams = 2;
+    if( separator==nullptr )
+        separator = "";
+    unsigned int count = strs.size();
+    if( count==0 )
+        return strs.copy();
+    
+    auto execpol = rmm::exec_policy(0);
+    rmm::device_vector<custring_view*> strings(count,nullptr);
+    custring_view** d_strings = strings.data().get();
+    strs.create_custring_index(d_strings);
+
+    // first let's remove any nulls or empty strings
+    auto end = thrust::remove_if(execpol->on(0), d_strings, d_strings + count,
+        [] __device__ ( custring_view* ds ) { return (ds==nullptr) || ds->empty(); } );
+    count = (unsigned int)(end - d_strings); // new count
+    if( count <= ngrams )
+        return strs.join(separator,""); // this not quite right if there are nulls we removed
+    if( ngrams==1 )
+        return strs.copy(); // same with this one; need method to create NVStrings from custring_views
+
+    unsigned int sep_length = (unsigned int)strlen(separator);
+    unsigned int sep_size = custring_view::alloc_size(separator,sep_length);
+    custring_view* d_separator = nullptr;
+    RMM_ALLOC(&d_separator,sep_size,0);
+    custring_view::create_from_host(d_separator,separator,sep_length);
+
+    // compute size of new strings
+    unsigned int ngrams_count = count - ngrams +1;
+    rmm::device_vector<size_t> sizes(ngrams_count,0);
+    size_t* d_sizes = sizes.data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), ngrams_count,
+        [d_strings, ngrams, d_separator, d_sizes] __device__(unsigned int idx) {
+            size_t size = 0;
+            for( unsigned int n=0; n < ngrams; ++n )
+            {
+                custring_view* dstr = d_strings[n+idx];
+                size += dstr->size();
+                if( (n+1) < ngrams )
+                    size += d_separator->size();
+            }
+            d_sizes[idx] = size;
+        });
+
+    size_t bufsize = thrust::reduce(execpol->on(0), d_sizes, d_sizes+ngrams_count );
+    rmm::device_vector<char> buffer(bufsize);
+    char* d_buffer = buffer.data().get();
+    rmm::device_vector<size_t> offsets(ngrams_count,0);
+    thrust::exclusive_scan( execpol->on(0), sizes.begin(), sizes.end(), offsets.begin() );
+    size_t* d_offsets = offsets.data().get();
+    // build the memory and a list of pointers
+    rmm::device_vector< thrust::pair<const char*,size_t> > results(ngrams_count);
+    thrust::pair<const char*,size_t>* d_results = results.data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), ngrams_count,
+        [d_strings, d_separator, ngrams, d_offsets, d_buffer, d_results] __device__(unsigned int idx) {
+            char* buffer = d_buffer + d_offsets[idx];
+            char* sptr = buffer;
+            size_t length = 0;
+            for( unsigned int n=0; n < ngrams; ++n )
+            {
+                custring_view* dstr = d_strings[n+idx];
+                unsigned int bytes = dstr->size();
+                length += bytes;
+                memcpy( sptr, dstr->data(), bytes );
+                sptr += bytes;
+                if( (n+1) >= ngrams )
+                    continue;
+                bytes = d_separator->size();
+                length += bytes;
+                memcpy( sptr, d_separator->data(), bytes );
+                sptr += bytes;
+            }
+            d_results[idx].first = buffer;
+            d_results[idx].second = length;
+        });
+    //
+    RMM_FREE(d_separator,0);
+    // build strings object from results elements
+    return NVStrings::create_from_index((std::pair<const char*,size_t>*)d_results,ngrams_count);
 }

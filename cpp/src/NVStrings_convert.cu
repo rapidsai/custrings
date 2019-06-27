@@ -15,7 +15,7 @@
 */
 
 #include <exception>
-#include <math.h>  // for isnan, isinf; cmath does not work here
+#include <cmath>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #include <thrust/device_vector.h>
@@ -138,10 +138,17 @@ int NVStrings::stof(float* results, bool todevice)
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_rtn] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
-            if( dstr )
-                d_rtn[idx] = dstr->stof();
-            else
+            if( !dstr )
                 d_rtn[idx] = (float)0;
+            else if( (dstr->compare("NaN",3)==0) )
+                d_rtn[idx] = std::numeric_limits<float>::quiet_NaN();
+            else if( (dstr->compare("Inf",3)==0) )
+                d_rtn[idx] = std::numeric_limits<float>::infinity();
+            else if( (dstr->compare("-Inf",4)==0) )
+                d_rtn[idx] = -std::numeric_limits<float>::infinity();
+            else
+                d_rtn[idx] = dstr->stof();
+
         });
     //
     int zeros = thrust::count(execpol->on(0),d_rtn,d_rtn+count,0);
@@ -169,10 +176,16 @@ int NVStrings::stod(double* results, bool todevice)
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_rtn] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
-            if( dstr )
-                d_rtn[idx] = dstr->stod();
-            else
+            if( !dstr )
                 d_rtn[idx] = 0.0;
+            else if( (dstr->compare("NaN",3)==0) )
+                d_rtn[idx] = std::numeric_limits<double>::quiet_NaN();
+            else if( (dstr->compare("Inf",3)==0) )
+                d_rtn[idx] = std::numeric_limits<double>::infinity();
+            else if( (dstr->compare("-Inf",4)==0) )
+                d_rtn[idx] = -std::numeric_limits<double>::infinity();
+            else
+                d_rtn[idx] = dstr->stod();
         });
     //
     int zeros = thrust::count(execpol->on(0),d_rtn,d_rtn+count,0);
@@ -471,7 +484,7 @@ struct ftos_converter
     __device__ int float_to_string( double value, char* output )
     {
         // check for valid value
-        if( isnan(value) )
+        if( std::isnan(value) )
         {
             memcpy(output,"NaN",3);
             return 3;
@@ -482,7 +495,7 @@ struct ftos_converter
             value = -value;
             bneg = true;
         }
-        if( isinf(value) )
+        if( std::isinf(value) )
         {
             if( bneg )
                 memcpy(output,"-Inf",4);
@@ -506,9 +519,9 @@ struct ftos_converter
         // integer
         ptr = int2str(integer,ptr);
         // decimal
+        *ptr++ = '.';
         if( decimal_places )
         {
-            *ptr++ = '.';
             char buffer[10];
             char* pb = buffer;
             while( decimal_places-- )
@@ -519,6 +532,8 @@ struct ftos_converter
             while( pb != buffer )  // reverses the digits
                 *ptr++ = *--pb;    // e.g. 54321 -> 12345
         }
+        else
+            *ptr++ = '0'; // always include at least .0
         // exponent
         if( exp10 )
         {
@@ -544,7 +559,7 @@ struct ftos_converter
     // hold the output string (not including null)
     __device__ int compute_ftos_size( double value )
     {
-        if( isnan(value) )
+        if( std::isnan(value) )
             return 3; // NaN
         bool bneg = false;
         if( value < 0.0 )
@@ -552,7 +567,7 @@ struct ftos_converter
             value = -value;
             bneg = true;
         }
-        if( isinf(value) )
+        if( std::isinf(value) )
             return 3 + (int)bneg; // Inf
 
         // dissect float into parts
@@ -570,11 +585,11 @@ struct ftos_converter
             ++count;
         } // log10(integer)
         // decimal
+        ++count; // decimal point
         if( decimal_places )
-        {
-            ++count; // decimal point
             count += decimal_places;
-        }
+        else
+            ++count; // always include .0
         // exponent
         if( exp10 )
         {
@@ -745,23 +760,19 @@ int NVStrings::ip2int( unsigned int* results, bool bdevmem )
                 d_rtn[idx] = 0;
                 return; // invalid format
             }
-            unsigned int vals[4];
-            unsigned int* pval = vals;
+            unsigned int vals[4] = {0,0,0,0};
             const char* str = dstr->data();
-            int len = dstr->size();
-            for( int i=0; i < len; ++i )
+            int len = dstr->size(), iv = 0;
+            for( int i=0; (i < len) && (iv < 4); ++i )
             {
                 char ch = str[i];
                 if( ch >= '0' && ch <= '9' )
                 {
-                    *pval *= 10;
-                    *pval += (unsigned int)(ch-'0');
+                    vals[iv] *= 10;
+                    vals[iv] += (unsigned int)(ch-'0');
                 }
                 else if( ch=='.' )
-                {
-                    ++pval;
-                    *pval = 0;
-                }
+                    ++iv;
             }
             unsigned int result = (vals[0] * 16777216) + (vals[1] * 65536) + (vals[2] * 256) + vals[3];
             d_rtn[idx] = result;

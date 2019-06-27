@@ -15,7 +15,7 @@
 #=============================================================================
 cmake_minimum_required (VERSION 3.12)
 
-project(NVStrings VERSION 0.7.0 LANGUAGES C CXX CUDA)
+project(NVStrings VERSION 0.8.0 LANGUAGES C CXX CUDA)
 
 ###################################################################################################
 # - build type ------------------------------------------------------------------------------------
@@ -64,7 +64,7 @@ if(CMAKE_COMPILER_IS_GNUCXX)
     endif(NOT CMAKE_CXX11_ABI)
 endif(CMAKE_COMPILER_IS_GNUCXX)
 
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda -gencode=arch=compute_50,code=sm_50 -gencode=arch=compute_60,code=sm_60 -gencode=arch=compute_70,code=sm_70")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda --expt-relaxed-constexpr -gencode=arch=compute_50,code=sm_50 -gencode=arch=compute_60,code=sm_60 -gencode=arch=compute_70,code=sm_70")
 
 # Debug options
 if(CMAKE_BUILD_TYPE MATCHES Debug)
@@ -133,7 +133,11 @@ add_library(NVStrings SHARED
             src/regex/regcomp.cpp)
 
 add_library(NVCategory SHARED
-            src/NVCategory.cu)
+            src/NVCategory.cu
+            src/numeric_category.cu
+            src/numeric_category_int.cu
+            src/numeric_category_float.cu
+            )
 
 add_library(NVText SHARED
             src/NVText.cu)

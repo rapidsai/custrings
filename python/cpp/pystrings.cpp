@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <exception>
 #include <stdexcept>
+#include <sstream>
 #include <nvstrings/NVStrings.h>
 #include <nvstrings/ipc_transfer.h>
 #include <nvstrings/StringsStatistics.h>
@@ -162,7 +163,7 @@ public:
     //
     bool is_error()               { return ltype==error; }
     const char* get_error_text()  { return errortext.c_str(); }
-    bool is_blist()               { return ltype==blist; }
+    bool is_blist()               { return ltype==blist || (dtype_name.compare("bool")==0); }
     const char* get_name()        { return name.c_str(); }
     bool is_device_type()         { return (ltype==device_ndarray) || (ltype==pointer); }
 
@@ -285,10 +286,8 @@ static PyObject* n_createHostStrings( PyObject* self, PyObject* args )
     for( unsigned int idx=0; idx < count; ++idx )
     {
         char* str = list[idx];
-        //printf("[%s]\n",str);
-        if( str )
+        if( lens[idx]>=0 )
         {
-            //printf("{%s}\n",str);
             PyList_SetItem(ret, idx, PyUnicode_FromString((const char*)str));
         }
         else
@@ -424,13 +423,17 @@ static PyObject* n_createFromOffsets( PyObject* self, PyObject* args )
         ncount = (int)PyLong_AsLong(pyncount);
     }
 
+    PyObject* pybmem = PyTuple_GetItem(args,5);
+    bool bdevmem = (bool)PyObject_IsTrue(pybmem);
+
     //printf(" ptrs=%p,%p,%p\n",sbuffer,obuffer,nbuffer);
     //printf(" scount=%d,ncount=%d\n",scount,ncount);
+    //printf(" bdevmem=%d\n",(int)bdevmem);
     // create strings object from these buffers
     NVStrings* rtn = nullptr;
     Py_BEGIN_ALLOW_THREADS
     rtn = NVStrings::create_from_offsets(sbuffer,scount,obuffer,
-                                         nbuffer,ncount);
+                                         nbuffer,ncount,bdevmem);
     Py_END_ALLOW_THREADS
 
     if( PyObject_CheckBuffer(pysbuf) )
@@ -1447,7 +1450,6 @@ static PyObject* n_cat( PyObject* self, PyObject* args )
     PyObject* argOthers = PyTuple_GetItem(args,1);
     PyObject* argSep = PyTuple_GetItem(args,2);
     PyObject* argNaRep = PyTuple_GetItem(args,3);
-    //PyObject* argJoin = PyTuple_GetItem(args,4);
 
     const char* sep = "";
     if( argSep != Py_None )
@@ -1469,9 +1471,7 @@ static PyObject* n_cat( PyObject* self, PyObject* args )
         Py_RETURN_NONE;
     }
 
-    //printf("HasAttrString(m_cptr)=%d\n", PyObject_HasAttrString(argOthers,"m_cptr"));
-    NVStrings* others = 0;
-    //printf("arg.ob_type.tp_name=[%s]\n", argOthers->ob_type->tp_name);
+    NVStrings* rtn = 0;
     std::string cname = argOthers->ob_type->tp_name;
     if( cname.compare("list")==0 )
     {
@@ -1482,33 +1482,35 @@ static PyObject* n_cat( PyObject* self, PyObject* args )
             Py_RETURN_NONE;
         }
 
-        if( count != (int)tptr->size() )
-        {
-            PyErr_Format(PyExc_ValueError,"nvstrings.cat list size must match");
-            Py_RETURN_NONE;
-        }
-
-        const char** list = new const char*[count];
+        std::vector<NVStrings*> others;
         for( unsigned int idx=0; idx < count; ++idx )
         {
             PyObject* pystr = PyList_GetItem(argOthers,idx);
-            if( (pystr == Py_None) || !PyObject_TypeCheck(pystr,&PyUnicode_Type) )
-                list[idx] = 0;
-            else
-                list[idx] = PyUnicode_AsUTF8(pystr);
+            if( pystr == Py_None )
+            {
+                PyErr_Format(PyExc_ValueError,"others list must not contain None");
+                Py_RETURN_NONE;
+            }
+            std::string cname = pystr->ob_type->tp_name;
+            if( cname.compare("nvstrings")!=0 )
+            {
+                PyErr_Format(PyExc_ValueError,"others list must contain nvstrings objects");
+                Py_RETURN_NONE;
+            }
+            PyObject* pycptr = PyObject_GetAttrString(pystr,"m_cptr");
+            NVStrings* strs = (NVStrings*)PyLong_AsVoidPtr(pycptr);
+            others.push_back(strs);
         }
         Py_BEGIN_ALLOW_THREADS
-        others = NVStrings::create_from_array(list,count);
+        rtn = tptr->cat(others,sep,narep);
         Py_END_ALLOW_THREADS
-        delete list;
     }
-    //
-    if( cname.compare("nvstrings")==0 )
+    else if( cname.compare("nvstrings")==0 )
     {
-        others = (NVStrings*)PyLong_AsVoidPtr(PyObject_GetAttrString(argOthers,"m_cptr"));
+        NVStrings* others = (NVStrings*)PyLong_AsVoidPtr(PyObject_GetAttrString(argOthers,"m_cptr"));
         if( !others )
         {
-            PyErr_Format(PyExc_ValueError,"nvstrings.cat invalid parameter");
+            PyErr_Format(PyExc_ValueError,"invalid parameter");
             Py_RETURN_NONE;
         }
         //printf("others count=%d\n",others->size());
@@ -1517,21 +1519,9 @@ static PyObject* n_cat( PyObject* self, PyObject* args )
             PyErr_Format(PyExc_ValueError,"nvstrings.cat list size must match");
             Py_RETURN_NONE;
         }
-    }
-
-    //
-    NVStrings* rtn = 0;
-    if( others )
-    {
         Py_BEGIN_ALLOW_THREADS
         rtn = tptr->cat(others,sep,narep);
         Py_END_ALLOW_THREADS
-        if( cname.compare("list")==0 )
-        {
-            Py_BEGIN_ALLOW_THREADS
-            NVStrings::destroy(others); // destroy it if we made it (above)
-            Py_END_ALLOW_THREADS
-        }
     }
 
     if( rtn )
@@ -1802,7 +1792,7 @@ static PyObject* n_rjust( PyObject* self, PyObject* args )
         PyErr_Format(PyExc_ValueError,"fillchar cannot be empty");
         Py_RETURN_NONE;
     }
-    
+
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
     NVStrings* rtn = nullptr;
     Py_BEGIN_ALLOW_THREADS
@@ -1920,12 +1910,22 @@ static PyObject* n_replace( PyObject* self, PyObject* args )
         Py_RETURN_NONE;
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
     NVStrings* rtn = 0;
+    std::string message;
     Py_BEGIN_ALLOW_THREADS
-    if( bregex )
-        rtn = tptr->replace_re(pat,repl,(int)maxrepl);
-    else
-        rtn = tptr->replace(pat,repl,(int)maxrepl);
+    try
+    {
+        if( bregex )
+            rtn = tptr->replace_re(pat,repl,(int)maxrepl);
+        else
+            rtn = tptr->replace(pat,repl,(int)maxrepl);
+    }
+    catch(const std::exception& e)
+    {
+        message = e.what();
+    }
     Py_END_ALLOW_THREADS
+    if( !message.empty() )
+        PyErr_Format(PyExc_ValueError,message.c_str());
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -1941,9 +1941,19 @@ static PyObject* n_replace_with_backrefs( PyObject* self, PyObject* args )
         Py_RETURN_NONE;
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(vo);
     NVStrings* rtn = 0;
+    std::string message;
     Py_BEGIN_ALLOW_THREADS
-    rtn = tptr->replace_with_backrefs(pat,repl);
+    try
+    {
+        rtn = tptr->replace_with_backrefs(pat,repl);
+    }
+    catch(const std::exception& e)
+    {
+        message = e.what();
+    }
     Py_END_ALLOW_THREADS
+    if( !message.empty() )
+        PyErr_Format(PyExc_ValueError,message.c_str());
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -2469,10 +2479,20 @@ static PyObject* n_findall_record( PyObject* self, PyObject* args )
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     const char* pat = PyUnicode_AsUTF8(PyTuple_GetItem(args,1));
 
+    std::string message;
     std::vector<NVStrings*> results;
     Py_BEGIN_ALLOW_THREADS
-    tptr->findall_record(pat,results);
+    try
+    {
+        tptr->findall_record(pat,results);
+    }
+    catch(const std::exception& e)
+    {
+        message = e.what();
+    }
     Py_END_ALLOW_THREADS
+    if( !message.empty() )
+        PyErr_Format(PyExc_ValueError,message.c_str());
     //
     PyObject* ret = PyList_New(results.size());
     int idx=0;
@@ -2487,10 +2507,20 @@ static PyObject* n_findall( PyObject* self, PyObject* args )
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     const char* pat = PyUnicode_AsUTF8(PyTuple_GetItem(args,1));
 
+    std::string message;
     std::vector<NVStrings*> results;
     Py_BEGIN_ALLOW_THREADS
-    tptr->findall(pat,results);
+    try
+    {
+        tptr->findall(pat,results);
+    }
+    catch(const std::exception& e)
+    {
+        message = e.what();
+    }
     Py_END_ALLOW_THREADS
+    if( !message.empty() )
+        PyErr_Format(PyExc_ValueError,message.c_str());
     //
     PyObject* ret = PyList_New(results.size());
     int idx=0;
@@ -2510,17 +2540,27 @@ static PyObject* n_contains( PyObject* self, PyObject* args )
     bool bregex = (bool)PyObject_IsTrue(PyTuple_GetItem(args,2));
     bool* devptr = (bool*)PyLong_AsVoidPtr(PyTuple_GetItem(args,3));
     int rc = 0;
+    std::string message;
     if( devptr )
     {
         //Save thread state and release the GIL as we do not operate on PyObjects
         Py_BEGIN_ALLOW_THREADS
-        if( bregex )
-            rc = tptr->contains_re(str,devptr);
-        else
-            rc = tptr->contains(str,devptr);
+        try
+        {
+            if( bregex )
+                rc = tptr->contains_re(str,devptr);
+            else
+                rc = tptr->contains(str,devptr);
+        }
+        catch(const std::exception& e)
+        {
+            message = e.what();
+            rc = -1;
+        }
         //Restore thread state and acquire the GIL again.
         Py_END_ALLOW_THREADS
-
+        if( !message.empty() )
+            PyErr_Format(PyExc_ValueError,message.c_str());
         if( rc < 0 )
             Py_RETURN_NONE;
         return PyLong_FromVoidPtr((void*)devptr);
@@ -2532,12 +2572,21 @@ static PyObject* n_contains( PyObject* self, PyObject* args )
     bool* rtn = new bool[count];
 
     Py_BEGIN_ALLOW_THREADS
-    if( bregex )
-        rc = tptr->contains_re(str,rtn,false);
-    else
-        rc = tptr->contains(str,rtn,false);
+    try
+    {
+        if( bregex )
+            rc = tptr->contains_re(str,rtn,false);
+        else
+            rc = tptr->contains(str,rtn,false);
+    }
+    catch(const std::exception& e)
+    {
+        message = e.what();
+        rc = -1;
+    }
     Py_END_ALLOW_THREADS
-
+    if( !message.empty() )
+        PyErr_Format(PyExc_ValueError,message.c_str());
     if( rc < 0 )
     {
         delete rtn;
@@ -2570,11 +2619,22 @@ static PyObject* n_match( PyObject* self, PyObject* args )
     //
     bool* devptr = (bool*)PyLong_AsVoidPtr(PyTuple_GetItem(args,2));
     int rc = 0;
+    std::string message;
     if( devptr )
     {
         Py_BEGIN_ALLOW_THREADS
-        rc = tptr->match(str,devptr);
+        try
+        {
+            rc = tptr->match(str,devptr);
+        }
+        catch(const std::exception& e)
+        {
+            message = e.what();
+            rc = -1;
+        }
         Py_END_ALLOW_THREADS
+        if( !message.empty() )
+            PyErr_Format(PyExc_ValueError,message.c_str());
         if( rc < 0 )
             Py_RETURN_NONE;
         return PyLong_FromVoidPtr((void*)devptr);
@@ -2585,8 +2645,18 @@ static PyObject* n_match( PyObject* self, PyObject* args )
         return PyList_New(0);
     bool* rtn = new bool[count];
     Py_BEGIN_ALLOW_THREADS
-    rc = tptr->match(str,rtn,false);
+    try
+    {
+        rc = tptr->match(str,rtn,false);
+    }
+    catch(const std::exception& e)
+    {
+        message = e.what();
+        rc = -1;
+    }
     Py_END_ALLOW_THREADS
+    if( !message.empty() )
+        PyErr_Format(PyExc_ValueError,message.c_str());
     if( rc < 0 )
     {
         delete rtn;
@@ -2798,12 +2868,23 @@ static PyObject* n_count( PyObject* self, PyObject* args )
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     const char* str = PyUnicode_AsUTF8(PyTuple_GetItem(args,1));
     int* devptr = (int*)PyLong_AsVoidPtr(PyTuple_GetItem(args,2));
+    std::string message;
     if( devptr )
     {
         int rc  = 0;
         Py_BEGIN_ALLOW_THREADS
-        rc = tptr->count_re(str,devptr);
+        try
+        {
+            rc = tptr->count_re(str,devptr);
+        }
+        catch(const std::exception& e)
+        {
+            message = e.what();
+            rc = -1;
+        }
         Py_END_ALLOW_THREADS
+        if( !message.empty() )
+            PyErr_Format(PyExc_ValueError,message.c_str());
         if( rc < 0 )
             Py_RETURN_NONE;
         return PyLong_FromVoidPtr((void*)devptr);
@@ -2815,8 +2896,18 @@ static PyObject* n_count( PyObject* self, PyObject* args )
     int* rtn = new int[count];
     int rc = 0;
     Py_BEGIN_ALLOW_THREADS
-    rc = tptr->count_re(str,rtn,false);
+    try
+    {
+        rc = tptr->count_re(str,rtn,false);
+    }
+    catch(const std::exception& e)
+    {
+        message = e.what();
+        rc = -1;
+    }
     Py_END_ALLOW_THREADS
+    if( !message.empty() )
+        PyErr_Format(PyExc_ValueError,message.c_str());
     if( rc < 0 )
     {
         delete rtn;
@@ -2845,10 +2936,20 @@ static PyObject* n_extract_record( PyObject* self, PyObject* args )
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     const char* pat = PyUnicode_AsUTF8(PyTuple_GetItem(args,1));
 
+    std::string message;
     std::vector<NVStrings*> results;
     Py_BEGIN_ALLOW_THREADS
-    tptr->extract_record(pat,results);
+    try
+    {
+        tptr->extract_record(pat,results);
+    }
+    catch(const std::exception& e)
+    {
+        message = e.what();
+    }
     Py_END_ALLOW_THREADS
+    if( !message.empty() )
+        PyErr_Format(PyExc_ValueError,message.c_str());
     //
     PyObject* ret = PyList_New(results.size());
     int idx=0;
@@ -2863,10 +2964,20 @@ static PyObject* n_extract( PyObject* self, PyObject* args )
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     const char* pat = PyUnicode_AsUTF8(PyTuple_GetItem(args,1));
 
+    std::string message;
     std::vector<NVStrings*> results;
     Py_BEGIN_ALLOW_THREADS
-    tptr->extract(pat,results);
+    try
+    {
+        tptr->extract(pat,results);
+    }
+    catch(const std::exception& e)
+    {
+        message = e.what();
+    }
     Py_END_ALLOW_THREADS
+    if( !message.empty() )
+        PyErr_Format(PyExc_ValueError,message.c_str());
     //
     PyObject* ret = PyList_New(results.size());
     int idx=0;
@@ -3008,7 +3119,6 @@ static PyObject* n_gather( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
     PyObject* pyidxs = PyTuple_GetItem(args,1);
-    //std::string cname = pyidxs->ob_type->tp_name;
 
     DataBuffer<int> dbvalues(pyidxs);
     if( dbvalues.is_error() )
@@ -3016,36 +3126,48 @@ static PyObject* n_gather( PyObject* self, PyObject* args )
         PyErr_Format(PyExc_TypeError,"nvstrings.n_gather(): %s",dbvalues.get_error_text());
         Py_RETURN_NONE;
     }
-    if( dbvalues.is_blist() )
-    {
-        PyErr_Format(PyExc_TypeError,"nvstrings.n_gather(): list of bools is not supported");
-        Py_RETURN_NONE;
-    }
-    if( dbvalues.get_type_width()!=sizeof(int) )
+    if( !dbvalues.is_blist() && dbvalues.get_type_width()!=sizeof(int) )
     {
         PyErr_Format(PyExc_TypeError,"nvstrings.n_gather(): values must be of type int32");
         Py_RETURN_NONE;
     }
-    bool bdevmem = dbvalues.is_device_type();
-    int* indexes = dbvalues.get_values();
+
     unsigned int count = dbvalues.get_count();
     if( count==0 )
         count = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,2));
+    bool bdevmem = dbvalues.is_device_type();
 
     NVStrings* rtn = 0;
-    try
+    std::string message;
+    if( !dbvalues.is_blist() )
     {
         Py_BEGIN_ALLOW_THREADS
-        rtn = tptr->gather(indexes,count,bdevmem);
+        try
+        {
+            rtn = tptr->gather(dbvalues.get_values(),count,bdevmem);
+        }
+        catch(const std::out_of_range& eor)
+        {
+            std::ostringstream errmsg;
+            errmsg << "one or more indexes out of range [0:" << tptr->size() << ")";
+            message = errmsg.str();
+        }
         Py_END_ALLOW_THREADS
     }
-    catch(const std::out_of_range& eor)
+    else
     {
-        PyErr_Format(PyExc_IndexError,"one or more indexes out of range [0:%u)",tptr->size());
+        // handle boolean values too
+        DataBuffer<bool> dbmask(pyidxs);
+        Py_BEGIN_ALLOW_THREADS
+        rtn = tptr->gather(dbmask.get_values(),bdevmem);
+        Py_END_ALLOW_THREADS
     }
+
     //
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
+    if( !message.empty() )
+        PyErr_Format(PyExc_IndexError,message.c_str());
     Py_RETURN_NONE;
 }
 

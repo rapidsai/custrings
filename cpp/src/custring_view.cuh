@@ -25,8 +25,6 @@ typedef unsigned int Char;
 // This class represents and manages a single character array in device memory.
 // The character array is expected as a UTF-8 encoded string.
 // All index values and lengths are in characters and not bytes.
-// Some methods change the string in-place while others will return new strings.
-// Any method where it is possible to shorten the string will return a new string.
 //
 // All memory must be device memory provided by the caller and the class may not
 // be created on the stack or new'd. Use the alloc_size() methods to determine how
@@ -101,6 +99,8 @@ public:
         __device__ inline bool operator==(const iterator& rhs) const;
         __device__ inline bool operator!=(const iterator& rhs) const;
         __device__ inline Char operator*() const;
+        __device__ inline unsigned int position() const;
+        __device__ inline unsigned int byte_offset() const;
     };
     // iterator methods
     __device__ inline iterator begin();

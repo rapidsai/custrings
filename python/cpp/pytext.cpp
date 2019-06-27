@@ -69,9 +69,51 @@ NVStrings* strings_from_list(PyObject* listObj)
 
 //
 //
+static PyObject* n_tokenize( PyObject* self, PyObject* args )
+{
+    PyObject* pystrs = PyTuple_GetItem(args,0);
+    NVStrings* strs = strings_from_object(pystrs);
+    if( strs==0 )
+        Py_RETURN_NONE;
+
+    const char* delimiter = nullptr;
+    PyObject* argDelim = PyTuple_GetItem(args,1);
+    if( argDelim != Py_None )
+        delimiter = PyUnicode_AsUTF8(argDelim);
+
+    Py_BEGIN_ALLOW_THREADS
+    strs = NVText::tokenize(*strs,delimiter);
+    Py_END_ALLOW_THREADS
+    if( strs==0 )
+        Py_RETURN_NONE;
+    return PyLong_FromVoidPtr((void*)strs);
+}
+
+//
+static PyObject* n_tokenize_multi( PyObject* self, PyObject* args )
+{
+    PyObject* pystrs = PyTuple_GetItem(args,0);
+    NVStrings* strs = strings_from_object(pystrs);
+    if( strs==0 )
+        Py_RETURN_NONE;
+
+    PyObject* pydelims = PyTuple_GetItem(args,1);
+    NVStrings* delims = strings_from_object(pydelims);
+    if( delims==0 )
+        Py_RETURN_NONE;
+
+    Py_BEGIN_ALLOW_THREADS
+    strs = NVText::tokenize(*strs,*delims);
+    Py_END_ALLOW_THREADS
+    if( strs==0 )
+        Py_RETURN_NONE;
+    return PyLong_FromVoidPtr((void*)strs);
+}
+
+//
 static PyObject* n_unique_tokens( PyObject* self, PyObject* args )
 {
-    PyObject* pystrs = PyTuple_GetItem(args,0); // only one parm expected
+    PyObject* pystrs = PyTuple_GetItem(args,0);
     NVStrings* strs = strings_from_object(pystrs);
     if( strs==0 )
         Py_RETURN_NONE;
@@ -491,14 +533,42 @@ static PyObject* n_edit_distance( PyObject* self, PyObject* args )
     return ret;
 }
 
+static PyObject* n_create_ngrams( PyObject* self, PyObject* args )
+{
+    PyObject* pystrs = PyTuple_GetItem(args,0);
+    NVStrings* strs = strings_from_object(pystrs);
+    if( strs==0 )
+        Py_RETURN_NONE;
+
+    unsigned int ngrams = 0;
+    PyObject* pyngrams = PyTuple_GetItem(args,1);
+    if( pyngrams != Py_None )
+        ngrams = (unsigned int)PyLong_AsLong(pyngrams);
+    
+    const char* separator = " ";
+    PyObject* pysep = PyTuple_GetItem(args,2);
+    if( pysep != Py_None )
+        separator = PyUnicode_AsUTF8(pysep);
+
+    Py_BEGIN_ALLOW_THREADS
+    strs = NVText::create_ngrams(*strs,ngrams,separator);
+    Py_END_ALLOW_THREADS
+    if( strs==0 )
+        Py_RETURN_NONE;
+    return PyLong_FromVoidPtr((void*)strs);
+}
+
 //
 static PyMethodDef s_Methods[] = {
+    { "n_tokenize", n_tokenize, METH_VARARGS, "" },
+    { "n_tokenize_multi", n_tokenize_multi, METH_VARARGS, "" },
     { "n_unique_tokens", n_unique_tokens, METH_VARARGS, "" },
     { "n_token_count", n_token_count, METH_VARARGS, "" },
     { "n_contains_strings", n_contains_strings, METH_VARARGS, "" },
     { "n_strings_counts", n_strings_counts, METH_VARARGS, "" },
     { "n_tokens_counts", n_tokens_counts, METH_VARARGS, "" },
     { "n_edit_distance", n_edit_distance, METH_VARARGS, "" },
+    { "n_create_ngrams", n_create_ngrams, METH_VARARGS, "" },
     { NULL, NULL, 0, NULL }
 };
 

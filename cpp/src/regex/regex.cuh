@@ -43,6 +43,8 @@ class dreprog
     int insts_count, starts_count, classes_count;
     unsigned char* unicode_flags;
     void* relists_mem;
+    u_char* stack_mem1;
+    u_char* stack_mem2;
 
     dreprog() {}
     ~dreprog() {}
@@ -51,24 +53,25 @@ class dreprog
 
     //
     __device__ inline int regexec( custring_view* dstr, Reljunk& jnk, int& begin, int& end, int groupid=0 );
+    __device__ inline int call_regexec( unsigned idx, custring_view* dstr, int& begin, int& end, int groupid=0 );
+    __device__ inline int call_regexec_small( custring_view* dstr, Reljunk& jnk, int& begin, int& end, int groupid=0 );
+    __device__ inline int call_regexec_medium( custring_view* dstr, Reljunk& jnk, int& begin, int& end, int groupid=0 );
+    __device__ inline int call_regexec_large( custring_view* dstr, Reljunk& jnk, int& begin, int& end, int groupid=0 );
 
 public:
     //
-    static dreprog* create_from(const char32_t* pattern, unsigned char* uflags, unsigned int strscount=0);
+    static dreprog* create_from(const char32_t* pattern, unsigned char* uflags);
     static void destroy(dreprog* ptr);
+    bool alloc_relists(size_t count);
 
     int inst_counts();
     int group_counts();
 
+    __device__ inline void set_stack_mem(u_char* s1, u_char* s2);
+
     __host__ __device__ inline Reinst* get_inst(int idx);
     __device__ inline int get_class(int idx, dreclass& cls);
     __device__ inline int* get_startinst_ids();
-
-    //
-    __device__ inline int contains( custring_view* dstr );
-    __device__ inline int match( custring_view* dstr );
-    __device__ inline int find( custring_view* dstr, int& begin, int& end );
-    __device__ inline int extract( custring_view* str, int& begin, int& end, int col );
 
     __device__ inline int contains( unsigned int idx, custring_view* dstr );
     __device__ inline int match( unsigned int idx, custring_view* dstr );
@@ -76,5 +79,15 @@ public:
     __device__ inline int extract( unsigned int idx, custring_view* str, int& begin, int& end, int col );
 
 };
+
+#define MAX_STACK_INSTS 1000
+
+// 10128 ≈ 1000 instructions
+// Formula is from data_size_for calculaton
+// bytes = (8+2)*x + (x/8) = 10.125x < 11x  where x is number of insts
+
+#define RX_STACK_SMALL  112
+#define RX_STACK_MEDIUM 1104
+#define RX_STACK_LARGE  10128
 
 #include "regexec.inl"

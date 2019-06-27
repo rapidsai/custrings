@@ -4,10 +4,17 @@
 # cuStrings GPU build script for CI #
 #####################################
 set -ex
+NUMARGS=$#
+ARGS=$*
 
 # Logger function for build status output
 function logger() {
   echo -e "\n>>>> $@\n"
+}
+
+# Arg parsing function
+function hasArg {
+    (( ${NUMARGS} != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
 }
 
 # Set path and build parallel level
@@ -69,7 +76,7 @@ nvidia-smi
 #  cuda-drivers=${DRIVER_VER} libcuda1-${LIBCUDA_VER}
 
 ################################################################################
-# BUILD - from source
+# BUILD - Build libNVStrings and NVStrings
 ################################################################################
 
 logger "Building custrings..."
@@ -92,12 +99,17 @@ cd ../../python
 python setup.py install --single-version-externally-managed --record=record.txt
 
 ################################################################################
-# TEST - something
+# TEST - Test NVStrings
 ################################################################################
+
+if hasArg --skip-tests; then
+    logger "Skipping Tests..."
+    exit 0
+fi
 
 logger "Check GPU usage..."
 nvidia-smi
 
 logger "Simple test..."
 cd tests
-pytest -v
+pytest --cache-clear --junitxml=${WORKSPACE}/junit-custrings.xml -v

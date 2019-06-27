@@ -1,9 +1,43 @@
+# cuStrings/nvStrings 0.8.0 (27 June 2019)
+
+## New Features
+
+- PR #298 Added ngrams method to NVText
+- PR #299 Added gather method for booleans array
+- PR #304 Updated nvtext.ngrams to call C++ function
+- PR #325 Add test skipping functionality to build.sh
+- PR #332 Accept multiple nvstrings in cat() method
+- PR #327 Allow numeric keys in nvcategory
+
+## Improvements
+
+- PR #316 Add .0 to integer output when using ftos/dtos
+- PR #315 Support NaN, Inf strings in stof and stod
+- PR #313 Increased regex instruction threshold for stack to 1024
+- PR #302 Add junit test output for py.test
+- PR #331 Use stack-size ranges for different regex instruction counts
+- PR #341 Support device memory in from_offsets
+
+## Bug Fixes
+
+- PR #314 Fixed calculation error in ip2int
+- PR #306 Set main label always for libnvstrings
+- PR #307 Update conda dependencies
+- PR #326 Update python doc version
+- PR #335 to_host no longer overwrites input pointers for null strings
+- PR #329 Fixed documentation errors in source code
+- PR #334 Regex stack-size logic moved to host code
+- PR #343 Fixed a flag which is necessary for conda install in Dockerfile
+- PR #347 Configure Sphinx to render params correctly
+
+
 # cuStrings/nvStrings 0.7.0 (10 May 2019)
 
 Version jump from 0.3->0.7 is to align with other RAPIDS projects.
 
 ## New Features
 
+- PR #295 Added nvtext.tokenize
 - PR #281 Added get_info method to show data about strings
 - PR #273 Added tokens_counts method to nvtext
 - PR #265 Added is_empty method

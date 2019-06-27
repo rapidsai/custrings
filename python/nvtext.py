@@ -2,7 +2,45 @@
 
 import pyniNVText
 import nvstrings as nvs
-import logging
+
+
+def tokenize(strs, delimiter=None):
+    """
+    Each string is split into tokens using the provided delimiter(s).
+    The nvstrings instance returned contains the tokens in the order
+    they were found.
+
+    Parameters
+    ----------
+    strs : nvstrings
+        The strings for this operation
+    delimiter : str or nvstrings or list of strs
+        The string used to locate the split points of each string.
+        Default is whitespace.
+
+    Examples
+    --------
+    >>> import nvstrings, nvtext
+    >>> s = nvstrings.to_device(["hello world",
+    ...                          "goodbye world",
+    ...                          "hello goodbye"])
+    >>> t = nvtext.tokenize(s)
+    >>> print(t)
+    ["hello","world","goodbye","world","hello","goodbye"]
+
+    """
+    rtn = None
+    if delimiter is None:
+        rtn = pyniNVText.n_tokenize(strs, delimiter)
+    if isinstance(delimiter, str):
+        rtn = pyniNVText.n_tokenize(strs, delimiter)
+    if isinstance(delimiter, list):
+        delimiter = nvs.to_device(delimiter)
+    if isinstance(delimiter, nvs.nvstrings):
+        rtn = pyniNVText.n_tokenize_multi(strs, delimiter)
+    if rtn is not None:
+        rtn = nvs.nvstrings(rtn)
+    return rtn
 
 
 def unique_tokens(strs, delimiter=' '):
@@ -182,21 +220,22 @@ def edit_distance(strs, tgt, algo=0, devptr=0):
     return rtn
 
 
-def ngrams(strs, N=2, sep='_'):
-    """Generate the n-grams of an nvstrings array.
+def ngrams(tokens, N=2, sep='_'):
+    """
+    Generate the n-grams from a set of tokens.
+    You can generate tokens from an nvstrings instance using
+    the tokenize() function.
 
     Parameters
     ----------
-    strs : nvstrings
-        The strings for this operation.
+    tokens : nvstrings
+        The tokens for this operation.
     N : int
-        The degree of the n-gram (number of consecutive tokens). Default of 2
-        for bigrams.
-    sep : The separator to use between within an n-gram. Default of '_'.
-
-    Returns
-    -------
-    ngrams_object : nvstrings
+        The degree of the n-gram (number of consecutive tokens).
+        Default of 2 for bigrams.
+    sep : str
+        The separator to use between within an n-gram.
+        Default is '_'.
 
     Examples
     --------
@@ -205,33 +244,9 @@ def ngrams(strs, N=2, sep='_'):
     >>> print(nvtext.ngrams(dstrings, N=2, sep='_'))
     ['this_is', 'is_my', 'my_favorite', 'favorite_book']
     """
-    logging.warning("ngrams functionlity does not currently scale "
-                    "well to large datasets.")
-
-    # Tokenize
-    tokens = strs.split_record()
-    tokens_combined = nvs.from_strings(tokens)
-
-    pad = nvs.to_device([''])
-    ngram_object = tokens_combined
-    total_num_of_tokens = tokens_combined.size()
-    shifted_token_collection = []
-
-    # Create shifted and padded nvstrings objects
-    for i in range(N - 1):
-        shifted_tokens = tokens_combined.remove_strings(
-            list(range(0, i + 1))
-        )
-        shifted_tokens = shifted_tokens.add_strings(
-            [pad] * (total_num_of_tokens - shifted_tokens.size())
-        )
-        shifted_token_collection.append(shifted_tokens)
-
-    # Create the n-grams from the shifted nvstrings
-    for sequence in shifted_token_collection:
-        ngram_object = ngram_object.cat(sequence, sep)
-
-    ngram_object = ngram_object.remove_strings(
-        list(range(ngram_object.size() - N + 1, ngram_object.size()))
-    )
-    return ngram_object
+    if N < 1:
+        raise ValueError("N must be >= 1")
+    rtn = pyniNVText.n_create_ngrams(tokens, N, sep)
+    if rtn is not None:
+        rtn = nvs.nvstrings(rtn)
+    return rtn

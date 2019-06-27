@@ -7,6 +7,20 @@ import nvtext
 from librmm_cffi import librmm as rmm
 
 
+def test_tokenize():
+    # default space delimiter
+    strs = nvstrings.to_device(
+        ["the quick fox jumped over the lazy dog",
+         "the siamésé cat jumped under the sofa",
+         None,
+         ""]
+    )
+    outcome = nvtext.tokenize(strs)
+    expected = ["the", "quick", "fox", "jumped", "over", "the", "lazy", "dog",
+                "the", "siamésé", "cat", "jumped", "under", "the", "sofa"]
+    assert outcome.to_host() == expected
+
+
 def test_token_count():
     # default space delimiter
     strs = nvstrings.to_device(
@@ -163,7 +177,8 @@ def test_ngrams():
         'on_my',
         'my_bookshelf'
     ]
-    outcome = nvtext.ngrams(dstrings, N=2, sep='_')
+    tokens = nvtext.tokenize(dstrings)
+    outcome = nvtext.ngrams(tokens, N=2, sep='_')
     assert outcome.to_host() == expected
 
     # trigrams
@@ -177,5 +192,6 @@ def test_ngrams():
         'book-on-my',
         'on-my-bookshelf'
     ]
-    outcome = nvtext.ngrams(dstrings, N=3, sep='-')
+    tokens = nvtext.tokenize(dstrings)
+    outcome = nvtext.ngrams(tokens, N=3, sep='-')
     assert outcome.to_host() == expected

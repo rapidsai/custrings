@@ -109,10 +109,11 @@ public:
      *                        The bits are organized as specified in the Arrow format. If no nulls, this parameter can be null.
      *                        The size of this byte array should be at least (count+7)/8 bytes.
      * @param nulls The number of nulls identified by the \p nullbitmask.
+     * @param devmem Set to true (default) if pointers are to device memory.
      *
      * @return Instance with the strings copied into device memory.
      */
-    static NVStrings* create_from_offsets(const char* strs, int count, const int* offsets, const unsigned char* nullbitmask=0, int nulls=0);
+    static NVStrings* create_from_offsets(const char* strs, int count, const int* offsets, const unsigned char* nullbitmask=0, int nulls=0, bool devmem=true);
     /**
      * @brief Create an instance from other NVStrings instances.
      *
@@ -241,6 +242,7 @@ public:
      * @brief Copy the list of strings into the provided host memory.
      *
      * Each pointer must point to memory large enough to hold the bytes of each corresponding string.
+     * Null strings should be identified using the set_null_bitarray method.
      * @param[in,out] list The list of pointers to CPU memory to copy each string into.
      * @param start The 0-based index position of the string to copy first.
      * @param end The 0-based index position of the string to copy last.
@@ -266,6 +268,14 @@ public:
      * @return New instance with the specified strings.
      */
     NVStrings* gather( const int* pos, unsigned int count, bool devmem=true );
+    /**
+     * @brief Returns new instance where the corresponding boolean array values are true.
+     *
+     * @param[in] mask Must have the same number of elements as this instance.
+     * @param devmem Indicates whether the mask parameter points to device memory or CPU memory.
+     * @return New instance with the indicated strings.
+     */
+    NVStrings* gather( const bool* mask, bool devmem=true );
     /**
      * @brief Returns a new instance without the specified strings.
      *
@@ -401,6 +411,14 @@ public:
      * @return New instance with this instance concatentated with the provided instance.
      */
     NVStrings* cat( NVStrings* others, const char* separator, const char* narep=0);
+    /**
+     * @brief Concatenates the given list of strings to this instance of strings and returns as new instance.
+     * @param[in] others The number of strings in each item must match this instance.
+     * @param[in] separator Null-terminated CPU string that should appear between each instance.
+     * @param[in] narep Null-terminated CPU string that should represent any null strings found.
+     * @return New instance with this instance concatentated with the provided instances.
+     */
+    NVStrings* cat( std::vector<NVStrings*>& others, const char* separator, const char* narep=0);
     /**
      * @brief Concatenates all strings into one new string.
      * @param[in] separator Null-terminated CPU string that should appear between each string.
