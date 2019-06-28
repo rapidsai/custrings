@@ -76,6 +76,16 @@ def test_replace(find, replace):
     assert_eq(got, expected)
 
 
+def test_replace_multi():
+    s = ["xxx 1281151 xxxxxx xxxxxxx xxxx xxxx - xxxxx xxxx xx 24",
+         "2-xxxx xxxxxxxxxxx xxxxxxxxxx xxx26x4xxx xxxxxxxxxxxx xxxxx xxxxx"]
+    pstrs = pd.Series(s)
+    nvstrs = nvstrings.to_device(s)
+    got = nvstrs.replace(r'\b\d+\b', '*****')
+    expected = pstrs.str.replace(r'\b\d+\b', '*****').values
+    assert_eq(got, expected)
+
+
 @pytest.mark.parametrize('pattern', ['[hH]',
                                      '[bB][aA]',
                                      ])
