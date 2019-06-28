@@ -229,7 +229,7 @@ struct replace_regex_sizer_fn
             bytes += rsz - (dstr->byte_offset_for(end)-dstr->byte_offset_for(begin));
             nchars += rszch - (end-begin);
             begin = end;
-            end = (int)nchars;
+            end = (int)dstr->chars_count();
             result = prog->find(idx,dstr,begin,end); // next one
             --mxn;
         }
