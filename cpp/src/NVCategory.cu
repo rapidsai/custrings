@@ -51,6 +51,24 @@ typedef custring_view** custring_view_array;
 //    printf("\n");
 //}
 
+void* device_alloc(size_t bytes, cudaStream_t sid)
+{
+    void* buffer = nullptr;
+    rmmError_t rerr = RMM_ALLOC(&buffer,bytes,sid);
+    if( rerr != RMM_SUCCESS )
+    {
+        if( rerr==RMM_ERROR_OUT_OF_MEMORY )
+        {
+            std::cerr.imbue(std::locale(""));
+            std::cerr << "out of memory on alloc request of " << bytes << " bytes\n";
+        }
+        std::ostringstream message;
+        message << "allocate error " << rerr;
+        throw std::runtime_error(message.str());
+    }
+    return buffer;
+}
+
 //
 class NVCategoryImpl
 {
@@ -156,8 +174,7 @@ void NVCategoryImpl_keys_from_index( NVCategoryImpl* pImpl, thrust::pair<const c
         });
     // create output buffer to hold the string keys
     size_t outsize = thrust::reduce(execpol->on(0), lengths.begin(), lengths.end());
-    char* d_buffer = nullptr;
-    RMM_ALLOC(&d_buffer,outsize,0);
+    char* d_buffer = static_cast<char*>(device_alloc(outsize,0));
     pImpl->setMemoryBuffer(d_buffer,outsize);
     rmm::device_vector<size_t> offsets(ucount,0);
     thrust::exclusive_scan(execpol->on(0),lengths.begin(),lengths.end(),offsets.begin());
@@ -192,8 +209,7 @@ void NVCategoryImpl_keys_from_custringarray( NVCategoryImpl* pImpl, custring_vie
         });
     // create output buffer to hold the string keys
     size_t outsize = thrust::reduce(execpol->on(0), lengths.begin(), lengths.end());
-    char* d_buffer = nullptr;
-    RMM_ALLOC(&d_buffer,outsize,0);
+    char* d_buffer = static_cast<char*>(device_alloc(outsize,0));
     pImpl->setMemoryBuffer(d_buffer,outsize);
     rmm::device_vector<size_t> offsets(ucount,0);
     thrust::exclusive_scan(execpol->on(0),lengths.begin(),lengths.end(),offsets.begin());
@@ -230,13 +246,13 @@ void NVCategoryImpl_init(NVCategoryImpl* pImpl, std::pair<const char*,size_t>* p
             d_pairs = (thrust::pair<const char*,size_t>*)pairs; // and we can just use it here
         else
         {
-            RMM_ALLOC(&d_pairs,sizeof(thrust::pair<const char*,size_t>)*count,0);
+            d_pairs = static_cast<thrust::pair<const char*,size_t>*>(device_alloc(sizeof(thrust::pair<const char*,size_t>)*count,0));
             cudaMemcpy(d_pairs,pairs,sizeof(thrust::pair<const char*,size_t>)*count,cudaMemcpyDeviceToDevice);
         }
     }
     else
     {
-        RMM_ALLOC(&d_pairs,sizeof(thrust::pair<const char*,size_t>)*count,0);
+        d_pairs = static_cast<thrust::pair<const char*,size_t>*>(device_alloc(sizeof(thrust::pair<const char*,size_t>)*count,0));
         cudaMemcpy(d_pairs,pairs,sizeof(thrust::pair<const char*,size_t>)*count,cudaMemcpyHostToDevice);
     }
 
@@ -318,11 +334,9 @@ NVCategory* NVCategory::create_from_array(const char** strs, unsigned int count)
     if( count==0 )
         return rtn;
     NVStrings* dstrs = NVStrings::create_from_array(strs,count);
-    std::pair<const char*,size_t>* indexes = nullptr;
-    RMM_ALLOC(&indexes, count * sizeof(std::pair<const char*,size_t>),0);
-    dstrs->create_index(indexes);
-    NVCategoryImpl_init(rtn->pImpl,indexes,count,true,true);
-    RMM_FREE(indexes,0);
+    rmm::device_vector<std::pair<const char*,size_t>> indexes(count);
+    dstrs->create_index(indexes.data().get());
+    NVCategoryImpl_init(rtn->pImpl,indexes.data().get(),count,true,true);
     NVStrings::destroy(dstrs);
     return rtn;
 }
@@ -333,11 +347,9 @@ NVCategory* NVCategory::create_from_strings(NVStrings& strs)
     unsigned int count = strs.size();
     if( count==0 )
         return rtn;
-    std::pair<const char*,size_t>* indexes = nullptr;
-    RMM_ALLOC(&indexes, count * sizeof(std::pair<const char*,size_t>),0);
-    strs.create_index(indexes);
-    NVCategoryImpl_init(rtn->pImpl,indexes,count,true,true);
-    RMM_FREE(indexes,0);
+    rmm::device_vector<std::pair<const char*,size_t>> indexes(count);
+    strs.create_index(indexes.data().get());
+    NVCategoryImpl_init(rtn->pImpl,indexes.data().get(),count,true,true);
     return rtn;
 }
 
@@ -349,16 +361,14 @@ NVCategory* NVCategory::create_from_strings(std::vector<NVStrings*>& strs)
         count += strs[idx]->size();
     if( count==0 )
         return rtn;
-    std::pair<const char*,size_t>* indexes = nullptr;
-    RMM_ALLOC(&indexes, count * sizeof(std::pair<const char*,size_t>),0);
-    std::pair<const char*,size_t>* ptr = indexes;
+    rmm::device_vector<std::pair<const char*,size_t>> indexes(count);
+    std::pair<const char*,size_t>* ptr = indexes.data().get();
     for( unsigned int idx=0; idx < (unsigned int)strs.size(); idx++ )
     {
         strs[idx]->create_index(ptr);
         ptr += strs[idx]->size();
     }
-    NVCategoryImpl_init(rtn->pImpl,indexes,count,true,true);
-    RMM_FREE(indexes,0);
+    NVCategoryImpl_init(rtn->pImpl,indexes.data().get(),count,true,true);
     return rtn;
 }
 
@@ -369,11 +379,9 @@ NVCategory* NVCategory::create_from_offsets(const char* strs, unsigned int count
     if( count==0 )
         return rtn;
     NVStrings* dstrs = NVStrings::create_from_offsets(strs,count,offsets,nullbitmask,nulls,bdevmem);
-    std::pair<const char*,size_t>* indexes = nullptr;
-    RMM_ALLOC(&indexes, count * sizeof(std::pair<const char*,size_t>),0);
-    dstrs->create_index(indexes); // try using the custring one; may be more efficient
-    NVCategoryImpl_init(rtn->pImpl,indexes,count,true,true);
-    RMM_FREE(indexes,0);
+    rmm::device_vector<std::pair<const char*,size_t>> indexes(count);
+    dstrs->create_index(indexes.data().get()); // try using the custring one; may be more efficient
+    NVCategoryImpl_init(rtn->pImpl,indexes.data().get(),count,true,true);
     NVStrings::destroy(dstrs);
     return rtn;
 }
@@ -545,8 +553,7 @@ void NVCategoryImpl_copy( NVCategoryImpl& dest, NVCategoryImpl& src )
     rmm::device_vector<custring_view*>* pNewList = new rmm::device_vector<custring_view*>(ucount,nullptr);
     char* d_buffer = (char*)src.memoryBuffer;
     size_t bufsize = src.bufferSize;
-    char* d_newbuffer = nullptr;
-    RMM_ALLOC(&d_newbuffer,bufsize,0);
+    char* d_newbuffer = static_cast<char*>(device_alloc(bufsize,0));
     cudaMemcpy(d_newbuffer,d_buffer,bufsize,cudaMemcpyDeviceToDevice);
     // need to set custring_view ptrs
     custring_view_array d_strings = src.getStringsPtr();
@@ -630,7 +637,7 @@ int NVCategory::set_null_bitarray( unsigned char* bitarray, bool devmem )
     unsigned int size = (count + 7)/8;
     unsigned char* d_bitarray = bitarray;
     if( !devmem )
-        RMM_ALLOC(&d_bitarray,size,0);
+        d_bitarray = static_cast<unsigned char*>(device_alloc(size,0));
 
     int nidx = -1;
     {
@@ -778,7 +785,7 @@ int NVCategory::get_value(const char* str)
     if( str )
     {
         bytes = (unsigned int)strlen(str);
-        RMM_ALLOC(&d_str,bytes+1,0);
+        d_str = static_cast<char*>(device_alloc(bytes+1,0));
         cudaMemcpy(d_str,str,bytes,cudaMemcpyHostToDevice);
     }
     int count = keys_size();
@@ -838,7 +845,7 @@ std::pair<int,int> NVCategory::get_value_bounds(const char* str)
     if( str )
     {
         len = strlen(str);
-        RMM_ALLOC(&d_str,len+1,0);
+        d_str = static_cast<char*>(device_alloc(len+1,0));
         cudaMemcpy(d_str,str,len+1,cudaMemcpyHostToDevice);
     }
     thrust::pair<const char*,size_t> newstr(d_str,len); // add to the end
@@ -907,7 +914,7 @@ int NVCategory::get_indexes_for( unsigned int index, int* results, bool bdevmem 
 
     int* d_results = results;
     if( !bdevmem )
-        RMM_ALLOC(&d_results,matches*sizeof(int),0);
+        d_results = static_cast<int*>(device_alloc(matches*sizeof(int),0));
 
     thrust::counting_iterator<unsigned int> itr(0);
     thrust::copy_if( execpol->on(0), itr, itr+count, d_results,
@@ -1021,7 +1028,7 @@ NVStrings* NVCategory::gather_strings( const int* pos, unsigned int count, bool 
     const int* d_pos = pos;
     if( !bdevmem )
     {
-        RMM_ALLOC((void**)&d_pos,count*sizeof(int),0);
+        d_pos = static_cast<const int*>(device_alloc(count*sizeof(int),0));
         cudaMemcpy((void*)d_pos,pos,count*sizeof(int),cudaMemcpyHostToDevice);
     }
 
@@ -1094,7 +1101,7 @@ NVCategory* NVCategory::gather_and_remap( const int* pos, unsigned int count, bo
     const int* d_v = pos;
     if( !bdevmem )
     {
-        RMM_ALLOC((void**)&d_v,count*sizeof(int),0);
+        d_v = static_cast<const int*>(device_alloc(count*sizeof(int),0));
         cudaMemcpy((void*)d_v,pos,count*sizeof(int),cudaMemcpyHostToDevice);
     }
 

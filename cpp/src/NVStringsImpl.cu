@@ -14,6 +14,8 @@
 * limitations under the License.
 */
 
+#include <exception>
+#include <locale.h>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #include <thrust/device_vector.h>
@@ -22,8 +24,6 @@
 #include <thrust/for_each.h>
 #include <thrust/extrema.h>
 #include <thrust/sort.h>
-//#include <locale.h>
-//#include <map>
 #include <rmm/rmm.h>
 #include <rmm/thrust_rmm_allocator.h>
 #include "NVStrings.h"
@@ -109,15 +109,32 @@ NVStringsImpl::~NVStringsImpl()
     bufferSize = 0;
 }
 
+void* device_alloc(size_t bytes, cudaStream_t sid)
+{
+    void* buffer = nullptr;
+    rmmError_t rerr = RMM_ALLOC(&buffer,bytes,sid);
+    if( rerr != RMM_SUCCESS )
+    {
+        if( rerr==RMM_ERROR_OUT_OF_MEMORY )
+        {
+            std::cerr.imbue(std::locale(""));
+            std::cerr << "out of memory on alloc request of " << bytes << " bytes\n";
+        }
+        std::ostringstream message;
+        message << "allocate error " << rerr;
+        throw std::runtime_error(message.str());
+    }
+    return buffer;
+}
+
 char* NVStringsImpl::createMemoryFor( size_t* d_lengths )
 {
     unsigned int count = (unsigned int)pList->size();
     auto execpol = rmm::exec_policy(stream_id);
-    size_t outsize = thrust::reduce(execpol->on(stream_id), d_lengths, d_lengths+count);
-    if( outsize==0 )
-        return 0; // all sizes are zero
-    RMM_ALLOC(&memoryBuffer,outsize,0);
-    bufferSize = outsize;
+    bufferSize = thrust::reduce(execpol->on(stream_id), d_lengths, d_lengths+count);
+    if( bufferSize==0 )
+        return 0; // this is valid; all sizes are zero
+    memoryBuffer = static_cast<char*>(device_alloc(bufferSize,stream_id));
     return memoryBuffer;
 }
 
@@ -203,12 +220,14 @@ int NVStrings_init_from_strings(NVStringsImpl* pImpl, const char** strs, unsigne
 int NVStrings_init_from_indexes( NVStringsImpl* pImpl, std::pair<const char*,size_t>* indexes, unsigned int count, bool bdevmem, NVStrings::sorttype stype )
 {
     cudaError_t err = cudaSuccess;
+    rmmError_t rerr = RMM_SUCCESS;
     auto execpol = rmm::exec_policy(0);
     thrust::pair<const char*,size_t>* d_indexes = (thrust::pair<const char*,size_t>*)indexes;
     if( !bdevmem )
     {
-        RMM_ALLOC(&d_indexes,sizeof(std::pair<const char*,size_t>)*count,0);
-        err = cudaMemcpy(d_indexes,indexes,sizeof(std::pair<const char*,size_t>)*count,cudaMemcpyHostToDevice);
+        rerr = RMM_ALLOC(&d_indexes,sizeof(std::pair<const char*,size_t>)*count,0);
+        if( rerr == RMM_SUCCESS )
+            err = cudaMemcpy(d_indexes,indexes,sizeof(std::pair<const char*,size_t>)*count,cudaMemcpyHostToDevice);
     }
     else
     {
@@ -235,7 +254,7 @@ int NVStrings_init_from_indexes( NVStringsImpl* pImpl, std::pair<const char*,siz
             //printf("exception: %d: %s\n", (int)err, e.what());
         }
     }
-    if( err != cudaSuccess )
+    if( err != cudaSuccess || rerr != RMM_SUCCESS )
     {
         printCudaError(err,"nvs-idx: checking parms");
         if( !bdevmem )
@@ -276,7 +295,7 @@ int NVStrings_init_from_indexes( NVStringsImpl* pImpl, std::pair<const char*,siz
     if( nbytes==0 )
         return 0;  // done, all the strings were null
     char* d_flatdstrs = nullptr;
-    rmmError_t rerr = RMM_ALLOC(&d_flatdstrs,nbytes,0);
+    rerr = RMM_ALLOC(&d_flatdstrs,nbytes,0);
     if( rerr != RMM_SUCCESS )
     {
         fprintf(stderr,"nvs-idx: RMM_ALLOC(%p,%lu)=%d\n", d_flatdstrs,nbytes,(int)rerr);
@@ -442,8 +461,7 @@ int NVStrings_copy_strings( NVStringsImpl* pImpl, std::vector<NVStrings*>& strsl
         nbytes += (*itr)->memsize();
 
     custring_view_array d_results = pList->data().get();
-    char* d_buffer = nullptr;
-    RMM_ALLOC(&d_buffer,nbytes,0);
+    char* d_buffer = static_cast<char*>(device_alloc(nbytes,0));
     size_t offset = 0;
     size_t memoffset = 0;
 

@@ -140,10 +140,10 @@ struct DTFormatCompiler
         }
         // create in device memory
         size_t memsize = items.size() * sizeof(DTFormatItem);
-        RMM_ALLOC(&d_items,memsize,0);
+        d_items = static_cast<DTFormatItem*>(device_alloc(memsize,0));
         cudaMemcpy(d_items, items.data(), memsize, cudaMemcpyHostToDevice);
         DTProgram hprog{items.size(),d_items};
-        RMM_ALLOC(&d_prog,sizeof(DTProgram),0);
+        d_prog = static_cast<DTProgram*>(device_alloc(sizeof(DTProgram),0));
         cudaMemcpy(d_prog,&hprog,sizeof(DTProgram),cudaMemcpyHostToDevice);
         return d_prog;
     }
@@ -361,7 +361,7 @@ int NVStrings::timestamp2long( const char* format, timestamp_units units, unsign
     auto execpol = rmm::exec_policy(0);
     unsigned long* d_rtn = results;
     if( !bdevmem )
-        RMM_ALLOC(&d_rtn,count*sizeof(unsigned long),0);
+        d_rtn = static_cast<unsigned long*>(device_alloc(count*sizeof(unsigned long),0));
 
     if( format==0 )
         format = "%Y-%m-%dT%H:%M:%SZ";
@@ -652,11 +652,11 @@ NVStrings* NVStrings::long2timestamp( const unsigned long* values, unsigned int 
     unsigned char* d_nulls = (unsigned char*)nullbitmask;
     if( !bdevmem )
     {
-        RMM_ALLOC(&d_values,count*sizeof(unsigned long),0);
+        d_values = static_cast<unsigned long*>(device_alloc(count*sizeof(unsigned long),0));
         cudaMemcpy(d_values,values,count*sizeof(unsigned long),cudaMemcpyHostToDevice);
         if( nullbitmask )
         {
-            RMM_ALLOC(&d_nulls,((count+7)/8)*sizeof(unsigned char),0);
+            d_nulls = static_cast<unsigned char*>(device_alloc(((count+7)/8)*sizeof(unsigned char),0));
             cudaMemcpy(d_nulls,nullbitmask,((count+7)/8)*sizeof(unsigned char),cudaMemcpyHostToDevice);
         }
     }

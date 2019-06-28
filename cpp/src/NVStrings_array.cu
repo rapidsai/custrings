@@ -45,7 +45,7 @@ NVStrings* NVStrings::gather( const int* pos, unsigned int elems, bool bdevmem )
     const int* d_pos = pos;
     if( !bdevmem )
     {   // copy indexes to device memory
-        RMM_ALLOC((void**)&d_pos,elems*sizeof(int),0);
+        d_pos = static_cast<const int*>(device_alloc(elems*sizeof(int),0));
         cudaMemcpy((void*)d_pos,pos,elems*sizeof(int),cudaMemcpyHostToDevice);
     }
     // get individual sizes
@@ -113,10 +113,10 @@ NVStrings* NVStrings::gather( const bool* mask, bool bdevmem )
         return new NVStrings(0);
     // copy mask array to device memory if necessary
     auto execpol = rmm::exec_policy(0);
-    auto d_mask = mask;
+    const bool* d_mask = mask;
     if( !bdevmem )
     {
-        RMM_ALLOC((void**)&d_mask,count*sizeof(mask[0]),0);
+        d_mask = static_cast<const bool*>(device_alloc(count*sizeof(mask[0]),0));
         cudaMemcpyAsync((void*)d_mask,mask,count*sizeof(mask[0]),cudaMemcpyHostToDevice,0);
     }
     // create list of index positions from the mask array
@@ -162,8 +162,7 @@ NVStrings* NVStrings::remove_strings( const int* pos, unsigned int elems, bool b
         return nullptr; // return copy of ourselves?
 
     auto execpol = rmm::exec_policy(0);
-    int* dpos = nullptr;
-    RMM_ALLOC(&dpos,elems*sizeof(unsigned int),0);
+    int* dpos = static_cast<int*>(device_alloc(elems*sizeof(unsigned int),0));
     if( bdevmem )
        cudaMemcpy((void*)dpos,pos,elems*sizeof(unsigned int),cudaMemcpyDeviceToDevice);
     else
@@ -302,7 +301,7 @@ int NVStrings::order( sorttype stype, bool ascending, unsigned int* indexes, boo
     unsigned int* d_indexes = indexes;
     auto execpol = rmm::exec_policy(0);
     if( !todevice )
-        RMM_ALLOC(&d_indexes,count*sizeof(unsigned int),0);
+        d_indexes = static_cast<unsigned int*>(device_alloc(count*sizeof(unsigned int),0));
     thrust::sequence(execpol->on(0), d_indexes, d_indexes+count);
     //
     custring_view_array d_strings = pImpl->getStringsPtr();

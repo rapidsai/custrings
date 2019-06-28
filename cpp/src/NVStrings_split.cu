@@ -127,9 +127,8 @@ int NVStrings::split_record( const char* delimiter, int maxsplit, std::vector<NV
         return split_record(maxsplit,results);
 
     auto execpol = rmm::exec_policy(0);
-    char* d_delimiter = nullptr;
     unsigned int dellen = (unsigned int)strlen(delimiter);
-    RMM_ALLOC(&d_delimiter,dellen+1,0);
+    char* d_delimiter = static_cast<char*>(device_alloc(dellen+1,0));
     cudaMemcpy(d_delimiter,delimiter,dellen+1,cudaMemcpyHostToDevice);
     int tokens = 0;
     if( maxsplit > 0 )
@@ -182,8 +181,7 @@ int NVStrings::split_record( const char* delimiter, int maxsplit, std::vector<NV
         h_splits[idx] = splitResult->pImpl->getStringsPtr();
 
         int totalSize = h_totals[idx];
-        char* d_buffer = nullptr;
-        RMM_ALLOC(&d_buffer,totalSize,0);
+        char* d_buffer = static_cast<char*>(device_alloc(totalSize,0));
         splitResult->pImpl->setMemoryBuffer(d_buffer,totalSize);
         h_buffers[idx] = d_buffer;
 
@@ -360,8 +358,7 @@ int NVStrings::split_record( int maxsplit, std::vector<NVStrings*>& results)
         h_splits[idx] = splitResult->pImpl->getStringsPtr();
 
         int totalSize = h_totals[idx];
-        char* d_buffer = nullptr;
-        RMM_ALLOC(&d_buffer,totalSize,0);
+        char* d_buffer = static_cast<char*>(device_alloc(totalSize,0));
         splitResult->pImpl->setMemoryBuffer(d_buffer,totalSize);
         h_buffers[idx] = d_buffer;
 
@@ -440,9 +437,8 @@ int NVStrings::rsplit_record( const char* delimiter, int maxsplit, std::vector<N
         return rsplit_record(maxsplit,results);
 
     auto execpol = rmm::exec_policy(0);
-    char* d_delimiter = nullptr;
     unsigned int dellen = (unsigned int)strlen(delimiter);
-    RMM_ALLOC(&d_delimiter,dellen+1,0);
+    char* d_delimiter = static_cast<char*>(device_alloc(dellen+1,0));
     cudaMemcpy(d_delimiter,delimiter,dellen+1,cudaMemcpyHostToDevice);
     int tokens = 0;
     if( maxsplit > 0 )
@@ -493,8 +489,7 @@ int NVStrings::rsplit_record( const char* delimiter, int maxsplit, std::vector<N
         h_splits[idx] = splitResult->pImpl->getStringsPtr();
 
         int totalSize = h_totals[idx];
-        char* d_buffer = nullptr;
-        RMM_ALLOC(&d_buffer,totalSize,0);
+        char* d_buffer = static_cast<char*>(device_alloc(totalSize,0));
         splitResult->pImpl->setMemoryBuffer(d_buffer,totalSize);
         h_buffers[idx] = d_buffer;
 
@@ -628,8 +623,7 @@ int NVStrings::rsplit_record( int maxsplit, std::vector<NVStrings*>& results)
         h_splits[idx] = splitResult->pImpl->getStringsPtr();
 
         int totalSize = h_totals[idx];
-        char* d_buffer = nullptr;
-        RMM_ALLOC(&d_buffer,totalSize,0);
+        char* d_buffer = static_cast<char*>(device_alloc(totalSize,0));
         splitResult->pImpl->setMemoryBuffer(d_buffer,totalSize);
         h_buffers[idx] = d_buffer;
 
@@ -741,9 +735,8 @@ unsigned int NVStrings::split( const char* delimiter, int maxsplit, std::vector<
     if( delimiter==0 )
         return split(maxsplit,results);
     auto execpol = rmm::exec_policy(0);
-    char* d_delimiter = nullptr;
     unsigned int dellen = (unsigned int)strlen(delimiter);
-    RMM_ALLOC(&d_delimiter,dellen+1,0);
+    char* d_delimiter = static_cast<char*>(device_alloc(dellen+1,0));
     cudaMemcpy(d_delimiter,delimiter,dellen+1,cudaMemcpyHostToDevice);
     int tokens = 0;
     if( maxsplit > 0 )
@@ -968,9 +961,8 @@ unsigned int NVStrings::rsplit( const char* delimiter, int maxsplit, std::vector
     if( delimiter==0 )
         return rsplit(maxsplit,results);
     auto execpol = rmm::exec_policy(0);
-    char* d_delimiter = nullptr;
     unsigned int dellen = (unsigned int)strlen(delimiter);
-    RMM_ALLOC(&d_delimiter,dellen+1,0);
+    char* d_delimiter = static_cast<char*>(device_alloc(dellen+1,0));
     cudaMemcpy(d_delimiter,delimiter,dellen+1,cudaMemcpyHostToDevice);
     int tokens = 0;
     if( maxsplit > 0 )
@@ -1179,8 +1171,7 @@ int NVStrings::partition( const char* delimiter, std::vector<NVStrings*>& result
 
     auto execpol = rmm::exec_policy(0);
     // copy delimiter to device
-    char* d_delimiter = nullptr;
-    RMM_ALLOC(&d_delimiter,bytes,0);
+    char* d_delimiter = static_cast<char*>(device_alloc(bytes,0));
     cudaMemcpy(d_delimiter,delimiter,bytes,cudaMemcpyHostToDevice);
     int d_asize = custring_view::alloc_size((char*)delimiter,bytes);
     d_asize = ALIGN_SIZE(d_asize);
@@ -1215,8 +1206,7 @@ int NVStrings::partition( const char* delimiter, std::vector<NVStrings*>& result
         h_splits[idx] = result->pImpl->getStringsPtr();
 
         int totalSize = h_totals[idx];
-        char* d_buffer = nullptr;
-        RMM_ALLOC(&d_buffer,totalSize,0);
+        char* d_buffer = static_cast<char*>(device_alloc(totalSize,0));
         result->pImpl->setMemoryBuffer(d_buffer,totalSize);
         h_buffers[idx] = d_buffer;
     }
@@ -1284,8 +1274,7 @@ int NVStrings::rpartition( const char* delimiter, std::vector<NVStrings*>& resul
 
     auto execpol = rmm::exec_policy(0);
     // copy delimiter to device
-    char* d_delimiter = nullptr;
-    RMM_ALLOC(&d_delimiter,bytes,0);
+    char* d_delimiter = static_cast<char*>(device_alloc(bytes,0));
     cudaMemcpy(d_delimiter,delimiter,bytes,cudaMemcpyHostToDevice);
     int d_asize = custring_view::alloc_size((char*)delimiter,bytes);
     d_asize = ALIGN_SIZE(d_asize);
@@ -1321,8 +1310,7 @@ int NVStrings::rpartition( const char* delimiter, std::vector<NVStrings*>& resul
         h_splits[idx] = result->pImpl->getStringsPtr();
 
         int totalSize = h_totals[idx];
-        char* d_buffer = nullptr;
-        RMM_ALLOC(&d_buffer,totalSize,0);
+        char* d_buffer = static_cast<char*>(device_alloc(totalSize,0));
         result->pImpl->setMemoryBuffer(d_buffer,totalSize);
         h_buffers[idx] = d_buffer;
     }

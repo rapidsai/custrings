@@ -5,6 +5,7 @@
 ## Improvements
 
 - PR #354 Removed rmm submodule
+- PR #357 Improved error checking on memory allocates
 
 ## Bug Fixes
 

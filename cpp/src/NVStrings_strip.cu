@@ -37,7 +37,7 @@ NVStrings* NVStrings::lstrip( const char* to_strip )
     if( to_strip )
     {
         int len = (int)strlen(to_strip) + 1; // include null
-        RMM_ALLOC(&d_strip,len,0);
+        d_strip = static_cast<char*>(device_alloc(len,0));
         cudaMemcpy(d_strip,to_strip,len,cudaMemcpyHostToDevice);
     }
 
@@ -94,7 +94,7 @@ NVStrings* NVStrings::strip( const char* to_strip )
     if( to_strip )
     {
         int len = (int)strlen(to_strip) + 1; // include null
-        RMM_ALLOC(&d_strip,len,0);
+        d_strip = static_cast<char*>(device_alloc(len,0));
         cudaMemcpy(d_strip,to_strip,len,cudaMemcpyHostToDevice);
     }
 
@@ -151,7 +151,7 @@ NVStrings* NVStrings::rstrip( const char* to_strip )
     if( to_strip )
     {
         int len = (int)strlen(to_strip) + 1; // include null
-        RMM_ALLOC(&d_strip,len,0);
+        d_strip = static_cast<char*>(device_alloc(len,0));
         cudaMemcpy(d_strip,to_strip,len,cudaMemcpyHostToDevice);
     }
 

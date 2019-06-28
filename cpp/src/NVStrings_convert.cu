@@ -39,7 +39,7 @@ int NVStrings::hash(unsigned int* results, bool todevice)
     auto execpol = rmm::exec_policy(0);
     unsigned int* d_rtn = results;
     if( !todevice )
-        RMM_ALLOC(&d_rtn,count*sizeof(unsigned int),0);
+        d_rtn = static_cast<unsigned int*>(device_alloc(count*sizeof(unsigned int),0));
 
     custring_view** d_strings = pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
@@ -70,7 +70,7 @@ int NVStrings::stoi(int* results, bool todevice)
     auto execpol = rmm::exec_policy(0);
     int* d_rtn = results;
     if( !todevice )
-        RMM_ALLOC(&d_rtn,count*sizeof(int),0);
+        d_rtn = static_cast<int*>(device_alloc(count*sizeof(int),0));
 
     custring_view** d_strings = pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
@@ -101,7 +101,7 @@ int NVStrings::stol(long* results, bool todevice)
     auto execpol = rmm::exec_policy(0);
     long* d_rtn = results;
     if( !todevice )
-        RMM_ALLOC(&d_rtn,count*sizeof(long),0);
+        d_rtn = static_cast<long*>(device_alloc(count*sizeof(long),0));
 
     custring_view** d_strings = pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
@@ -132,7 +132,7 @@ int NVStrings::stof(float* results, bool todevice)
     auto execpol = rmm::exec_policy(0);
     float* d_rtn = results;
     if( !todevice )
-        RMM_ALLOC(&d_rtn,count*sizeof(float),0);
+        d_rtn = static_cast<float*>(device_alloc(count*sizeof(float),0));
 
     custring_view** d_strings = pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
@@ -170,7 +170,7 @@ int NVStrings::stod(double* results, bool todevice)
     auto execpol = rmm::exec_policy(0);
     double* d_rtn = results;
     if( !todevice )
-        RMM_ALLOC(&d_rtn,count*sizeof(double),0);
+        d_rtn = static_cast<double*>(device_alloc(count*sizeof(double),0));
 
     custring_view** d_strings = pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
@@ -207,7 +207,7 @@ int NVStrings::htoi(unsigned int* results, bool todevice)
     auto execpol = rmm::exec_policy(0);
     unsigned int* d_rtn = results;
     if( !todevice )
-        RMM_ALLOC(&d_rtn,count*sizeof(unsigned int),0);
+        d_rtn = static_cast<unsigned int*>(device_alloc(count*sizeof(unsigned int),0));
 
     custring_view** d_strings = pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
@@ -264,11 +264,11 @@ NVStrings* NVStrings::itos(const int* values, unsigned int count, const unsigned
     unsigned char* d_nulls = (unsigned char*)nullbitmask;
     if( !bdevmem )
     {
-        RMM_ALLOC(&d_values,count*sizeof(int),0);
+        d_values = static_cast<int*>(device_alloc(count*sizeof(int),0));
         cudaMemcpy(d_values,values,count*sizeof(int),cudaMemcpyHostToDevice);
         if( nullbitmask )
         {
-            RMM_ALLOC(&d_nulls,((count+7)/8)*sizeof(unsigned char),0);
+            d_nulls = static_cast<unsigned char*>(device_alloc(((count+7)/8)*sizeof(unsigned char),0));
             cudaMemcpy(d_nulls,nullbitmask,((count+7)/8)*sizeof(unsigned char),cudaMemcpyHostToDevice);
         }
     }
@@ -322,11 +322,11 @@ NVStrings* NVStrings::ltos(const long* values, unsigned int count, const unsigne
     unsigned char* d_nulls = (unsigned char*)nullbitmask;
     if( !bdevmem )
     {
-        RMM_ALLOC(&d_values,count*sizeof(long),0);
+        d_values = static_cast<long*>(device_alloc(count*sizeof(long),0));
         cudaMemcpy(d_values,values,count*sizeof(long),cudaMemcpyHostToDevice);
         if( nullbitmask )
         {
-            RMM_ALLOC(&d_nulls,((count+7)/8)*sizeof(unsigned char),0);
+            d_nulls = static_cast<unsigned char*>(device_alloc(((count+7)/8)*sizeof(unsigned char),0));
             cudaMemcpy(d_nulls,nullbitmask,((count+7)/8)*sizeof(unsigned char),cudaMemcpyHostToDevice);
         }
     }
@@ -620,11 +620,11 @@ NVStrings* NVStrings::ftos(const float* values, unsigned int count, const unsign
     unsigned char* d_nulls = (unsigned char*)nullbitmask;
     if( !bdevmem )
     {
-        RMM_ALLOC(&d_values,count*sizeof(float),0);
+        d_values = static_cast<float*>(device_alloc(count*sizeof(float),0));
         cudaMemcpy(d_values,values,count*sizeof(float),cudaMemcpyHostToDevice);
         if( nullbitmask )
         {
-            RMM_ALLOC(&d_nulls,((count+7)/8)*sizeof(unsigned char),0);
+            d_nulls = static_cast<unsigned char*>(device_alloc(((count+7)/8)*sizeof(unsigned char),0));
             cudaMemcpy(d_nulls,nullbitmask,((count+7)/8)*sizeof(unsigned char),cudaMemcpyHostToDevice);
         }
     }
@@ -683,11 +683,11 @@ NVStrings* NVStrings::dtos(const double* values, unsigned int count, const unsig
     unsigned char* d_nulls = (unsigned char*)nullbitmask;
     if( !bdevmem )
     {
-        RMM_ALLOC(&d_values,count*sizeof(double),0);
+        d_values = static_cast<double*>(device_alloc(count*sizeof(double),0));
         cudaMemcpy(d_values,values,count*sizeof(double),cudaMemcpyHostToDevice);
         if( nullbitmask )
         {
-            RMM_ALLOC(&d_nulls,((count+7)/8)*sizeof(unsigned char),0);
+            d_nulls = static_cast<unsigned char*>(device_alloc(((count+7)/8)*sizeof(unsigned char),0));
             cudaMemcpy(d_nulls,nullbitmask,((count+7)/8)*sizeof(unsigned char),cudaMemcpyHostToDevice);
         }
     }
@@ -743,7 +743,7 @@ int NVStrings::ip2int( unsigned int* results, bool bdevmem )
     auto execpol = rmm::exec_policy(0);
     unsigned int* d_rtn = results;
     if( !bdevmem )
-        RMM_ALLOC(&d_rtn,count*sizeof(unsigned int),0);
+        d_rtn = static_cast<unsigned int*>(device_alloc(count*sizeof(unsigned int),0));
 
     custring_view** d_strings = pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
@@ -798,11 +798,11 @@ NVStrings* NVStrings::int2ip( const unsigned int* values, unsigned int count, co
     unsigned char* d_nulls = (unsigned char*)nullbitmask;
     if( !bdevmem )
     {
-        RMM_ALLOC(&d_values,count*sizeof(unsigned int),0);
+        d_values = static_cast<unsigned int*>(device_alloc(count*sizeof(unsigned int),0));
         cudaMemcpy(d_values,values,count*sizeof(unsigned int),cudaMemcpyHostToDevice);
         if( nullbitmask )
         {
-            RMM_ALLOC(&d_nulls,((count+7)/8)*sizeof(unsigned char),0);
+            d_nulls = static_cast<unsigned char*>(device_alloc(((count+7)/8)*sizeof(unsigned char),0));
             cudaMemcpy(d_nulls,nullbitmask,((count+7)/8)*sizeof(unsigned char),cudaMemcpyHostToDevice);
         }
     }
@@ -886,13 +886,13 @@ int NVStrings::to_bools( bool* results, const char* true_string, bool bdevmem )
     if( true_string )
     {
         d_len = (int)strlen(true_string);
-        RMM_ALLOC(&d_true,d_len+1,0);
+        d_true = static_cast<char*>(device_alloc(d_len+1,0));
         cudaMemcpy(d_true,true_string,d_len+1,cudaMemcpyHostToDevice);
     }
     //
     bool* d_rtn = results;
     if( !bdevmem )
-        RMM_ALLOC(&d_rtn,count*sizeof(bool),0);
+        d_rtn = static_cast<bool*>(device_alloc(count*sizeof(bool),0));
 
     // set the values
     custring_view** d_strings = pImpl->getStringsPtr();
@@ -928,13 +928,11 @@ NVStrings* NVStrings::create_from_bools(const bool* values, unsigned int count, 
     NVStrings* rtn = new NVStrings(count);
 
     int d_len_true = strlen(true_string);
-    char* d_true = nullptr;
-    RMM_ALLOC(&d_true,d_len_true+1,0);
+    char* d_true = static_cast<char*>(device_alloc(d_len_true+1,0));
     cudaMemcpy(d_true,true_string,d_len_true+1,cudaMemcpyHostToDevice);
     int d_as_true = custring_view::alloc_size(true_string,d_len_true);
     int d_len_false = strlen(false_string);
-    char* d_false = nullptr;
-    RMM_ALLOC(&d_false,d_len_false+1,0);
+    char* d_false = static_cast<char*>(device_alloc(d_len_false+1,0));
     cudaMemcpy(d_false,false_string,d_len_false+1,cudaMemcpyHostToDevice);
     int d_as_false = custring_view::alloc_size(false_string,d_len_false);
 
@@ -942,11 +940,11 @@ NVStrings* NVStrings::create_from_bools(const bool* values, unsigned int count, 
     unsigned char* d_nulls = (unsigned char*)nullbitmask;
     if( !bdevmem )
     {
-        RMM_ALLOC(&d_values,count*sizeof(bool),0);
+        d_values = static_cast<bool*>(device_alloc(count*sizeof(bool),0));
         cudaMemcpy(d_values,values,count*sizeof(bool),cudaMemcpyHostToDevice);
         if( nullbitmask )
         {
-            RMM_ALLOC(&d_nulls,((count+7)/8)*sizeof(unsigned char),0);
+            d_nulls = static_cast<unsigned char*>(device_alloc(((count+7)/8)*sizeof(unsigned char),0));
             cudaMemcpy(d_nulls,nullbitmask,((count+7)/8)*sizeof(unsigned char),cudaMemcpyHostToDevice);
         }
     }

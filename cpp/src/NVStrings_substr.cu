@@ -130,7 +130,7 @@ NVStrings* NVStrings::slice_from( const int* starts, const int* stops )
 }
 
 template<size_t stack_size>
-struct extrace_record_sizer_fn
+struct extract_record_sizer_fn
 {
     dreprog* prog;
     custring_view_array d_strings;
@@ -159,7 +159,7 @@ struct extrace_record_sizer_fn
 };
 
 template<size_t stack_size>
-struct extrace_record_fn
+struct extract_record_fn
 {
     dreprog* prog;
     custring_view_array d_strings;
@@ -232,13 +232,13 @@ int NVStrings::extract_record( const char* pattern, std::vector<NVStrings*>& res
     int* d_lengths = lengths.data().get();
     if( (regex_insts > MAX_STACK_INSTS) || (regex_insts <= 10) )
         thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-            extrace_record_sizer_fn<RX_STACK_SMALL>{prog, d_strings, groups, d_lengths});
+            extract_record_sizer_fn<RX_STACK_SMALL>{prog, d_strings, groups, d_lengths});
     else if( regex_insts <= 100 )
         thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-            extrace_record_sizer_fn<RX_STACK_MEDIUM>{prog, d_strings, groups, d_lengths});
+            extract_record_sizer_fn<RX_STACK_MEDIUM>{prog, d_strings, groups, d_lengths});
     else
         thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-            extrace_record_sizer_fn<RX_STACK_LARGE>{prog, d_strings, groups, d_lengths});
+            extract_record_sizer_fn<RX_STACK_LARGE>{prog, d_strings, groups, d_lengths});
     //
     cudaDeviceSynchronize();
     // this part will be slow for large number of strings
@@ -252,8 +252,7 @@ int NVStrings::extract_record( const char* pattern, std::vector<NVStrings*>& res
         int size = thrust::reduce(execpol->on(0), sizes, sizes+groups);
         if( size==0 )
             continue;
-        char* d_buffer = nullptr;
-        RMM_ALLOC(&d_buffer,size,0);
+        char* d_buffer = static_cast<char*>(device_alloc(size,0));
         row->pImpl->setMemoryBuffer(d_buffer,size);
         strings[idx] = row->pImpl->getStringsPtr();
         buffers[idx] = d_buffer;
@@ -263,13 +262,13 @@ int NVStrings::extract_record( const char* pattern, std::vector<NVStrings*>& res
     char** d_buffers = buffers.data().get();
     if( (regex_insts > MAX_STACK_INSTS) || (regex_insts <= 10) )
         thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-            extrace_record_fn<RX_STACK_SMALL>{prog, d_strings, d_buffers, d_lengths, groups, d_rows});
+            extract_record_fn<RX_STACK_SMALL>{prog, d_strings, d_buffers, d_lengths, groups, d_rows});
     else if( regex_insts <= 100 )
         thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-            extrace_record_fn<RX_STACK_MEDIUM>{prog, d_strings, d_buffers, d_lengths, groups, d_rows});
+            extract_record_fn<RX_STACK_MEDIUM>{prog, d_strings, d_buffers, d_lengths, groups, d_rows});
     else
         thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-            extrace_record_fn<RX_STACK_LARGE>{prog, d_strings, d_buffers, d_lengths, groups, d_rows});
+            extract_record_fn<RX_STACK_LARGE>{prog, d_strings, d_buffers, d_lengths, groups, d_rows});
     //
     cudaError_t err = cudaDeviceSynchronize();
     if( err != cudaSuccess )

@@ -54,9 +54,8 @@ public:
     }
 };
 
-//#define ALIGN_SIZE(v)  (((v+7)/8)*8)
 
-
+void* device_alloc(size_t bytes, cudaStream_t sid);
 void printCudaError( cudaError_t err, const char* prefix="\t" );
 char32_t* to_char32( const char* ca );
 unsigned char* get_unicode_flags();

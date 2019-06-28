@@ -31,6 +31,25 @@
 
 typedef custring_view** custring_view_array;
 
+void* device_alloc(size_t bytes, cudaStream_t sid)
+{
+    void* buffer = nullptr;
+    rmmError_t rerr = RMM_ALLOC(&buffer,bytes,sid);
+    if( rerr != RMM_SUCCESS )
+    {
+        if( rerr==RMM_ERROR_OUT_OF_MEMORY )
+        {
+            std::cerr.imbue(std::locale(""));
+            std::cerr << "out of memory on alloc request of " << bytes << " bytes\n";
+        }
+        std::ostringstream message;
+        message << "allocate error " << rerr;
+        throw std::runtime_error(message.str());
+    }
+    return buffer;
+}
+
+
 // common token counter for all split methods
 struct nvtext_token_counter
 {
@@ -165,11 +184,10 @@ NVStrings* NVText::tokenize(NVStrings& strs, const char* delimiter)
 {
     if( delimiter==nullptr || *delimiter==0 )
         return NVText::tokenize(strs);
+    auto execpol = rmm::exec_policy(0);
     unsigned int delim_length = (unsigned int)strlen(delimiter);
     unsigned int delim_size = custring_view::alloc_size(delimiter,delim_length);
-    custring_view* d_delimiter = nullptr;
-    auto execpol = rmm::exec_policy(0);
-    RMM_ALLOC(&d_delimiter,delim_size,0);
+    custring_view* d_delimiter = static_cast<custring_view*>(device_alloc(delim_size,0));
     custring_view::create_from_host(d_delimiter,delimiter,delim_length);
 
     unsigned int count = strs.size();
@@ -333,9 +351,8 @@ NVStrings* NVText::tokenize(NVStrings& strs, NVStrings& delims )
 NVStrings* NVText::unique_tokens(NVStrings& strs, const char* delimiter )
 {
     int bytes = (int)strlen(delimiter);
-    char* d_delimiter = nullptr;
     auto execpol = rmm::exec_policy(0);
-    RMM_ALLOC(&d_delimiter,bytes,0);
+    char* d_delimiter = static_cast<char*>(device_alloc(bytes,0));
     cudaMemcpy(d_delimiter,delimiter,bytes,cudaMemcpyHostToDevice);
 
     // need to count how many output strings per string
@@ -442,15 +459,14 @@ NVStrings* NVText::unique_tokens(NVStrings& strs, const char* delimiter )
 unsigned int NVText::token_count( NVStrings& strs, const char* delimiter, unsigned int* results, bool bdevmem )
 {
     int bytes = (int)strlen(delimiter);
-    char* d_delimiter = nullptr;
     auto execpol = rmm::exec_policy(0);
-    RMM_ALLOC(&d_delimiter,bytes,0);
+    char* d_delimiter = static_cast<char*>(device_alloc(bytes,0));
     cudaMemcpy(d_delimiter,delimiter,bytes,cudaMemcpyHostToDevice);
 
     unsigned int count = strs.size();
     unsigned int* d_counts = results;
     if( !bdevmem )
-        RMM_ALLOC(&d_counts,count*sizeof(unsigned int),0);
+        d_counts = static_cast<unsigned int*>(device_alloc(count*sizeof(unsigned int),0));
 
     // count how many strings per string
     rmm::device_vector<custring_view*> strings(count,nullptr);
@@ -485,7 +501,7 @@ unsigned int NVText::contains_strings( NVStrings& strs, NVStrings& tkns, bool* r
     auto execpol = rmm::exec_policy(0);
     bool* d_rtn = results;
     if( !todevice )
-        RMM_ALLOC(&d_rtn,tcount*count*sizeof(bool),0);
+        d_rtn = static_cast<bool*>(device_alloc(tcount*count*sizeof(bool),0));
 
     //
     rmm::device_vector<custring_view*> strings(count,nullptr);
@@ -530,7 +546,7 @@ unsigned int NVText::strings_counts( NVStrings& strs, NVStrings& tkns, unsigned 
     auto execpol = rmm::exec_policy(0);
     unsigned int* d_rtn = results;
     if( !todevice )
-        RMM_ALLOC(&d_rtn,tcount*count*sizeof(unsigned int),0);
+        d_rtn = static_cast<unsigned int*>(device_alloc(tcount*count*sizeof(unsigned int),0));
 
     //
     rmm::device_vector<custring_view*> strings(count,nullptr);
@@ -585,10 +601,9 @@ unsigned int NVText::tokens_counts( NVStrings& strs, NVStrings& tkns, const char
     auto execpol = rmm::exec_policy(0);
     unsigned int* d_rtn = results;
     if( !todevice )
-        RMM_ALLOC(&d_rtn,tcount*count*sizeof(unsigned int),0);
+        d_rtn = static_cast<unsigned int*>(device_alloc(tcount*count*sizeof(unsigned int),0));
     int dellen = (int)strlen(delimiter);
-    char* d_delimiter = nullptr;
-    RMM_ALLOC(&d_delimiter,dellen,0);
+    char* d_delimiter = static_cast<char*>(device_alloc(dellen,0));
     cudaMemcpy(d_delimiter,delimiter,dellen,cudaMemcpyHostToDevice);
 
     //
@@ -728,14 +743,13 @@ unsigned int NVText::edit_distance( distance_type algo, NVStrings& strs, const c
     auto execpol = rmm::exec_policy(0);
     unsigned int len = strlen(str);
     unsigned int alcsz = custring_view::alloc_size(str,len);
-    custring_view* d_tgt = nullptr;
-    RMM_ALLOC(&d_tgt,alcsz,0);
+    custring_view* d_tgt = static_cast<custring_view*>(device_alloc(alcsz,0));
     custring_view::create_from_host(d_tgt,str,len);
 
     // setup results vector
     unsigned int* d_rtn = results;
     if( !bdevmem )
-        RMM_ALLOC(&d_rtn,count*sizeof(unsigned int),0);
+        d_rtn = static_cast<unsigned int*>(device_alloc(count*sizeof(unsigned int),0));
 
     // get the string pointers
     rmm::device_vector<custring_view*> strings(count,nullptr);
@@ -789,7 +803,7 @@ unsigned int NVText::edit_distance( distance_type algo, NVStrings& strs1, NVStri
     auto execpol = rmm::exec_policy(0);
     unsigned int* d_rtn = results;
     if( !bdevmem )
-        RMM_ALLOC(&d_rtn,count*sizeof(unsigned int),0);
+        d_rtn = static_cast<unsigned int*>(device_alloc(count*sizeof(unsigned int),0));
 
     // get the string pointers
     rmm::device_vector<custring_view*> strings1(count,nullptr);
@@ -860,8 +874,7 @@ NVStrings* NVText::create_ngrams(NVStrings& strs, unsigned int ngrams, const cha
 
     unsigned int sep_length = (unsigned int)strlen(separator);
     unsigned int sep_size = custring_view::alloc_size(separator,sep_length);
-    custring_view* d_separator = nullptr;
-    RMM_ALLOC(&d_separator,sep_size,0);
+    custring_view* d_separator = static_cast<custring_view*>(device_alloc(sep_size,0));
     custring_view::create_from_host(d_separator,separator,sep_length);
 
     // compute size of new strings

@@ -354,9 +354,15 @@ NVStrings* NVStrings::join( const char* delimiter, const char* narep )
     thrust::exclusive_scan(lens.begin(),lens.end(),offsets.begin());
     size_t* d_offsets = offsets.data().get();
     // create one big buffer to hold the strings
-    NVStrings* rtn = new NVStrings(1);
     char* d_buffer = nullptr;
-    RMM_ALLOC(&d_buffer,allocSize,0);
+    rmmError_t rmmerr = RMM_ALLOC(&d_buffer,allocSize,0);
+    if( rmmerr != RMM_SUCCESS )
+    {
+        std::ostringstream message;
+        message << "allocate error " << rmmerr;
+        throw std::runtime_error(message.str());
+    }
+    NVStrings* rtn = new NVStrings(1);
     custring_view_array d_result = rtn->pImpl->getStringsPtr();
     rtn->pImpl->setMemoryBuffer(d_buffer,allocSize);
     // copy the strings into it

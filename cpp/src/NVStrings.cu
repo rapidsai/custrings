@@ -223,8 +223,7 @@ void NVStrings::print( int start, int end, int maxwidth, const char* delimiter )
         printf("all %d strings are null\n",count);
         return;
     }
-    char* d_buffer = nullptr;
-    RMM_ALLOC(&d_buffer,msize,0);
+    char* d_buffer = static_cast<char*>(device_alloc(msize,0));
     // convert lengths to offsets
     rmm::device_vector<size_t> offsets(count,0);
     thrust::exclusive_scan(execpol->on(0),lens.begin(),lens.end(),offsets.begin());
@@ -417,10 +416,10 @@ int NVStrings::create_offsets( char* strs, int* offsets, unsigned char* nullbitm
     unsigned char* d_nulls = nullbitmask;
     if( !bdevmem )
     {
-        RMM_ALLOC(&d_offsets,(count+1)*sizeof(int),0);
+        d_offsets = static_cast<int*>(device_alloc((count+1)*sizeof(int),0));
         if( nullbitmask )
         {
-            RMM_ALLOC(&d_nulls,((count+7)/8)*sizeof(unsigned char),0);
+            d_nulls = static_cast<unsigned char*>(device_alloc(((count+7)/8)*sizeof(unsigned char),0));
             cudaMemset(d_nulls,0,((count+7)/8));
         }
     }
@@ -460,7 +459,7 @@ int NVStrings::create_offsets( char* strs, int* offsets, unsigned char* nullbitm
     size_t totalbytes = thrust::reduce(execpol->on(0), d_sizes, d_sizes+count);
     char* d_strs = strs;
     if( !bdevmem )
-        RMM_ALLOC(&d_strs,totalbytes,0);
+        d_strs = static_cast<char*>(device_alloc(totalbytes,0));
     // shuffle strings into memory
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_strs, d_offsets] __device__(unsigned int idx){
@@ -499,7 +498,7 @@ unsigned int NVStrings::set_null_bitarray( unsigned char* bitarray, bool emptyIs
     unsigned int size = (count + 7)/8; // round up to byte align
     unsigned char* d_bitarray = bitarray;
     if( !devmem )
-        RMM_ALLOC(&d_bitarray,size,0);
+        d_bitarray = static_cast<unsigned char*>(device_alloc(size,0));
 
     // count nulls in range for return value
     custring_view** d_strings = pImpl->getStringsPtr();

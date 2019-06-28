@@ -40,8 +40,7 @@ NVStrings* NVStrings::slice_replace( const char* repl, int start, int stop )
         throw std::invalid_argument("nvstrings::slice_replace parameter cannot be null");
     auto execpol = rmm::exec_policy(0);
     unsigned int replen = (unsigned int)strlen(repl);
-    char* d_repl = nullptr;
-    RMM_ALLOC(&d_repl,replen,0);
+    char* d_repl = static_cast<char*>(device_alloc(replen,0));
     cudaMemcpy(d_repl,repl,replen,cudaMemcpyHostToDevice);
     // compute size of output buffer
     unsigned int count = size();
@@ -115,16 +114,14 @@ NVStrings* NVStrings::replace( const char* str, const char* repl, int maxrepl )
         throw std::invalid_argument("nvstrings::replace parameter cannot be null or empty");
     auto execpol = rmm::exec_policy(0);
     unsigned int ssz = (unsigned int)strlen(str);
-    char* d_str = nullptr;
-    RMM_ALLOC(&d_str,ssz,0);
+    char* d_str = static_cast<char*>(device_alloc(ssz,0));
     cudaMemcpy(d_str,str,ssz,cudaMemcpyHostToDevice);
     unsigned int sszch = custring_view::chars_in_string(str,ssz);
 
     if( !repl )
         repl = "";
     unsigned int rsz = (unsigned int)strlen(repl);
-    char* d_repl = nullptr;
-    RMM_ALLOC(&d_repl,rsz,0);
+    char* d_repl = static_cast<char*>(device_alloc(rsz,0));
     cudaMemcpy(d_repl,repl,rsz,cudaMemcpyHostToDevice);
     unsigned int rszch = custring_view::chars_in_string(repl,rsz);
 
@@ -322,8 +319,7 @@ NVStrings* NVStrings::replace_re( const char* pattern, const char* repl, int max
     if( !repl )
         repl = "";
     unsigned int rsz = (unsigned int)strlen(repl);
-    char* d_repl = nullptr;
-    RMM_ALLOC(&d_repl,rsz,0);
+    char* d_repl = static_cast<char*>(device_alloc(rsz,0));
     cudaMemcpy(d_repl,repl,rsz,cudaMemcpyHostToDevice);
     unsigned int rszch = custring_view::chars_in_string(repl,rsz);
 
@@ -508,8 +504,7 @@ NVStrings* NVStrings::replace_with_backrefs( const char* pattern, const char* re
     std::vector<thrust::pair<int,int> > brefs;
     std::string srepl = parse_backrefs(repl,brefs);
     unsigned int rsz = (unsigned int)srepl.size();
-    char* d_repl = nullptr;
-    RMM_ALLOC(&d_repl,rsz,0);
+    char* d_repl = static_cast<char*>(device_alloc(rsz,0));
     cudaMemcpy(d_repl,srepl.c_str(),rsz,cudaMemcpyHostToDevice);
     unsigned int rszch = custring_view::chars_in_string(srepl.c_str(),rsz);
     rmm::device_vector<thrust::pair<int,int> > dbrefs(brefs);
@@ -664,8 +659,7 @@ NVStrings* NVStrings::fillna( const char* str )
     auto execpol = rmm::exec_policy(0);
     unsigned int ssz = (unsigned int)strlen(str);
     unsigned int asz = custring_view::alloc_size(str,ssz);
-    char* d_str = nullptr;
-    RMM_ALLOC(&d_str,ssz+1,0);
+    char* d_str = static_cast<char*>(device_alloc(ssz+1,0));
     cudaMemcpy(d_str,str,ssz+1,cudaMemcpyHostToDevice);
 
     // compute size of the output
@@ -763,8 +757,7 @@ NVStrings* NVStrings::insert( const char* repl, int start )
         throw std::invalid_argument("nvstrings::slice_replace parameter cannot be null");
     auto execpol = rmm::exec_policy(0);
     unsigned int replen = (unsigned int)strlen(repl);
-    char* d_repl = nullptr;
-    RMM_ALLOC(&d_repl,replen,0);
+    char* d_repl = static_cast<char*>(device_alloc(replen,0));
     cudaMemcpy(d_repl,repl,replen,cudaMemcpyHostToDevice);
     // compute size of output buffer
     unsigned int count = size();
