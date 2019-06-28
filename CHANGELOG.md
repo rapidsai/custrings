@@ -5,6 +5,7 @@
 ## Improvements
 
 - PR #354 Removed rmm submodule
+- PR #358 Added improved hash algorithm to reduce collisions
 
 ## Bug Fixes
 
