@@ -5,6 +5,7 @@
 ## Improvements
 
 - PR #354 Removed rmm submodule
+- PR #359 Set default sort-type to alphabetical
 
 ## Bug Fixes
 

@@ -19,7 +19,7 @@ def test_sort_alphabetical():
     strs = nvstrings.to_device(
         ["abc", "defghi", None, "jkl", "mno", "pqr", "stu", "dog and cat",
          "accénted", ""])
-    sorted_strs = strs.sort(2)
+    sorted_strs = strs.sort()
     expected = [None, '', 'abc', 'accénted', 'defghi', 'dog and cat', 'jkl',
                 'mno', 'pqr', 'stu']
     assert_eq(sorted_strs, expected)
@@ -48,7 +48,7 @@ def test_order_alphabetical():
     strs = nvstrings.to_device(
         ["abc", "defghi", None, "jkl", "mno", "pqr", "stu", "dog and cat",
          "accénted", ""])
-    sorted_strs = strs.order(2)
+    sorted_strs = strs.order()
     expected = [2, 9, 0, 8, 1, 7, 3, 4, 5, 6]
     assert_eq(sorted_strs, expected)
 
