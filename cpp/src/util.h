@@ -34,5 +34,19 @@ __host__ __device__ inline unsigned int u82u( unsigned int utf8 );
 __device__ inline char* copy_and_incr( char*& dest, char* src, unsigned int bytes );
 __device__ inline char* copy_and_incr_both( char*& dest, char*& src, unsigned int bytes );
 
+template<typename T>
+T* device_alloc(size_t count, cudaStream_t sid);
+
+// adapted from cudf/cpp/src/utilities/error_utils.hpp
+#define CUDA_TRY(call)                                            \
+  do {                                                            \
+    cudaError_t const status = (call);                            \
+    if (cudaSuccess != status) {                                  \
+        std::ostringstream message;                               \
+        message << "error " << status << " from cuda call";       \
+        throw std::runtime_error(message.str());                  \
+    }                                                             \
+  } while (0);
+
 //
 #include "util.inl"

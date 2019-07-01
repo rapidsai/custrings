@@ -28,6 +28,9 @@
 #include <thrust/sequence.h>
 #include <thrust/gather.h>
 #include <thrust/tabulate.h>
+#include <rmm/rmm.h>
+#include <rmm/thrust_rmm_allocator.h>
+
 
 #define BYTES_FROM_BITS(c) ((c+7)/8)
 
@@ -44,21 +47,23 @@ template<typename T>
 class numeric_category_impl
 {
 public:
-    thrust::device_vector<T> _keys;
-    thrust::device_vector<int> _values;
-    thrust::device_vector<BYTE> _bitmask;
+    rmm::device_vector<T> _keys;
+    rmm::device_vector<int> _values;
+    rmm::device_vector<BYTE> _bitmask;
     bool bkeyset_includes_null{false};
 
     void init_keys( const T* items, size_t count )
     {
         _keys.resize(count);
-        thrust::copy( thrust::device, items, items + count, _keys.data().get() );
+        auto execpol = rmm::exec_policy(0);
+        thrust::copy( execpol->on(0), items, items + count, _keys.data().get() );
     }
 
     void init_keys( const T* items, const int* indexes, size_t count )
     {
         _keys.resize(count);
-        thrust::gather(thrust::device, indexes, indexes + count, items, _keys.data().get());
+        auto execpol = rmm::exec_policy(0);
+        thrust::gather(execpol->on(0), indexes, indexes + count, items, _keys.data().get());
     }
 
     const T* get_keys()
@@ -90,16 +95,18 @@ public:
     void set_values( const int* vals, size_t count )
     {
         _values.resize(count);
-        thrust::copy( thrust::device, vals, vals+count, _values.data().get());
+        auto execpol = rmm::exec_policy(0);
+        thrust::copy( execpol->on(0), vals, vals+count, _values.data().get());
     }
 
     BYTE* get_nulls(size_t count)
     {
         if( count==0 )
             return nullptr;
+        auto execpol = rmm::exec_policy(0);
         size_t byte_count = (count+7)/8;
         _bitmask.resize(byte_count);
-        thrust::fill( thrust::device, _bitmask.begin(), _bitmask.end(), 0 );
+        thrust::fill( execpol->on(0), _bitmask.begin(), _bitmask.end(), 0 );
         return _bitmask.data().get();
     }
 
@@ -193,23 +200,23 @@ numeric_category<T>::numeric_category( const T* items, size_t count, const BYTE*
     pImpl = new numeric_category_impl<T>;
     if( !items || !count )
         return; // empty numeric_category
-
-    thrust::device_vector<int> indexes(count);
-    thrust::sequence(thrust::device, indexes.begin(), indexes.end()); // 0,1,2,3,4,5,6,7,8
-    thrust::sort(thrust::device, indexes.begin(), indexes.end(), sort_functor<T>{items,nulls} );
+    auto execpol = rmm::exec_policy(0);
+    rmm::device_vector<int> indexes(count);
+    thrust::sequence(execpol->on(0), indexes.begin(), indexes.end()); // 0,1,2,3,4,5,6,7,8
+    thrust::sort(execpol->on(0), indexes.begin(), indexes.end(), sort_functor<T>{items,nulls} );
     int* d_values = pImpl->get_values(count);
     int* d_indexes = indexes.data().get();
-    thrust::device_vector<int> map_indexes(count);
+    rmm::device_vector<int> map_indexes(count);
     int* d_map_indexes = map_indexes.data().get();
-    int* d_map_nend = thrust::copy_if( thrust::device, thrust::make_counting_iterator<int>(0), thrust::make_counting_iterator<int>(count),
+    int* d_map_nend = thrust::copy_if( execpol->on(0), thrust::make_counting_iterator<int>(0), thrust::make_counting_iterator<int>(count),
                                        d_map_indexes, copy_unique_functor<T>{items, nulls, d_indexes, d_values} );
     int ucount = (int)(d_map_nend - d_map_indexes);
-    thrust::device_vector<int> keys_indexes(ucount); // get the final indexes to the unique keys
-    thrust::gather( thrust::device, d_map_indexes, d_map_nend, indexes.begin(), keys_indexes.begin() );
+    rmm::device_vector<int> keys_indexes(ucount); // get the final indexes to the unique keys
+    thrust::gather( execpol->on(0), d_map_indexes, d_map_nend, indexes.begin(), keys_indexes.begin() );
     // scan will produce the resulting values
-    thrust::inclusive_scan(thrust::device, d_values, d_values+count, d_values);
+    thrust::inclusive_scan(execpol->on(0), d_values, d_values+count, d_values);
     // sort will put them in the correct order
-    thrust::sort_by_key(thrust::device, indexes.begin(), indexes.end(), d_values);
+    thrust::sort_by_key(execpol->on(0), indexes.begin(), indexes.end(), d_values);
     // gather the keys for this numeric_category
     pImpl->init_keys(items,keys_indexes.data().get(),ucount);
     // just make a copy of the nulls bitmask
@@ -274,7 +281,8 @@ void numeric_category<T>::print(const char* prefix, const char* delimiter)
         std::cout << "<no keys>";
     const T* d_keys = pImpl->get_keys();
     thrust::host_vector<T> h_keys(count);
-    cudaMemcpy(h_keys.data(), d_keys, count*sizeof(T), cudaMemcpyDeviceToHost);
+    if( cudaMemcpyAsync(h_keys.data(), d_keys, count*sizeof(T), cudaMemcpyDeviceToHost) != cudaSuccess )
+        throw std::runtime_error("cudaMemcpy error");
     for( size_t idx=0; idx < count; ++idx )
     {
         if( idx || !pImpl->bkeyset_includes_null )
@@ -296,7 +304,8 @@ void numeric_category<T>::print(const char* prefix, const char* delimiter)
         std::cout << "<no values>";
     const int* d_values = pImpl->get_values();
     thrust::host_vector<int> h_values(count);
-    cudaMemcpy( h_values.data(), d_values, count*sizeof(int), cudaMemcpyDeviceToHost);
+    if( cudaMemcpyAsync( h_values.data(), d_values, count*sizeof(int), cudaMemcpyDeviceToHost) != cudaSuccess )
+        throw std::runtime_error("cudaMemcpy error");
     const BYTE* d_nulls = pImpl->get_nulls();
     size_t byte_count = (count+7)/8;
     thrust::host_vector<BYTE> nulls(byte_count);
@@ -304,7 +313,8 @@ void numeric_category<T>::print(const char* prefix, const char* delimiter)
     if( d_nulls )
     {
         h_nulls = nulls.data();
-        cudaMemcpy( h_nulls, d_nulls, byte_count*sizeof(BYTE), cudaMemcpyDeviceToHost);
+        if( cudaMemcpy( h_nulls, d_nulls, byte_count*sizeof(BYTE), cudaMemcpyDeviceToHost) != cudaSuccess )
+            throw std::runtime_error("cudaMemcpy error");
     }
     for( size_t idx=0; idx < count; ++idx )
     {
@@ -330,31 +340,31 @@ numeric_category<T>* numeric_category<T>::copy()
 template<typename T>
 int numeric_category<T>::get_index_for(T key)
 {
+    auto execpol = rmm::exec_policy(0);
     const int* d_values = pImpl->get_values();
     int index = -1, count = keys_size();
     const T* d_keys = pImpl->get_keys();
-    int* d_index;
-    cudaMalloc(&d_index,sizeof(int));
-    thrust::copy_if( thrust::device, thrust::make_counting_iterator<int>(0), thrust::make_counting_iterator<int>(count), d_index,
+    rmm::device_vector<int> d_index(1);
+    thrust::copy_if( execpol->on(0), thrust::make_counting_iterator<int>(0), thrust::make_counting_iterator<int>(count), d_index.begin(),
         [d_keys, key] __device__ (int idx) { return key == d_keys[idx]; });
-    cudaMemcpyAsync(&index, d_index, sizeof(int), cudaMemcpyDeviceToHost );
-    cudaFree(d_index);
+    index = d_index[0];
     return index;
 }
 
 template<typename T>
 size_t numeric_category<T>::get_indexes_for(T key, int* d_results)
 {
+    auto execpol = rmm::exec_policy(0);
     int index = get_index_for(key);
     const int* d_values = pImpl->get_values();
     size_t count = size();
     auto fn_values_equal = [index, d_values] __device__ (int idx) { return d_values[idx]==index; };
     if( d_results==nullptr )
-        return thrust::count_if( thrust::device,
+        return thrust::count_if( execpol->on(0),
                                  thrust::make_counting_iterator<int>(0),
                                  thrust::make_counting_iterator<int>(count),
                                  fn_values_equal );
-    int* nend = thrust::copy_if( thrust::device,
+    int* nend = thrust::copy_if( execpol->on(0),
                                  thrust::make_counting_iterator<int>(0),
                                  thrust::make_counting_iterator<int>(count),
                                  d_results, fn_values_equal );
@@ -366,12 +376,13 @@ size_t numeric_category<T>::get_indexes_for_null_key(int* d_results)
 {
     if( pImpl->get_nulls()==nullptr )
         return 0; // there are no null entries
+    auto execpol = rmm::exec_policy(0);
     int index = 0; // null key is always index 0
     const int* d_values = pImpl->get_values();
-    size_t count = thrust::count( thrust::device, d_values, d_values + size(), index );
+    size_t count = thrust::count( execpol->on(0), d_values, d_values + size(), index );
     if( d_results == nullptr )
         return count;
-    thrust::copy_if( thrust::device, thrust::make_counting_iterator<int>(0), thrust::make_counting_iterator<int>(count), d_results,
+    thrust::copy_if( execpol->on(0), thrust::make_counting_iterator<int>(0), thrust::make_counting_iterator<int>(count), d_results,
         [index, d_values] __device__ (int idx) { return d_values[idx]==index; });
     return count;
 }
@@ -379,9 +390,10 @@ size_t numeric_category<T>::get_indexes_for_null_key(int* d_results)
 template<typename T>
 void numeric_category<T>::to_type( T* d_results, BYTE* nulls )
 {
+    auto execpol = rmm::exec_policy(0);
     const int* d_values = pImpl->get_values();
     size_t count = pImpl->values_count();
-    thrust::gather(thrust::device, d_values, d_values + count, pImpl->get_keys(), d_results);
+    thrust::gather(execpol->on(0), d_values, d_values + count, pImpl->get_keys(), d_results);
     const BYTE* d_nulls = pImpl->get_nulls();
     if( d_nulls && nulls )
         cudaMemcpyAsync(nulls, d_nulls, ((count+7)/8), cudaMemcpyDeviceToDevice);
@@ -390,19 +402,20 @@ void numeric_category<T>::to_type( T* d_results, BYTE* nulls )
 template<typename T>
 void numeric_category<T>::gather_type( const int* d_indexes, size_t count, T* d_results, BYTE* nulls )
 {
+    auto execpol = rmm::exec_policy(0);
     // should these be indexes of the values and not values themselves?
     size_t kcount = keys_size();
-    int check = thrust::count_if( thrust::device, d_indexes, d_indexes+count, [kcount] __device__ (int val) { return (val<0) || (val>=kcount);});
+    int check = thrust::count_if( execpol->on(0), d_indexes, d_indexes+count, [kcount] __device__ (int val) { return (val<0) || (val>=kcount);});
     if( check > 0 )
         throw std::out_of_range("gather_type invalid index value");
-    thrust::gather(thrust::device, d_indexes, d_indexes+count, pImpl->get_keys(), d_results);
+    thrust::gather(execpol->on(0), d_indexes, d_indexes+count, pImpl->get_keys(), d_results);
     // need to also gather the null bits
     const BYTE* d_nulls = pImpl->get_nulls();
     if( nulls )
     {
         bool include_null = pImpl->bkeyset_includes_null;
         size_t byte_count = (count+7)/8;
-        thrust::for_each_n(thrust::device, thrust::make_counting_iterator<size_t>(0), byte_count,
+        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<size_t>(0), byte_count,
             [d_indexes, count, include_null, nulls] __device__ (size_t byte_idx) {
                 BYTE mask = 0;
                 for( int bit=0; bit<8; ++bit )
@@ -468,28 +481,29 @@ numeric_category<T>* numeric_category<T>::add_keys( const T* items, size_t count
 {
     if( !items || !count )
         return copy();
+    auto execpol = rmm::exec_policy(0);
     numeric_category<T>* result = new numeric_category<T>;
     size_t kcount = keys_size();
     // incorporating the keys and adjust the values
     bool include_null = pImpl->bkeyset_includes_null;
     const T* d_keys = pImpl->get_keys();
     size_t both_count = kcount + count; // this is not the unique count
-    thrust::device_vector<T> both_keys(both_count);  // first combine both keysets
+    rmm::device_vector<T> both_keys(both_count);  // first combine both keysets
     T* d_both_keys = both_keys.data().get();
-    thrust::copy( thrust::device, d_keys, d_keys + kcount, d_both_keys );
-    thrust::copy( thrust::device, items, items + count, d_both_keys + kcount );
-    thrust::device_vector<int> xvals(both_count);
+    thrust::copy( execpol->on(0), d_keys, d_keys + kcount, d_both_keys );
+    thrust::copy( execpol->on(0), items, items + count, d_both_keys + kcount );
+    rmm::device_vector<int> xvals(both_count);
     int* d_xvals = xvals.data().get(); // build vector like: 0,...,(kcount-1),-1,...,-count
-    thrust::tabulate(thrust::device, d_xvals, d_xvals + both_count,
+    thrust::tabulate(execpol->on(0), d_xvals, d_xvals + both_count,
         [kcount] __device__ (int idx) { return (idx < kcount) ? idx : (kcount - idx - 1); });
     // compute the new keyset by doing sort/unique
-    thrust::device_vector<int> indexes(both_count);
-    thrust::sequence( thrust::device, indexes.begin(), indexes.end() );
+    rmm::device_vector<int> indexes(both_count);
+    thrust::sequence( execpol->on(0), indexes.begin(), indexes.end() );
     int* d_indexes = indexes.data().get();
     // stable-sort preserves order for keys that match
-    thrust::stable_sort_by_key( thrust::device, d_indexes, d_indexes + both_count, d_xvals,
+    thrust::stable_sort_by_key( execpol->on(0), d_indexes, d_indexes + both_count, d_xvals,
                                 sort_update_keys_fn<T>{d_both_keys, kcount, include_null,nulls} );
-    auto nend = thrust::unique_by_key( thrust::device, d_indexes, d_indexes + both_count, d_xvals,
+    auto nend = thrust::unique_by_key( execpol->on(0), d_indexes, d_indexes + both_count, d_xvals,
                                        unique_update_keys_fn<T>{d_both_keys, kcount, include_null,nulls} );
     size_t unique_count = nend.second - d_xvals;
     result->pImpl->init_keys(d_both_keys, d_indexes, unique_count);
@@ -501,16 +515,16 @@ numeric_category<T>* numeric_category<T>::add_keys( const T* items, size_t count
         const int* d_values = pImpl->get_values();
         int* d_new_values = result->pImpl->get_values(vcount);
         // map the new positions
-        thrust::device_vector<int> yvals(kcount,-1);
+        rmm::device_vector<int> yvals(kcount,-1);
         int* d_yvals = yvals.data().get();
-        thrust::for_each_n(thrust::device, thrust::make_counting_iterator<size_t>(0), unique_count,
+        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<size_t>(0), unique_count,
             [d_yvals, d_xvals] __device__ (size_t idx) {
                 int map_id = d_xvals[idx];
                 if( map_id >= 0 )
                     d_yvals[map_id] = idx;
             });
         // apply new positions to new numeric_category values
-        thrust::for_each_n( thrust::device, thrust::make_counting_iterator<size_t>(0), vcount,
+        thrust::for_each_n( execpol->on(0), thrust::make_counting_iterator<size_t>(0), vcount,
                             remap_values_fn{d_values, d_yvals, d_new_values} );
     }
     // handle nulls
@@ -525,30 +539,31 @@ numeric_category<T>* numeric_category<T>::remove_keys( const T* items, size_t co
 {
     if( !items || !count )
         return copy();
+    auto execpol = rmm::exec_policy(0);
     numeric_category<T>* result = new numeric_category<T>;
     size_t kcount = keys_size();
     size_t both_count = kcount + count;
     const T* d_keys = pImpl->get_keys();
-    thrust::device_vector<T> both_keys(both_count);  // first combine both keysets
+    rmm::device_vector<T> both_keys(both_count);  // first combine both keysets
     T* d_both_keys = both_keys.data().get();
-    thrust::copy( thrust::device, d_keys, d_keys + kcount, d_both_keys );         // these keys
-    thrust::copy( thrust::device, items, items + count, d_both_keys + kcount );  // and those keys
-    thrust::device_vector<int> xvals(both_count);
+    thrust::copy( execpol->on(0), d_keys, d_keys + kcount, d_both_keys );         // these keys
+    thrust::copy( execpol->on(0), items, items + count, d_both_keys + kcount );  // and those keys
+    rmm::device_vector<int> xvals(both_count);
     int* d_xvals = xvals.data().get(); // build vector like: 0,...,(kcount-1),-1,...,-count
-    thrust::tabulate(thrust::device, d_xvals, d_xvals + both_count, [kcount] __device__ (int idx) { return (idx<kcount) ? idx : (kcount-idx-1); });
+    thrust::tabulate(execpol->on(0), d_xvals, d_xvals + both_count, [kcount] __device__ (int idx) { return (idx<kcount) ? idx : (kcount-idx-1); });
     // compute the new keyset by doing sort/unique
-    thrust::device_vector<int> indexes(both_count);
-    thrust::sequence( thrust::device, indexes.begin(), indexes.end() );
+    rmm::device_vector<int> indexes(both_count);
+    thrust::sequence( execpol->on(0), indexes.begin(), indexes.end() );
     int* d_indexes = indexes.data().get();
     bool include_null = pImpl->bkeyset_includes_null;
     // stable-sort preserves order for keys that match
-    thrust::stable_sort_by_key( thrust::device, d_indexes, d_indexes + both_count, d_xvals,
+    thrust::stable_sort_by_key( execpol->on(0), d_indexes, d_indexes + both_count, d_xvals,
                                 sort_update_keys_fn<T>{d_both_keys, kcount, include_null,nulls} );
     size_t unique_count = both_count;
     {
-        thrust::device_vector<int> map_indexes(both_count);
+        rmm::device_vector<int> map_indexes(both_count);
         int* d_map_indexes = map_indexes.data().get();
-        int* d_end = thrust::copy_if( thrust::device, thrust::make_counting_iterator<int>(0), thrust::make_counting_iterator<int>(both_count), d_map_indexes,
+        int* d_end = thrust::copy_if( execpol->on(0), thrust::make_counting_iterator<int>(0), thrust::make_counting_iterator<int>(both_count), d_map_indexes,
             [d_both_keys, kcount, both_count, d_indexes, d_xvals, include_null, nulls] __device__ (int idx) {
                 if( d_xvals[idx] < 0 )
                     return false;
@@ -562,12 +577,12 @@ numeric_category<T>* numeric_category<T>::remove_keys( const T* items, size_t co
                 return (d_both_keys[lhs] != d_both_keys[rhs]);
             });
         unique_count = (size_t)(d_end - d_map_indexes);
-        thrust::device_vector<int> keys_indexes(unique_count);
-        thrust::gather( thrust::device, d_map_indexes, d_end, d_indexes, keys_indexes.data().get() );
+        rmm::device_vector<int> keys_indexes(unique_count);
+        thrust::gather( execpol->on(0), d_map_indexes, d_end, d_indexes, keys_indexes.data().get() );
         result->pImpl->init_keys( d_both_keys, keys_indexes.data().get(), unique_count );
         // setup for the value remap
-        thrust::device_vector<int> new_xvals(unique_count);
-        thrust::gather( thrust::device, d_map_indexes, d_end, d_xvals, new_xvals.data().get() );
+        rmm::device_vector<int> new_xvals(unique_count);
+        thrust::gather( execpol->on(0), d_map_indexes, d_end, d_xvals, new_xvals.data().get() );
         xvals.swap(new_xvals);
         d_xvals = xvals.data().get();
     }
@@ -579,11 +594,11 @@ numeric_category<T>* numeric_category<T>::remove_keys( const T* items, size_t co
         const int* d_values = values();
         int* d_new_values = result->pImpl->get_values(vcount);
         // values pointed to removed keys will now have index=-1
-        thrust::device_vector<int> yvals(kcount,-1);
+        rmm::device_vector<int> yvals(kcount,-1);
         int* d_yvals = yvals.data().get();
-        thrust::for_each_n( thrust::device, thrust::make_counting_iterator<int>(0), (int)unique_count,
+        thrust::for_each_n( execpol->on(0), thrust::make_counting_iterator<int>(0), (int)unique_count,
             [d_yvals, d_xvals] __device__ (int idx) { d_yvals[d_xvals[idx]] = idx; });
-        thrust::for_each_n( thrust::device, thrust::make_counting_iterator<int>(0), (int)vcount,
+        thrust::for_each_n( execpol->on(0), thrust::make_counting_iterator<int>(0), (int)vcount,
                             remap_values_fn{d_values, d_yvals, d_new_values} );
     }
     // finally, handle the nulls
@@ -605,36 +620,37 @@ numeric_category<T>* numeric_category<T>::remove_unused_keys()
     size_t kcount = pImpl->keys_count();
     if( kcount==0 )
         return copy();
+    auto execpol = rmm::exec_policy(0);
     const int* d_values = pImpl->get_values();
-    thrust::device_vector<int> usedkeys(kcount,0);
+    rmm::device_vector<int> usedkeys(kcount,0);
     int* d_usedkeys = usedkeys.data().get();
     // find the keys that not being used
-    thrust::for_each_n( thrust::device, thrust::make_counting_iterator<int>(0), (int)size(),
+    thrust::for_each_n( execpol->on(0), thrust::make_counting_iterator<int>(0), (int)size(),
         [d_values, d_usedkeys] __device__ (int idx) {
             int pos = d_values[idx];
             if( pos >= 0 )
                 d_usedkeys[pos] = 1; //
         });
     // compute how many are not used
-    size_t count = kcount - thrust::reduce(thrust::device, d_usedkeys, d_usedkeys+kcount, (int)0);
+    size_t count = kcount - thrust::reduce(execpol->on(0), d_usedkeys, d_usedkeys+kcount, (int)0);
     if( count==0 )
         return copy();
     //
-    thrust::device_vector<T> rmv_keys(count);
+    rmm::device_vector<T> rmv_keys(count);
     T* d_rmv_keys = rmv_keys.data().get();
-    thrust::device_vector<int> indexes(count);
+    rmm::device_vector<int> indexes(count);
     int* d_indexes = indexes.data().get();
-    thrust::copy_if( thrust::device, thrust::make_counting_iterator<int>(0), thrust::make_counting_iterator<int>(kcount), d_indexes,
+    thrust::copy_if( execpol->on(0), thrust::make_counting_iterator<int>(0), thrust::make_counting_iterator<int>(kcount), d_indexes,
         [d_usedkeys] __device__ (int idx) { return (d_usedkeys[idx]==0); });
-    thrust::gather( thrust::device, d_indexes, d_indexes+count, pImpl->get_keys(), d_rmv_keys );
+    thrust::gather( execpol->on(0), d_indexes, d_indexes+count, pImpl->get_keys(), d_rmv_keys );
     // handle null key case
     size_t mask_bytes = (count+7)/8;
-    thrust::device_vector<BYTE> null_keys(mask_bytes,0);
+    rmm::device_vector<BYTE> null_keys(mask_bytes,0);
     BYTE* d_null_keys = nullptr;
     if( pImpl->bkeyset_includes_null && (usedkeys[0]==0) )
     {
         d_null_keys = null_keys.data().get();
-        thrust::for_each_n( thrust::device, thrust::make_counting_iterator<size_t>(0), mask_bytes,
+        thrust::for_each_n( execpol->on(0), thrust::make_counting_iterator<size_t>(0), mask_bytes,
             [count, d_null_keys] __device__ (size_t idx) {
                 size_t base_idx = idx * 8;
                 BYTE mask = 0xFF;
@@ -651,27 +667,28 @@ numeric_category<T>* numeric_category<T>::remove_unused_keys()
 template<typename T>
 numeric_category<T>* numeric_category<T>::set_keys( const T* items, size_t count, const BYTE* nulls )
 {
+    auto execpol = rmm::exec_policy(0);
     size_t kcount = keys_size();
     size_t both_count = kcount + count; // this is not the unique count
     const T* d_keys = pImpl->get_keys();
-    thrust::device_vector<T> both_keys(both_count);  // first combine both keysets
+    rmm::device_vector<T> both_keys(both_count);  // first combine both keysets
     T* d_both_keys = both_keys.data().get();
-    thrust::copy( thrust::device, d_keys, d_keys + kcount, d_both_keys );        // these keys
-    thrust::copy( thrust::device, items, items + count, d_both_keys + kcount );  // and those keys
-    thrust::device_vector<int> xvals(both_count); // seq-vector for resolving old/new keys
+    thrust::copy( execpol->on(0), d_keys, d_keys + kcount, d_both_keys );        // these keys
+    thrust::copy( execpol->on(0), items, items + count, d_both_keys + kcount );  // and those keys
+    rmm::device_vector<int> xvals(both_count); // seq-vector for resolving old/new keys
     int* d_xvals = xvals.data().get(); // build vector like: 0,...,(kcount-1),-1,...,-count
-    thrust::tabulate(thrust::device, d_xvals, d_xvals + both_count, [kcount] __device__ (int idx) { return (idx < kcount) ? idx : (kcount - idx - 1); });
+    thrust::tabulate(execpol->on(0), d_xvals, d_xvals + both_count, [kcount] __device__ (int idx) { return (idx < kcount) ? idx : (kcount - idx - 1); });
     // sort the combined keysets
-    thrust::device_vector<int> indexes(both_count);
-    thrust::sequence( thrust::device, indexes.begin(), indexes.end() );
+    rmm::device_vector<int> indexes(both_count);
+    thrust::sequence( execpol->on(0), indexes.begin(), indexes.end() );
     int* d_indexes = indexes.data().get();
     bool include_null = pImpl->bkeyset_includes_null;
     // stable-sort preserves order for keys that match
-    thrust::stable_sort_by_key( thrust::device, d_indexes, d_indexes + both_count, d_xvals,
+    thrust::stable_sort_by_key( execpol->on(0), d_indexes, d_indexes + both_count, d_xvals,
                                 sort_update_keys_fn<T>{d_both_keys, kcount, include_null,nulls} );
-    thrust::device_vector<int> map_indexes(both_count); // needed for gather methods
+    rmm::device_vector<int> map_indexes(both_count); // needed for gather methods
     int* d_map_indexes = map_indexes.data().get(); // indexes of keys from key1 not in key2
-    int* d_copy_end = thrust::copy_if( thrust::device, thrust::make_counting_iterator<int>(0), thrust::make_counting_iterator<int>(both_count), d_map_indexes,
+    int* d_copy_end = thrust::copy_if( execpol->on(0), thrust::make_counting_iterator<int>(0), thrust::make_counting_iterator<int>(both_count), d_map_indexes,
             [d_both_keys, kcount, both_count, d_indexes, d_xvals, include_null, nulls] __device__ (int idx) {
                 if( d_xvals[idx] < 0 )
                     return true;
@@ -687,10 +704,10 @@ numeric_category<T>* numeric_category<T>::set_keys( const T* items, size_t count
     int copy_count = d_copy_end - d_map_indexes;
     if( copy_count < both_count )
     {   // if keys are removed, we need new keyset; the gather()s here will select the remaining keys
-        thrust::device_vector<int> copy_indexes(copy_count);
-        thrust::device_vector<int> copy_xvals(copy_count);
-        thrust::gather( thrust::device, d_map_indexes, d_map_indexes + copy_count, d_indexes, copy_indexes.data().get() );  // likely, these 2 lines can be
-        thrust::gather( thrust::device, d_map_indexes, d_map_indexes + copy_count, d_xvals, copy_xvals.data().get() );      // combined with a zip-iterator
+        rmm::device_vector<int> copy_indexes(copy_count);
+        rmm::device_vector<int> copy_xvals(copy_count);
+        thrust::gather( execpol->on(0), d_map_indexes, d_map_indexes + copy_count, d_indexes, copy_indexes.data().get() );  // likely, these 2 lines can be
+        thrust::gather( execpol->on(0), d_map_indexes, d_map_indexes + copy_count, d_xvals, copy_xvals.data().get() );      // combined with a zip-iterator
         indexes.swap(copy_indexes);
         xvals.swap(copy_xvals);
         d_indexes = indexes.data().get();
@@ -698,7 +715,7 @@ numeric_category<T>* numeric_category<T>::set_keys( const T* items, size_t count
         both_count = copy_count;
     }
     // resolve final key-set
-    auto d_unique_end = thrust::unique_by_key( thrust::device, d_indexes, d_indexes + both_count, d_xvals,
+    auto d_unique_end = thrust::unique_by_key( execpol->on(0), d_indexes, d_indexes + both_count, d_xvals,
                                                unique_update_keys_fn<T>{d_both_keys, kcount, include_null,nulls} );
     size_t unique_count = d_unique_end.second - d_xvals;//both_count - matched;
     numeric_category<T>* result = new numeric_category<T>;
@@ -708,9 +725,9 @@ numeric_category<T>* numeric_category<T>::set_keys( const T* items, size_t count
     if( vcount )
     {
         const int* d_values = values();
-        thrust::device_vector<int> yvals(kcount,-1); // create map/stencil from old key positions
+        rmm::device_vector<int> yvals(kcount,-1); // create map/stencil from old key positions
         int* d_yvals = yvals.data().get();
-        thrust::for_each_n( thrust::device, thrust::make_counting_iterator<int>(0), (int)unique_count,
+        thrust::for_each_n( execpol->on(0), thrust::make_counting_iterator<int>(0), (int)unique_count,
             [d_xvals, d_yvals] __device__ (int idx) {
                 int value = d_xvals[idx];
                 if( value >= 0 )
@@ -718,7 +735,7 @@ numeric_category<T>* numeric_category<T>::set_keys( const T* items, size_t count
             });
         // create new values using the map in yvals
         int* d_new_values = result->pImpl->get_values(vcount);
-        thrust::for_each_n( thrust::device, thrust::make_counting_iterator<int>(0), (int)vcount,
+        thrust::for_each_n( execpol->on(0), thrust::make_counting_iterator<int>(0), (int)vcount,
                             remap_values_fn{d_values, d_yvals, d_new_values} );
         // handles nulls
         bool include_new_null = (count_nulls(nulls,count)>0);
@@ -735,6 +752,7 @@ numeric_category<T>* numeric_category<T>::set_keys( const T* items, size_t count
 template<typename T>
 numeric_category<T>* numeric_category<T>::merge( numeric_category<T>& cat )
 {
+    auto execpol = rmm::exec_policy(0);
     // first, copy keys so we can sort/unique
     size_t kcount = pImpl->keys_count();
     size_t count = kcount + cat.pImpl->keys_count();
@@ -743,18 +761,18 @@ numeric_category<T>* numeric_category<T>::merge( numeric_category<T>& cat )
     bool include_null = pImpl->bkeyset_includes_null;
     bool catinclude_null = cat.pImpl->bkeyset_includes_null;
 
-    thrust::device_vector<T> keyset(count);
+    rmm::device_vector<T> keyset(count);
     T* d_keyset = keyset.data().get();
-    thrust::copy( thrust::device, d_keys, d_keys + kcount, d_keyset );
-    thrust::copy( thrust::device, d_catkeys, d_catkeys + cat.keys_size(), d_keyset + kcount );
+    thrust::copy( execpol->on(0), d_keys, d_keys + kcount, d_keyset );
+    thrust::copy( execpol->on(0), d_catkeys, d_catkeys + cat.keys_size(), d_keyset + kcount );
     // build sequence vector and sort positions
-    thrust::device_vector<int> indexes(count), xvals(count);
-    thrust::sequence( thrust::device, indexes.begin(), indexes.end() );
-    thrust::sequence( thrust::device, xvals.begin(), xvals.end() );
+    rmm::device_vector<int> indexes(count), xvals(count);
+    thrust::sequence( execpol->on(0), indexes.begin(), indexes.end() );
+    thrust::sequence( execpol->on(0), xvals.begin(), xvals.end() );
     int* d_indexes = indexes.data().get();
     int* d_xvals = xvals.data().get();
     // stable-sort preserves order
-    thrust::stable_sort_by_key( thrust::device, d_indexes, d_indexes + count, d_xvals,
+    thrust::stable_sort_by_key( execpol->on(0), d_indexes, d_indexes + count, d_xvals,
         [d_keyset, kcount, include_null, catinclude_null] __device__ (int lhs, int rhs) {
             bool lhs_null = ((lhs==0) && include_null) || ((lhs==kcount) && catinclude_null);
             bool rhs_null = ((rhs==0) && include_null) || ((rhs==kcount) && catinclude_null);
@@ -764,10 +782,10 @@ numeric_category<T>* numeric_category<T>::merge( numeric_category<T>& cat )
         });
 
     // build anti-matching indicator vector and unique-map at the same time
-    thrust::device_vector<int> map_indexes(count), yvals(count);
+    rmm::device_vector<int> map_indexes(count), yvals(count);
     int* d_map_indexes = map_indexes.data().get(); // this will contain map to unique indexes
     int* d_yvals = yvals.data().get(); // this will have 1's where adjacent keys are different (anti-matching)
-    int* d_map_nend = thrust::copy_if( thrust::device, thrust::make_counting_iterator<int>(0), thrust::make_counting_iterator<int>(count), d_map_indexes,
+    int* d_map_nend = thrust::copy_if( execpol->on(0), thrust::make_counting_iterator<int>(0), thrust::make_counting_iterator<int>(count), d_map_indexes,
         [d_keyset, d_indexes, kcount, d_yvals, include_null, catinclude_null] __device__ (int idx) {
             if( idx==0 )
             {
@@ -787,21 +805,21 @@ numeric_category<T>* numeric_category<T>::merge( numeric_category<T>& cat )
         });
     size_t unique_count = (size_t)(d_map_nend - d_map_indexes);
     // build the unique indexes by using the map on the sorted indexes
-    thrust::device_vector<int> keys_indexes(unique_count);
-    thrust::gather( thrust::device, d_map_indexes, d_map_nend, indexes.begin(), keys_indexes.begin() );
+    rmm::device_vector<int> keys_indexes(unique_count);
+    thrust::gather( execpol->on(0), d_map_indexes, d_map_nend, indexes.begin(), keys_indexes.begin() );
     // build the result
     numeric_category<T>* result = new numeric_category<T>;
     result->pImpl->init_keys(d_keyset, keys_indexes.data().get(), unique_count );
     // done with keys
     // create index to map old positions to their new indexes
-    thrust::inclusive_scan( thrust::device, d_yvals, d_yvals+count, d_yvals ); // new positions
-    thrust::sort_by_key( thrust::device, d_xvals, d_xvals + count, d_yvals );  // creates map from old to new positions
+    thrust::inclusive_scan( execpol->on(0), d_yvals, d_yvals+count, d_yvals ); // new positions
+    thrust::sort_by_key( execpol->on(0), d_xvals, d_xvals + count, d_yvals );  // creates map from old to new positions
     int* d_new_values = result->pImpl->get_values(size()+cat.size()); // alloc output values
     // the remap is done in sections and could be combined into a single kernel with branching
     if( size() )
     {   // remap our values first
         const int* d_values = values();
-        thrust::for_each_n( thrust::device, thrust::make_counting_iterator<int>(0), (int)size(),
+        thrust::for_each_n( execpol->on(0), thrust::make_counting_iterator<int>(0), (int)size(),
                             remap_values_fn{d_values, d_yvals, d_new_values} );
         d_new_values += size(); // point to the
         d_yvals += keys_size(); // next section
@@ -809,7 +827,7 @@ numeric_category<T>* numeric_category<T>::merge( numeric_category<T>& cat )
     if( cat.size() )
     {   // remap arg's values
         const int* d_values = cat.values();
-        thrust::for_each_n( thrust::device, thrust::make_counting_iterator<int>(0), (int)cat.size(),
+        thrust::for_each_n( execpol->on(0), thrust::make_counting_iterator<int>(0), (int)cat.size(),
                             remap_values_fn{d_values, d_yvals, d_new_values} );
     }
     // the nulls are just appended together
@@ -821,7 +839,7 @@ numeric_category<T>* numeric_category<T>::merge( numeric_category<T>& cat )
         size_t ncount = vcount + cat.size();
         BYTE* d_result_nulls = result->pImpl->get_nulls(ncount);
         size_t byte_count = (ncount+7)/8;
-        thrust::for_each_n( thrust::device, thrust::make_counting_iterator<size_t>(0), byte_count,
+        thrust::for_each_n( execpol->on(0), thrust::make_counting_iterator<size_t>(0), byte_count,
             [d_nulls, d_catnulls, vcount, ncount, d_result_nulls] __device__ (size_t byte_idx) {
                 BYTE mask = 0;
                 for( int bit=0; bit<8; ++bit )
@@ -846,34 +864,35 @@ numeric_category<T>* numeric_category<T>::merge( numeric_category<T>& cat )
 template<typename T>
 numeric_category<T>* numeric_category<T>::gather_and_remap(const int* indexes, size_t count)
 {
+    auto execpol = rmm::exec_policy(0);
     size_t kcount = keys_size();
-    int check = thrust::count_if( thrust::device, indexes, indexes + count, [kcount] __device__ (int val) { return (val<0) || (val>=kcount);});
+    int check = thrust::count_if( execpol->on(0), indexes, indexes + count, [kcount] __device__ (int val) { return (val<0) || (val>=kcount);});
     if( check > 0 )
         throw std::out_of_range("gather: invalid index value");
     // create histogram-ish record of keys for this gather
-    thrust::device_vector<int> xvals(kcount,0);
+    rmm::device_vector<int> xvals(kcount,0);
     int* d_xvals = xvals.data().get();
-    thrust::for_each_n( thrust::device, thrust::make_counting_iterator<size_t>(0), count,
+    thrust::for_each_n( execpol->on(0), thrust::make_counting_iterator<size_t>(0), count,
         [d_xvals, indexes] __device__ (size_t idx) { d_xvals[indexes[idx]] = 1; });
     // create indexes of our keys for the new numeric_category
-    thrust::device_vector<int> yvals(kcount,0);
+    rmm::device_vector<int> yvals(kcount,0);
     int* d_yvals = yvals.data().get();
-    auto d_new_end = thrust::copy_if( thrust::device, thrust::make_counting_iterator<int>(0), thrust::make_counting_iterator<int>(kcount), d_yvals,
+    auto d_new_end = thrust::copy_if( execpol->on(0), thrust::make_counting_iterator<int>(0), thrust::make_counting_iterator<int>(kcount), d_yvals,
         [d_xvals] __device__ (int idx) { return d_xvals[idx]==1;} );
     size_t unique_count = (size_t)(d_new_end - d_yvals);
     // create new numeric_category and set the keys
     numeric_category<T>* result = new numeric_category<T>;
     result->pImpl->init_keys( pImpl->get_keys(), d_yvals, unique_count );
     // now create values by mapping our values over to the new key positions
-    thrust::exclusive_scan( thrust::device, d_xvals, d_xvals + kcount, d_yvals ); // reuse yvals for the map
+    thrust::exclusive_scan( execpol->on(0), d_xvals, d_xvals + kcount, d_yvals ); // reuse yvals for the map
     int* d_new_values = result->pImpl->get_values(count);
-    thrust::gather( thrust::device, indexes, indexes + count, d_yvals, d_new_values );
+    thrust::gather( execpol->on(0), indexes, indexes + count, d_yvals, d_new_values );
     // also need to gather nulls
     if( pImpl->bkeyset_includes_null && indexes )
     {
         BYTE* d_new_nulls = result->pImpl->get_nulls(count);
         size_t byte_count = (count+7)/8;
-        thrust::for_each_n( thrust::device, thrust::make_counting_iterator<size_t>(0), byte_count,
+        thrust::for_each_n( execpol->on(0), thrust::make_counting_iterator<size_t>(0), byte_count,
             [indexes, count, d_new_nulls] __device__ (size_t byte_idx) {
                 BYTE mask = 0;
                 for( int bit=0; bit<8; ++bit )
@@ -892,8 +911,9 @@ numeric_category<T>* numeric_category<T>::gather_and_remap(const int* indexes, s
 template<typename T>
 numeric_category<T>* numeric_category<T>::gather(const int* indexes, size_t count )
 {
+    auto execpol = rmm::exec_policy(0);
     size_t kcount = pImpl->keys_count();
-    int check = thrust::count_if( thrust::device, indexes, indexes + count, [kcount] __device__ (int val) { return (val<0) || (val>=kcount);});
+    int check = thrust::count_if( execpol->on(0), indexes, indexes + count, [kcount] __device__ (int val) { return (val<0) || (val>=kcount);});
     if( check > 0 )
         throw std::out_of_range("gather: invalid index value");
 
@@ -901,14 +921,14 @@ numeric_category<T>* numeric_category<T>::gather(const int* indexes, size_t coun
     result->pImpl->init_keys( pImpl->get_keys(), kcount );
     result->pImpl->bkeyset_includes_null = pImpl->bkeyset_includes_null;
     int* d_new_values = result->pImpl->get_values(count);
-    thrust::copy( thrust::device, indexes, indexes + count, d_new_values );
+    thrust::copy( execpol->on(0), indexes, indexes + count, d_new_values );
 
     const BYTE* d_nulls = pImpl->get_nulls();
     if( d_nulls && indexes )
     {
         BYTE* d_new_nulls = result->pImpl->get_nulls(count);
         size_t byte_count = (count+7)/8;
-        thrust::for_each_n( thrust::device, thrust::make_counting_iterator<size_t>(0), byte_count,
+        thrust::for_each_n( execpol->on(0), thrust::make_counting_iterator<size_t>(0), byte_count,
             [indexes, count, d_new_nulls] __device__ (size_t byte_idx) {
                 BYTE mask = 0;
                 for( int bit=0; bit<8; ++bit )
@@ -926,8 +946,9 @@ numeric_category<T>* numeric_category<T>::gather(const int* indexes, size_t coun
 template<typename T>
 numeric_category<T>* numeric_category<T>::gather_values(const int* indexes, size_t count )
 {
+    auto execpol = rmm::exec_policy(0);
     size_t vcount = pImpl->values_count();
-    int check = thrust::count_if( thrust::device, indexes, indexes + count, [vcount] __device__ (int val) { return (val<0) || (val>=vcount);});
+    int check = thrust::count_if( execpol->on(0), indexes, indexes + count, [vcount] __device__ (int val) { return (val<0) || (val>=vcount);});
     if( check > 0 )
         throw std::out_of_range("gather_values: invalid index value");
 
@@ -936,14 +957,14 @@ numeric_category<T>* numeric_category<T>::gather_values(const int* indexes, size
     result->pImpl->bkeyset_includes_null = pImpl->bkeyset_includes_null;
     const int* d_values = pImpl->get_values();
     int* d_new_values = result->pImpl->get_values(count);
-    thrust::gather( thrust::device, indexes, indexes + count, d_values, d_new_values );
+    thrust::gather( execpol->on(0), indexes, indexes + count, d_values, d_new_values );
 
     const BYTE* d_nulls = pImpl->get_nulls();
     if( d_nulls && indexes )
     {
         BYTE* d_new_nulls = result->pImpl->get_nulls(count);
         size_t byte_count = (count+7)/8;
-        thrust::for_each_n( thrust::device, thrust::make_counting_iterator<size_t>(0), byte_count,
+        thrust::for_each_n( execpol->on(0), thrust::make_counting_iterator<size_t>(0), byte_count,
             [d_nulls, indexes, count, d_new_nulls] __device__ (size_t byte_idx) {
                 BYTE mask = 0;
                 for( int bit=0; bit<8; ++bit )

@@ -6,7 +6,7 @@
 #include <locale.h>
 #include <cuda_runtime.h>
 #include "../include/NVStrings.h"
-#include "../src/util.h"
+//#include "../src/util.h"
 #include "../include/StringsStatistics.h"
 
 //
@@ -21,7 +21,7 @@ int main( int argc, char** argv )
     setlocale(LC_NUMERIC, "");
     //std::string csvfile = "../../data/36634-rows.csv";
     std::string csvfile = "../../data/utf8.csv";
-    NVStrings* dstrs = createFromCSV(csvfile, 16);
+    NVStrings* dstrs = NVStrings::create_from_csv(csvfile.c_str(), 16);
     printf("First 10 strings:\n");
     dstrs->print(0,10);
     printf("\n");
