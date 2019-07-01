@@ -223,8 +223,7 @@ void NVStrings::print( int start, int end, int maxwidth, const char* delimiter )
         printf("all %d strings are null\n",count);
         return;
     }
-    char* d_buffer = nullptr;
-    RMM_ALLOC(&d_buffer,msize,0);
+    char* d_buffer = device_alloc<char>(msize,0);
     // convert lengths to offsets
     rmm::device_vector<size_t> offsets(count,0);
     thrust::exclusive_scan(execpol->on(0),lens.begin(),lens.end(),offsets.begin());
@@ -247,7 +246,7 @@ void NVStrings::print( int start, int end, int maxwidth, const char* delimiter )
     //cudaDeviceSynchronize();
     // copy strings to host
     char* h_buffer = new char[msize];
-    cudaMemcpy(h_buffer, d_buffer, msize, cudaMemcpyDeviceToHost);
+    CUDA_TRY( cudaMemcpyAsync(h_buffer, d_buffer, msize, cudaMemcpyDeviceToHost))
     RMM_FREE(d_buffer,0);
     // print strings to stdout
     thrust::host_vector<custring_view*> h_strings(*(pImpl->pList)); // just for checking nulls
@@ -322,7 +321,7 @@ int NVStrings::to_host(char** list, int start, int end)
 
     // copy strings to host
     char* h_buffer = new char[msize];
-    err = cudaMemcpy(h_buffer, d_buffer, msize, cudaMemcpyDeviceToHost);
+    err = cudaMemcpyAsync(h_buffer, d_buffer, msize, cudaMemcpyDeviceToHost);
     RMM_FREE(d_buffer,0); // done with device buffer
     if( err != cudaSuccess )
     {
@@ -377,9 +376,9 @@ int NVStrings::create_index(std::pair<const char*,size_t>* strs, bool bdevmem )
 
     cudaError_t err = cudaSuccess; //cudaDeviceSynchronize();
     if( bdevmem )
-        err = cudaMemcpy( strs, indexes.data().get(), count * sizeof(std::pair<const char*,size_t>), cudaMemcpyDeviceToDevice );
+        err = cudaMemcpyAsync( strs, indexes.data().get(), count * sizeof(std::pair<const char*,size_t>), cudaMemcpyDeviceToDevice );
     else
-        err = cudaMemcpy( strs, indexes.data().get(), count * sizeof(std::pair<const char*,size_t>), cudaMemcpyDeviceToHost );
+        err = cudaMemcpyAsync( strs, indexes.data().get(), count * sizeof(std::pair<const char*,size_t>), cudaMemcpyDeviceToHost );
     if( err != cudaSuccess )
     {
         printCudaError(err,"nvs-create_index");
@@ -396,9 +395,9 @@ int NVStrings::create_custring_index( custring_view** strs, bool bdevmem )
         return 0;
     custring_view_array d_strings = pImpl->getStringsPtr();
     if( bdevmem )
-        cudaMemcpy( strs, d_strings, count * sizeof(custring_view*), cudaMemcpyDeviceToDevice );
+        CUDA_TRY( cudaMemcpyAsync( strs, d_strings, count * sizeof(custring_view*), cudaMemcpyDeviceToDevice ))
     else
-        cudaMemcpy( strs, d_strings, count * sizeof(custring_view*), cudaMemcpyDeviceToHost );
+        CUDA_TRY( cudaMemcpyAsync( strs, d_strings, count * sizeof(custring_view*), cudaMemcpyDeviceToHost ))
     return 0;
 }
 
@@ -417,10 +416,10 @@ int NVStrings::create_offsets( char* strs, int* offsets, unsigned char* nullbitm
     unsigned char* d_nulls = nullbitmask;
     if( !bdevmem )
     {
-        RMM_ALLOC(&d_offsets,(count+1)*sizeof(int),0);
+        d_offsets = device_alloc<int>((count+1),0);
         if( nullbitmask )
         {
-            RMM_ALLOC(&d_nulls,((count+7)/8)*sizeof(unsigned char),0);
+            d_nulls = device_alloc<unsigned char>(((count+7)/8),0);
             cudaMemset(d_nulls,0,((count+7)/8));
         }
     }
@@ -460,7 +459,7 @@ int NVStrings::create_offsets( char* strs, int* offsets, unsigned char* nullbitm
     size_t totalbytes = thrust::reduce(execpol->on(0), d_sizes, d_sizes+count);
     char* d_strs = strs;
     if( !bdevmem )
-        RMM_ALLOC(&d_strs,totalbytes,0);
+        d_strs = device_alloc<char>(totalbytes,0);
     // shuffle strings into memory
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_strs, d_offsets] __device__(unsigned int idx){
@@ -472,10 +471,15 @@ int NVStrings::create_offsets( char* strs, int* offsets, unsigned char* nullbitm
     // copy memory to parameters (if necessary)
     if( !bdevmem )
     {
-        cudaMemcpy(offsets,d_offsets,(count+1)*sizeof(int),cudaMemcpyDeviceToHost);
-        cudaMemcpy(strs,d_strs,totalbytes,cudaMemcpyDeviceToHost);
+        cudaMemcpyAsync(offsets,d_offsets,(count+1)*sizeof(int),cudaMemcpyDeviceToHost);
+        cudaMemcpyAsync(strs,d_strs,totalbytes,cudaMemcpyDeviceToHost);
         if( nullbitmask )
-            cudaMemcpy(nullbitmask,d_nulls,((count+7)/8)*sizeof(unsigned char),cudaMemcpyDeviceToHost);
+        {
+            cudaMemcpyAsync(nullbitmask,d_nulls,((count+7)/8)*sizeof(unsigned char),cudaMemcpyDeviceToHost);
+            RMM_FREE(d_nulls,0);
+        }
+        RMM_FREE(d_offsets,0);
+        RMM_FREE(d_strs,0);
     }
     return 0;
 }
@@ -499,7 +503,7 @@ unsigned int NVStrings::set_null_bitarray( unsigned char* bitarray, bool emptyIs
     unsigned int size = (count + 7)/8; // round up to byte align
     unsigned char* d_bitarray = bitarray;
     if( !devmem )
-        RMM_ALLOC(&d_bitarray,size,0);
+        d_bitarray = device_alloc<unsigned char>(size,0);
 
     // count nulls in range for return value
     custring_view** d_strings = pImpl->getStringsPtr();
@@ -536,7 +540,7 @@ unsigned int NVStrings::set_null_bitarray( unsigned char* bitarray, bool emptyIs
     //
     if( !devmem )
     {
-        cudaMemcpy(bitarray,d_bitarray,size,cudaMemcpyDeviceToHost);
+        CUDA_TRY( cudaMemcpyAsync(bitarray,d_bitarray,size,cudaMemcpyDeviceToHost))
         RMM_FREE(d_bitarray,0);
     }
     return ncount;
@@ -582,9 +586,9 @@ unsigned int NVStrings::get_nulls( unsigned int* array, bool emptyIsNull, bool d
     if( array )
     {
         if( devmem )
-            err = cudaMemcpy(array,d_array,sizeof(int)*ncount,cudaMemcpyDeviceToDevice);
+            err = cudaMemcpyAsync(array,d_array,sizeof(int)*ncount,cudaMemcpyDeviceToDevice);
         else
-            err = cudaMemcpy(array,d_array,sizeof(int)*ncount,cudaMemcpyDeviceToHost);
+            err = cudaMemcpyAsync(array,d_array,sizeof(int)*ncount,cudaMemcpyDeviceToHost);
     }
     if( err != cudaSuccess )
     {
@@ -757,7 +761,7 @@ void NVStrings::compute_statistics(StringsStatistics& stats)
         size_t elems = (size_t)(nend - d_charcounts);
         std::vector<std::pair<unsigned int, unsigned int> > hcharcounts(elems);
         // copy d_charcounts to host memory
-        cudaMemcpy(hcharcounts.data(),d_charcounts,elems*sizeof(std::pair<unsigned int,unsigned int>),cudaMemcpyDeviceToHost);
+        CUDA_TRY( cudaMemcpyAsync(hcharcounts.data(),d_charcounts,elems*sizeof(std::pair<unsigned int,unsigned int>),cudaMemcpyDeviceToHost))
         // copy hcharcounts to stats.char_counts;
         stats.char_counts.reserve(uset_count);
         stats.char_counts.swap(hcharcounts);

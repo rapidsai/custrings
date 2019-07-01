@@ -14,6 +14,9 @@
 * limitations under the License.
 */
 
+#include <cstring>
+#include <rmm/rmm.h>
+
 // single unicode character to utf8 character
 // used only by translate method
 __host__ __device__ inline unsigned int u2u8( unsigned int unchr )
@@ -84,4 +87,23 @@ __device__ inline char* copy_and_incr_both( char*& dest, char*& src, unsigned in
     dest += bytes;
     src += bytes;
     return dest;
+}
+
+template<typename T>
+T* device_alloc(size_t count, cudaStream_t sid)
+{
+    T* buffer = nullptr;
+    rmmError_t rerr = RMM_ALLOC(&buffer,count*sizeof(T),sid);
+    if( rerr != RMM_SUCCESS )
+    {
+        if( rerr==RMM_ERROR_OUT_OF_MEMORY )
+        {
+            std::cerr.imbue(std::locale(""));
+            std::cerr << "out of memory on alloc request of " << count << " elements of size " << sizeof(T) << " = " << (count*sizeof(T)) << " bytes\n";
+        }
+        std::ostringstream message;
+        message << "allocate error " << rerr;
+        throw std::runtime_error(message.str());
+    }
+    return buffer;
 }
