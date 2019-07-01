@@ -471,10 +471,15 @@ int NVStrings::create_offsets( char* strs, int* offsets, unsigned char* nullbitm
     // copy memory to parameters (if necessary)
     if( !bdevmem )
     {
-        cudaMemcpy(offsets,d_offsets,(count+1)*sizeof(int),cudaMemcpyDeviceToHost);
-        cudaMemcpy(strs,d_strs,totalbytes,cudaMemcpyDeviceToHost);
+        cudaMemcpyAsync(offsets,d_offsets,(count+1)*sizeof(int),cudaMemcpyDeviceToHost);
+        cudaMemcpyAsync(strs,d_strs,totalbytes,cudaMemcpyDeviceToHost);
         if( nullbitmask )
-            cudaMemcpy(nullbitmask,d_nulls,((count+7)/8)*sizeof(unsigned char),cudaMemcpyDeviceToHost);
+        {
+            cudaMemcpyAsync(nullbitmask,d_nulls,((count+7)/8)*sizeof(unsigned char),cudaMemcpyDeviceToHost);
+            RMM_FREE(d_nulls,0);
+        }
+        RMM_FREE(d_offsets,0);
+        RMM_FREE(d_strs,0);
     }
     return 0;
 }
