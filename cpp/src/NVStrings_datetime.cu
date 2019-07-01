@@ -27,6 +27,7 @@
 #include "NVStrings.h"
 #include "NVStringsImpl.h"
 #include "custring_view.cuh"
+#include "util.h"
 
 // used to index values in a timeparts array
 #define TP_YEAR        0
@@ -140,11 +141,11 @@ struct DTFormatCompiler
         }
         // create in device memory
         size_t memsize = items.size() * sizeof(DTFormatItem);
-        d_items = static_cast<DTFormatItem*>(device_alloc(memsize,0));
-        cudaMemcpy(d_items, items.data(), memsize, cudaMemcpyHostToDevice);
+        d_items = reinterpret_cast<DTFormatItem*>(device_alloc<char>(memsize,0));
+        CUDA_TRY( cudaMemcpyAsync(d_items, items.data(), memsize, cudaMemcpyHostToDevice))
         DTProgram hprog{items.size(),d_items};
-        d_prog = static_cast<DTProgram*>(device_alloc(sizeof(DTProgram),0));
-        cudaMemcpy(d_prog,&hprog,sizeof(DTProgram),cudaMemcpyHostToDevice);
+        d_prog = reinterpret_cast<DTProgram*>(device_alloc<char>(sizeof(DTProgram),0));
+        CUDA_TRY( cudaMemcpyAsync(d_prog,&hprog,sizeof(DTProgram),cudaMemcpyHostToDevice))
         return d_prog;
     }
 
@@ -361,7 +362,7 @@ int NVStrings::timestamp2long( const char* format, timestamp_units units, unsign
     auto execpol = rmm::exec_policy(0);
     unsigned long* d_rtn = results;
     if( !bdevmem )
-        d_rtn = static_cast<unsigned long*>(device_alloc(count*sizeof(unsigned long),0));
+        d_rtn = device_alloc<unsigned long>(count,0);
 
     if( format==0 )
         format = "%Y-%m-%dT%H:%M:%SZ";
@@ -376,7 +377,7 @@ int NVStrings::timestamp2long( const char* format, timestamp_units units, unsign
     int zeros = thrust::count(execpol->on(0),d_rtn,d_rtn+count,0);
     if( !bdevmem )
     {
-        cudaMemcpy(results,d_rtn,sizeof(unsigned long)*count,cudaMemcpyDeviceToHost);
+        CUDA_TRY( cudaMemcpyAsync(results,d_rtn,sizeof(unsigned long)*count,cudaMemcpyDeviceToHost))
         RMM_FREE(d_rtn,0);
     }
     return (int)count-zeros;
@@ -652,12 +653,12 @@ NVStrings* NVStrings::long2timestamp( const unsigned long* values, unsigned int 
     unsigned char* d_nulls = (unsigned char*)nullbitmask;
     if( !bdevmem )
     {
-        d_values = static_cast<unsigned long*>(device_alloc(count*sizeof(unsigned long),0));
-        cudaMemcpy(d_values,values,count*sizeof(unsigned long),cudaMemcpyHostToDevice);
+        d_values = device_alloc<unsigned long>(count,0);
+        CUDA_TRY( cudaMemcpyAsync(d_values,values,count*sizeof(unsigned long),cudaMemcpyHostToDevice))
         if( nullbitmask )
         {
-            d_nulls = static_cast<unsigned char*>(device_alloc(((count+7)/8)*sizeof(unsigned char),0));
-            cudaMemcpy(d_nulls,nullbitmask,((count+7)/8)*sizeof(unsigned char),cudaMemcpyHostToDevice);
+            d_nulls = device_alloc<unsigned char>(((count+7)/8),0);
+            CUDA_TRY( cudaMemcpyAsync(d_nulls,nullbitmask,((count+7)/8)*sizeof(unsigned char),cudaMemcpyHostToDevice))
         }
     }
 

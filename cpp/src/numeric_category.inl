@@ -281,7 +281,8 @@ void numeric_category<T>::print(const char* prefix, const char* delimiter)
         std::cout << "<no keys>";
     const T* d_keys = pImpl->get_keys();
     thrust::host_vector<T> h_keys(count);
-    cudaMemcpy(h_keys.data(), d_keys, count*sizeof(T), cudaMemcpyDeviceToHost);
+    if( cudaMemcpyAsync(h_keys.data(), d_keys, count*sizeof(T), cudaMemcpyDeviceToHost) != cudaSuccess )
+        throw std::runtime_error("cudaMemcpy error");
     for( size_t idx=0; idx < count; ++idx )
     {
         if( idx || !pImpl->bkeyset_includes_null )
@@ -303,7 +304,8 @@ void numeric_category<T>::print(const char* prefix, const char* delimiter)
         std::cout << "<no values>";
     const int* d_values = pImpl->get_values();
     thrust::host_vector<int> h_values(count);
-    cudaMemcpy( h_values.data(), d_values, count*sizeof(int), cudaMemcpyDeviceToHost);
+    if( cudaMemcpyAsync( h_values.data(), d_values, count*sizeof(int), cudaMemcpyDeviceToHost) != cudaSuccess )
+        throw std::runtime_error("cudaMemcpy error");
     const BYTE* d_nulls = pImpl->get_nulls();
     size_t byte_count = (count+7)/8;
     thrust::host_vector<BYTE> nulls(byte_count);
@@ -311,7 +313,8 @@ void numeric_category<T>::print(const char* prefix, const char* delimiter)
     if( d_nulls )
     {
         h_nulls = nulls.data();
-        cudaMemcpy( h_nulls, d_nulls, byte_count*sizeof(BYTE), cudaMemcpyDeviceToHost);
+        if( cudaMemcpy( h_nulls, d_nulls, byte_count*sizeof(BYTE), cudaMemcpyDeviceToHost) != cudaSuccess )
+            throw std::runtime_error("cudaMemcpy error");
     }
     for( size_t idx=0; idx < count; ++idx )
     {

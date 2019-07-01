@@ -31,6 +31,7 @@
 #include "NVStrings.h"
 #include "NVStringsImpl.h"
 #include "custring_view.cuh"
+#include "util.h"
 
 
 // create a new instance containing only the strings at the specified positions
@@ -45,8 +46,8 @@ NVStrings* NVStrings::gather( const int* pos, unsigned int elems, bool bdevmem )
     const int* d_pos = pos;
     if( !bdevmem )
     {   // copy indexes to device memory
-        d_pos = static_cast<const int*>(device_alloc(elems*sizeof(int),0));
-        cudaMemcpy((void*)d_pos,pos,elems*sizeof(int),cudaMemcpyHostToDevice);
+        d_pos = const_cast<const int*>(device_alloc<int>(elems,0));
+        CUDA_TRY(cudaMemcpyAsync((void*)d_pos,pos,elems*sizeof(int),cudaMemcpyHostToDevice))
     }
     // get individual sizes
     rmm::device_vector<long> sizes(elems,0);
@@ -67,7 +68,7 @@ NVStrings* NVStrings::gather( const int* pos, unsigned int elems, bool bdevmem )
     // check for any out-of-range values
     long* first = thrust::min_element(execpol->on(0),d_sizes,d_sizes+elems);
     long hfirst = 0;
-    cudaMemcpy(&hfirst,first,sizeof(long),cudaMemcpyDeviceToHost);
+    CUDA_TRY(cudaMemcpyAsync(&hfirst,first,sizeof(long),cudaMemcpyDeviceToHost))
     if( hfirst < 0 )
     {
         if( !bdevmem )
@@ -116,7 +117,7 @@ NVStrings* NVStrings::gather( const bool* mask, bool bdevmem )
     const bool* d_mask = mask;
     if( !bdevmem )
     {
-        d_mask = static_cast<const bool*>(device_alloc(count*sizeof(mask[0]),0));
+        d_mask = const_cast<const bool*>(device_alloc<bool>(count,0));
         cudaMemcpyAsync((void*)d_mask,mask,count*sizeof(mask[0]),cudaMemcpyHostToDevice,0);
     }
     // create list of index positions from the mask array
@@ -162,11 +163,11 @@ NVStrings* NVStrings::remove_strings( const int* pos, unsigned int elems, bool b
         return nullptr; // return copy of ourselves?
 
     auto execpol = rmm::exec_policy(0);
-    int* dpos = static_cast<int*>(device_alloc(elems*sizeof(unsigned int),0));
+    int* dpos = device_alloc<int>(elems,0);
     if( bdevmem )
-       cudaMemcpy((void*)dpos,pos,elems*sizeof(unsigned int),cudaMemcpyDeviceToDevice);
+       CUDA_TRY( cudaMemcpyAsync((void*)dpos,pos,elems*sizeof(unsigned int),cudaMemcpyDeviceToDevice))
     else
-       cudaMemcpy((void*)dpos,pos,elems*sizeof(unsigned int),cudaMemcpyHostToDevice);
+       CUDA_TRY( cudaMemcpyAsync((void*)dpos,pos,elems*sizeof(unsigned int),cudaMemcpyHostToDevice))
     // sort the position values
     thrust::sort(execpol->on(0),dpos,dpos+elems,thrust::greater<int>());
     // also should remove duplicates
@@ -261,7 +262,8 @@ NVStrings* NVStrings::sort( sorttype stype, bool ascending, bool nullfirst )
     // copy the pointers to temporary vector and sort them along with the alloc-lengths
     rmm::device_vector<custring_view*> sortvector(count,nullptr);
     custring_view_array d_sortvector = sortvector.data().get();
-    cudaMemcpy(d_sortvector,d_strings,sizeof(custring_view*)*count,cudaMemcpyDeviceToDevice);
+    thrust::copy( execpol->on(0), d_strings, d_strings+count, d_sortvector );
+    //cudaMemcpy(d_sortvector,d_strings,sizeof(custring_view*)*count,cudaMemcpyDeviceToDevice);
     thrust::sort_by_key(execpol->on(0), d_sortvector, d_sortvector+count, d_lengths,
         [stype, ascending, nullfirst] __device__( custring_view*& lhs, custring_view*& rhs ) {
             if( lhs==0 || rhs==0 )
@@ -301,7 +303,7 @@ int NVStrings::order( sorttype stype, bool ascending, unsigned int* indexes, boo
     unsigned int* d_indexes = indexes;
     auto execpol = rmm::exec_policy(0);
     if( !todevice )
-        d_indexes = static_cast<unsigned int*>(device_alloc(count*sizeof(unsigned int),0));
+        d_indexes = device_alloc<unsigned int>(count,0);
     thrust::sequence(execpol->on(0), d_indexes, d_indexes+count);
     //
     custring_view_array d_strings = pImpl->getStringsPtr();
@@ -322,7 +324,7 @@ int NVStrings::order( sorttype stype, bool ascending, unsigned int* indexes, boo
     //
     if( !todevice )
     {
-        cudaMemcpy(indexes,d_indexes,count*sizeof(unsigned int),cudaMemcpyDeviceToHost);
+        CUDA_TRY(cudaMemcpyAsync(indexes,d_indexes,count*sizeof(unsigned int),cudaMemcpyDeviceToHost))
         RMM_FREE(d_indexes,0);
     }
     return 0;

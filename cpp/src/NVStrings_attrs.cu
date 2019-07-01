@@ -38,7 +38,7 @@ unsigned int NVStrings::len(int* lengths, bool todevice)
     auto execpol = rmm::exec_policy(0);
     int* d_rtn = lengths;
     if( !todevice )
-        d_rtn = static_cast<int*>(device_alloc(sizeof(int)*count,0));
+        d_rtn = device_alloc<int>(count,0);
 
     custring_view** d_strings = pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
@@ -62,7 +62,7 @@ unsigned int NVStrings::len(int* lengths, bool todevice)
 
     if( !todevice )
     {   // copy result back to host
-        cudaMemcpy(lengths,d_rtn,sizeof(int)*count,cudaMemcpyDeviceToHost);
+        CUDA_TRY( cudaMemcpyAsync(lengths,d_rtn,sizeof(int)*count,cudaMemcpyDeviceToHost))
         RMM_FREE(d_rtn,0);
     }
     return (unsigned int)size;
@@ -80,7 +80,7 @@ size_t NVStrings::byte_count(int* lengths, bool todevice)
     if( !lengths )
         todevice = false; // makes sure we free correctly
     if( !todevice )
-        d_rtn = static_cast<int*>(device_alloc(sizeof(int)*count,0));
+        d_rtn = device_alloc<int>(count,0);
 
     custring_view** d_strings = pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
@@ -104,7 +104,7 @@ size_t NVStrings::byte_count(int* lengths, bool todevice)
     if( !todevice )
     {   // copy result back to host
         if( lengths )
-            cudaMemcpy(lengths,d_rtn,sizeof(int)*count,cudaMemcpyDeviceToHost);
+            CUDA_TRY( cudaMemcpyAsync(lengths,d_rtn,sizeof(int)*count,cudaMemcpyDeviceToHost))
         RMM_FREE(d_rtn,0);
     }
     return (unsigned int)size;
@@ -121,7 +121,7 @@ unsigned int NVStrings::isalnum( bool* results, bool todevice )
     unsigned char* d_flags = get_unicode_flags();
     bool* d_rtn = results;
     if( !todevice )
-        d_rtn = static_cast<bool*>(device_alloc(count*sizeof(bool),0));
+        d_rtn = device_alloc<bool>(count,0);
     custring_view_array d_strings = pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_flags, d_rtn] __device__(unsigned int idx){
@@ -143,7 +143,7 @@ unsigned int NVStrings::isalnum( bool* results, bool todevice )
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true );
     if( !todevice )
     {   // copy result back to host
-        cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
+        CUDA_TRY( cudaMemcpyAsync(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost))
         RMM_FREE(d_rtn,0);
     }
     return (unsigned int)matches;
@@ -158,7 +158,7 @@ unsigned int NVStrings::isalpha( bool* results, bool todevice )
     unsigned char* d_flags = get_unicode_flags();
     bool* d_rtn = results;
     if( !todevice )
-        d_rtn = static_cast<bool*>(device_alloc(count*sizeof(bool),0));
+        d_rtn = device_alloc<bool>(count,0);
     custring_view_array d_strings = pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_flags, d_rtn] __device__(unsigned int idx){
@@ -180,7 +180,7 @@ unsigned int NVStrings::isalpha( bool* results, bool todevice )
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
-        cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
+        CUDA_TRY( cudaMemcpyAsync(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost))
         RMM_FREE(d_rtn,0);
     }
     return (unsigned int)matches;
@@ -196,7 +196,7 @@ unsigned int NVStrings::isdigit( bool* results, bool todevice )
     unsigned char* d_flags = get_unicode_flags();
     bool* d_rtn = results;
     if( !todevice )
-        d_rtn = static_cast<bool*>(device_alloc(count*sizeof(bool),0));
+        d_rtn = device_alloc<bool>(count,0);
     custring_view_array d_strings = pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_flags, d_rtn] __device__(unsigned int idx){
@@ -218,7 +218,7 @@ unsigned int NVStrings::isdigit( bool* results, bool todevice )
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
-        cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
+        CUDA_TRY( cudaMemcpyAsync(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost))
         RMM_FREE(d_rtn,0);
     }
     return (unsigned int)matches;
@@ -233,7 +233,7 @@ unsigned int NVStrings::isspace( bool* results, bool todevice )
     unsigned char* d_flags = get_unicode_flags();
     bool* d_rtn = results;
     if( !todevice )
-        d_rtn = static_cast<bool*>(device_alloc(count*sizeof(bool),0));
+        d_rtn = device_alloc<bool>(count,0);
     custring_view_array d_strings = pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_flags, d_rtn] __device__(unsigned int idx){
@@ -255,7 +255,7 @@ unsigned int NVStrings::isspace( bool* results, bool todevice )
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
-        cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
+        CUDA_TRY( cudaMemcpyAsync(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost))
         RMM_FREE(d_rtn,0);
     }
     return (unsigned int)matches;
@@ -270,7 +270,7 @@ unsigned int NVStrings::isdecimal( bool* results, bool todevice )
     unsigned char* d_flags = get_unicode_flags();
     bool* d_rtn = results;
     if( !todevice )
-        d_rtn = static_cast<bool*>(device_alloc(count*sizeof(bool),0));
+        d_rtn = device_alloc<bool>(count,0);
     custring_view_array d_strings = pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_flags, d_rtn] __device__(unsigned int idx){
@@ -292,7 +292,7 @@ unsigned int NVStrings::isdecimal( bool* results, bool todevice )
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
-        cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
+        CUDA_TRY( cudaMemcpyAsync(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost))
         RMM_FREE(d_rtn,0);
     }
     return (unsigned int)matches;
@@ -307,7 +307,7 @@ unsigned int NVStrings::isnumeric( bool* results, bool todevice )
     unsigned char* d_flags = get_unicode_flags();
     bool* d_rtn = results;
     if( !todevice )
-        d_rtn = static_cast<bool*>(device_alloc(count*sizeof(bool),0));
+        d_rtn = device_alloc<bool>(count,0);
     custring_view_array d_strings = pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_flags, d_rtn] __device__(unsigned int idx){
@@ -329,7 +329,7 @@ unsigned int NVStrings::isnumeric( bool* results, bool todevice )
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
-        cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
+        CUDA_TRY( cudaMemcpyAsync(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost))
         RMM_FREE(d_rtn,0);
     }
     return (unsigned int)matches;
@@ -344,7 +344,7 @@ unsigned int NVStrings::islower( bool* results, bool todevice )
     unsigned char* d_flags = get_unicode_flags();
     bool* d_rtn = results;
     if( !todevice )
-        d_rtn = static_cast<bool*>(device_alloc(count*sizeof(bool),0));
+        d_rtn = device_alloc<bool>(count,0);
     custring_view_array d_strings = pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_flags, d_rtn] __device__(unsigned int idx){
@@ -366,7 +366,7 @@ unsigned int NVStrings::islower( bool* results, bool todevice )
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
-        cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
+        CUDA_TRY( cudaMemcpyAsync(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost))
         RMM_FREE(d_rtn,0);
     }
     return (unsigned int)matches;
@@ -381,7 +381,7 @@ unsigned int NVStrings::isupper( bool* results, bool todevice )
     unsigned char* d_flags = get_unicode_flags();
     bool* d_rtn = results;
     if( !todevice )
-        d_rtn = static_cast<bool*>(device_alloc(count*sizeof(bool),0));
+        d_rtn = device_alloc<bool>(count,0);
     custring_view_array d_strings = pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_flags, d_rtn] __device__(unsigned int idx){
@@ -403,7 +403,7 @@ unsigned int NVStrings::isupper( bool* results, bool todevice )
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
-        cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
+        CUDA_TRY( cudaMemcpyAsync(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost))
         RMM_FREE(d_rtn,0);
     }
     return (unsigned int)matches;
@@ -417,7 +417,7 @@ unsigned int NVStrings::is_empty( bool* results, bool todevice )
     auto execpol = rmm::exec_policy(0);
     bool* d_rtn = results;
     if( !todevice )
-        d_rtn = static_cast<bool*>(device_alloc(count*sizeof(bool),0));
+        d_rtn = device_alloc<bool>(count,0);
     custring_view_array d_strings = pImpl->getStringsPtr();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_rtn] __device__(unsigned int idx){
@@ -431,7 +431,7 @@ unsigned int NVStrings::is_empty( bool* results, bool todevice )
     int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
     if( !todevice )
     {   // copy result back to host
-        cudaMemcpy(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost);
+        CUDA_TRY( cudaMemcpyAsync(results,d_rtn,sizeof(bool)*count,cudaMemcpyDeviceToHost))
         RMM_FREE(d_rtn,0);
     }
     return (unsigned int)matches;

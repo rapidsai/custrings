@@ -32,6 +32,7 @@
 #include "custring.cuh"
 #include "unicode/unicode_flags.h"
 #include "unicode/charcases.h"
+#include "util.h"
 
 //
 void printCudaError( cudaError_t err, const char* prefix )
@@ -109,23 +110,6 @@ NVStringsImpl::~NVStringsImpl()
     bufferSize = 0;
 }
 
-void* device_alloc(size_t bytes, cudaStream_t sid)
-{
-    void* buffer = nullptr;
-    rmmError_t rerr = RMM_ALLOC(&buffer,bytes,sid);
-    if( rerr != RMM_SUCCESS )
-    {
-        if( rerr==RMM_ERROR_OUT_OF_MEMORY )
-        {
-            std::cerr.imbue(std::locale(""));
-            std::cerr << "out of memory on alloc request of " << bytes << " bytes\n";
-        }
-        std::ostringstream message;
-        message << "allocate error " << rerr;
-        throw std::runtime_error(message.str());
-    }
-    return buffer;
-}
 
 char* NVStringsImpl::createMemoryFor( size_t* d_lengths )
 {
@@ -134,7 +118,7 @@ char* NVStringsImpl::createMemoryFor( size_t* d_lengths )
     bufferSize = thrust::reduce(execpol->on(stream_id), d_lengths, d_lengths+count);
     if( bufferSize==0 )
         return 0; // this is valid; all sizes are zero
-    memoryBuffer = static_cast<char*>(device_alloc(bufferSize,stream_id));
+    memoryBuffer = device_alloc<char>(bufferSize,stream_id);
     return memoryBuffer;
 }
 
@@ -177,7 +161,7 @@ int NVStrings_init_from_strings(NVStringsImpl* pImpl, const char** strs, unsigne
     char* d_flatstrs = nullptr;
     rmmError_t rerr = RMM_ALLOC(&d_flatstrs,nbytes,0);
     if( rerr == RMM_SUCCESS )
-        err = cudaMemcpy(d_flatstrs, h_flatstrs, nbytes, cudaMemcpyHostToDevice);
+        err = cudaMemcpyAsync(d_flatstrs, h_flatstrs, nbytes, cudaMemcpyHostToDevice);
     free(h_flatstrs); // no longer needed
     if( err != cudaSuccess )
     {
@@ -227,7 +211,7 @@ int NVStrings_init_from_indexes( NVStringsImpl* pImpl, std::pair<const char*,siz
     {
         rerr = RMM_ALLOC(&d_indexes,sizeof(std::pair<const char*,size_t>)*count,0);
         if( rerr == RMM_SUCCESS )
-            err = cudaMemcpy(d_indexes,indexes,sizeof(std::pair<const char*,size_t>)*count,cudaMemcpyHostToDevice);
+            err = cudaMemcpyAsync(d_indexes,indexes,sizeof(std::pair<const char*,size_t>)*count,cudaMemcpyHostToDevice);
     }
     else
     {
@@ -370,7 +354,7 @@ int NVStrings_init_from_offsets( NVStringsImpl* pImpl, const char* strs, int cou
     char* d_flatstrs = nullptr;
     rmmError_t rerr = RMM_ALLOC(&d_flatstrs,nbytes,0);
     if( rerr == RMM_SUCCESS )
-        err = cudaMemcpy(d_flatstrs, h_flatstrs, nbytes, cudaMemcpyHostToDevice);
+        err = cudaMemcpyAsync(d_flatstrs, h_flatstrs, nbytes, cudaMemcpyHostToDevice);
     free(h_flatstrs); // no longer needed
     if( err != cudaSuccess )
     {
@@ -461,7 +445,7 @@ int NVStrings_copy_strings( NVStringsImpl* pImpl, std::vector<NVStrings*>& strsl
         nbytes += (*itr)->memsize();
 
     custring_view_array d_results = pList->data().get();
-    char* d_buffer = static_cast<char*>(device_alloc(nbytes,0));
+    char* d_buffer = device_alloc<char>(nbytes,0);
     size_t offset = 0;
     size_t memoffset = 0;
 
@@ -483,12 +467,12 @@ int NVStrings_copy_strings( NVStringsImpl* pImpl, std::vector<NVStrings*>& strsl
                     return (lhs && rhs) ? (lhs < rhs) : rhs==0;
                 });
             char* baseaddr = nullptr;
-            cudaError_t err = cudaMemcpy(&baseaddr,first,sizeof(custring_view*),cudaMemcpyDeviceToHost);
+            cudaError_t err = cudaMemcpyAsync(&baseaddr,first,sizeof(custring_view*),cudaMemcpyDeviceToHost);
             if( err!=cudaSuccess )
                 fprintf(stderr, "copy-strings: cudaMemcpy(%p,%p,%d)=%d\n",&baseaddr,first,(int)sizeof(custring_view*),(int)err);
             // copy string memory
             char* buffer = d_buffer + memoffset;
-            err = cudaMemcpy((void*)buffer,(void*)baseaddr,memsize,cudaMemcpyDeviceToDevice);
+            err = cudaMemcpyAsync((void*)buffer,(void*)baseaddr,memsize,cudaMemcpyDeviceToDevice);
             if( err!=cudaSuccess )
                 fprintf(stderr, "copy-strings: cudaMemcpy(%p,%p,%ld)=%d\n",buffer,baseaddr,memsize,(int)err);
             // adjust pointers

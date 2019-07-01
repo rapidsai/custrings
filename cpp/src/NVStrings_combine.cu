@@ -25,6 +25,7 @@
 #include "NVStrings.h"
 #include "NVStringsImpl.h"
 #include "custring_view.cuh"
+#include "util.h"
 
 //
 NVStrings* NVStrings::cat( NVStrings* others, const char* separator, const char* narep )
@@ -42,16 +43,16 @@ NVStrings* NVStrings::cat( NVStrings* others, const char* separator, const char*
     char* d_sep = nullptr;
     if( seplen )
     {
-        RMM_ALLOC(&d_sep,seplen,0);
-        cudaMemcpy(d_sep,separator,seplen,cudaMemcpyHostToDevice);
+        d_sep = device_alloc<char>(seplen,0);
+        CUDA_TRY( cudaMemcpyAsync(d_sep,separator,seplen,cudaMemcpyHostToDevice))
     }
     unsigned int narlen = 0;
     char* d_narep = nullptr;
     if( narep )
     {
         narlen = (unsigned int)strlen(narep);
-        RMM_ALLOC(&d_narep,narlen+1,0);
-        cudaMemcpy(d_narep,narep,narlen+1,cudaMemcpyHostToDevice);
+        d_narep = device_alloc<char>(narlen+1,0);
+        CUDA_TRY( cudaMemcpyAsync(d_narep,narep,narlen+1,cudaMemcpyHostToDevice))
     }
 
     custring_view_array d_strings = pImpl->getStringsPtr();
@@ -166,7 +167,7 @@ NVStrings* NVStrings::cat( std::vector<NVStrings*>& others, const char* separato
     {
         unsigned int seplen = (unsigned int)strlen(separator);
         unsigned int sep_size = custring_view::alloc_size(separator,seplen);
-        RMM_ALLOC(&d_separator,sep_size,0);
+        d_separator = reinterpret_cast<custring_view*>(device_alloc<char>(sep_size,0));
         custring_view::create_from_host(d_separator,separator,seplen);
     }
     custring_view* d_narep = nullptr;
@@ -174,7 +175,7 @@ NVStrings* NVStrings::cat( std::vector<NVStrings*>& others, const char* separato
     {
         unsigned int narlen = (unsigned int)strlen(narep);
         unsigned int nar_size = custring_view::alloc_size(narep,narlen);
-        RMM_ALLOC(&d_narep,nar_size,0);
+        d_narep = reinterpret_cast<custring_view*>(device_alloc<char>(nar_size,0));
         custring_view::create_from_host(d_narep,narep,narlen);
     }
 
@@ -292,16 +293,16 @@ NVStrings* NVStrings::join( const char* delimiter, const char* narep )
     char* d_delim = nullptr;
     if( dellen > 0 )
     {
-        RMM_ALLOC(&d_delim,dellen,0);
-        cudaMemcpy(d_delim,delimiter,dellen,cudaMemcpyHostToDevice);
+        d_delim = device_alloc<char>(dellen,0);
+        CUDA_TRY( cudaMemcpyAsync(d_delim,delimiter,dellen,cudaMemcpyHostToDevice))
     }
     unsigned int narlen = 0;
     char* d_narep = nullptr;
     if( narep )
     {
         narlen = (unsigned int)strlen(narep);
-        RMM_ALLOC(&d_narep,narlen+1,0);
-        cudaMemcpy(d_narep,narep,narlen+1,cudaMemcpyHostToDevice);
+        d_narep = device_alloc<char>(narlen+1,0);
+        CUDA_TRY( cudaMemcpyAsync(d_narep,narep,narlen+1,cudaMemcpyHostToDevice))
     }
 
     unsigned int count = size();

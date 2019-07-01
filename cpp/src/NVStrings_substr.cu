@@ -252,7 +252,7 @@ int NVStrings::extract_record( const char* pattern, std::vector<NVStrings*>& res
         int size = thrust::reduce(execpol->on(0), sizes, sizes+groups);
         if( size==0 )
             continue;
-        char* d_buffer = static_cast<char*>(device_alloc(size,0));
+        char* d_buffer = device_alloc<char>(size,0);
         row->pImpl->setMemoryBuffer(d_buffer,size);
         strings[idx] = row->pImpl->getStringsPtr();
         buffers[idx] = d_buffer;
