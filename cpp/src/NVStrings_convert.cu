@@ -28,6 +28,7 @@
 #include "NVStrings.h"
 #include "NVStringsImpl.h"
 #include "custring_view.cuh"
+#include "custring.cuh"
 
 //
 int NVStrings::hash(unsigned int* results, bool todevice)
@@ -46,7 +47,7 @@ int NVStrings::hash(unsigned int* results, bool todevice)
         [d_strings, d_rtn] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
             if( dstr )
-                d_rtn[idx] = dstr->hash();
+                d_rtn[idx] = custr::hash(dstr->data(),dstr->size());//dstr->hash();
             else
                 d_rtn[idx] = 0;
         });

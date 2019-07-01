@@ -83,8 +83,6 @@ public:
     __device__ inline const char* data() const;
     // returns true if string has no characters
     __device__ inline bool empty() const;
-    // computes a hash based on the characters in the array
-    __device__ inline unsigned int hash() const;
 
     // iterator is read-only
     class iterator
