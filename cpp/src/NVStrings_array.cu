@@ -20,12 +20,12 @@
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
-#include <thrust/extrema.h>
 #include <thrust/sort.h>
 #include <thrust/unique.h>
 #include <thrust/remove.h>
 #include <thrust/sequence.h>
 #include <thrust/gather.h>
+#include <thrust/count.h>
 #include <rmm/rmm.h>
 #include <rmm/thrust_rmm_allocator.h>
 #include "NVStrings.h"
@@ -33,74 +33,81 @@
 #include "custring_view.cuh"
 #include "util.h"
 
+// takes scattered pointers to custring_view objects and
+// initializes a new NVStringsImpl
+void NVStrings_init_from_custrings( NVStringsImpl* pImpl, custring_view_array d_strings, unsigned int count )
+{
+    auto execpol = rmm::exec_policy(0);
+    // get individual sizes
+    rmm::device_vector<size_t> sizes(count,0);
+    size_t* d_sizes = sizes.data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_strings, d_sizes] __device__(unsigned int idx){
+            custring_view* dstr = d_strings[idx];
+            if( dstr )
+                d_sizes[idx] = ALIGN_SIZE(dstr->alloc_size());
+        });
+    // create output object
+    char* d_buffer = pImpl->createMemoryFor(d_sizes);
+    if( d_buffer==0 )
+        return; // this is valid
+    // create offsets
+    rmm::device_vector<size_t> offsets(count,0);
+    thrust::exclusive_scan(execpol->on(0),sizes.begin(),sizes.end(),offsets.begin());
+    // finally, copy the strings
+    custring_view_array d_results = pImpl->getStringsPtr();
+    size_t* d_offsets = offsets.data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        [d_strings, d_buffer, d_offsets, d_results] __device__(unsigned int idx){
+            custring_view* dstr = d_strings[idx];
+            if( !dstr )
+                return;
+            char* buffer = d_buffer + d_offsets[idx];
+            d_results[idx] = custring_view::create_from(buffer,*dstr);
+        });
+    //
+}
 
 // create a new instance containing only the strings at the specified positions
 // position values can be in any order and can even be repeated
-NVStrings* NVStrings::gather( const int* pos, unsigned int elems, bool bdevmem )
+NVStrings* NVStrings::gather( const int* pos, unsigned int elements, bool bdevmem )
 {
     unsigned int count = size();
-    if( count==0 || elems==0 || pos==0 )
+    if( count==0 || elements==0 || pos==0 )
         return new NVStrings(0);
 
     auto execpol = rmm::exec_policy(0);
     const int* d_pos = pos;
     if( !bdevmem )
     {   // copy indexes to device memory
-        d_pos = const_cast<const int*>(device_alloc<int>(elems,0));
-        CUDA_TRY(cudaMemcpyAsync((void*)d_pos,pos,elems*sizeof(int),cudaMemcpyHostToDevice))
+        d_pos = const_cast<const int*>(device_alloc<int>(elements,0));
+        CUDA_TRY(cudaMemcpyAsync((void*)d_pos,pos,elements*sizeof(int),cudaMemcpyHostToDevice))
     }
-    // get individual sizes
-    rmm::device_vector<long> sizes(elems,0);
-    long* d_sizes = sizes.data().get();
-    custring_view** d_strings = pImpl->getStringsPtr();
-    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), elems,
-        [d_strings, d_pos, count, d_sizes] __device__(unsigned int idx){
+    // create working memory
+    rmm::device_vector<custring_view*> results(elements,nullptr);
+    auto d_results = results.data().get();
+    rmm::device_vector<bool> flags(elements,false);
+    auto d_flags = flags.data().get();
+    custring_view_array d_strings = pImpl->getStringsPtr();
+    // do the gather
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), elements,
+        [d_strings, d_pos, count, d_results, d_flags] __device__(unsigned int idx){
             int pos = d_pos[idx];
             if( (pos < 0) || (pos >= count) )
-            {
-                d_sizes[idx] = -1;
-                return;
-            }
-            custring_view* dstr = d_strings[pos];
-            if( dstr )
-                d_sizes[idx] = ALIGN_SIZE(dstr->alloc_size());
+                d_flags[idx] = true;
+            else
+                d_results[idx] = d_strings[pos];
         });
-    // check for any out-of-range values
-    long* first = thrust::min_element(execpol->on(0),d_sizes,d_sizes+elems);
-    long hfirst = 0;
-    CUDA_TRY(cudaMemcpyAsync(&hfirst,first,sizeof(long),cudaMemcpyDeviceToHost))
-    if( hfirst < 0 )
+    // check for invalid position values
+    if( thrust::count(execpol->on(0), flags.begin(), flags.end(), true) )
     {
         if( !bdevmem )
             RMM_FREE((void*)d_pos,0);
-        throw std::out_of_range("nvs.gather position value out of range");
+        throw std::out_of_range("gather position value out of range");
     }
-
-    // create output object
-    NVStrings* rtn = new NVStrings(elems);
-    char* d_buffer = rtn->pImpl->createMemoryFor((size_t*)d_sizes);
-    if( d_buffer ) // if all values are not null
-    {
-        // create offsets
-        rmm::device_vector<size_t> offsets(elems,0);
-        thrust::exclusive_scan(execpol->on(0),sizes.begin(),sizes.end(),offsets.begin());
-        // copy strings
-        custring_view_array d_results = rtn->pImpl->getStringsPtr();
-        size_t* d_offsets = offsets.data().get();
-        thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), elems,
-            [d_strings, d_buffer, d_offsets, d_pos, count, d_results] __device__(unsigned int idx){
-                int pos = d_pos[idx];
-                //if( (pos < 0) || (pos >= count) )
-                //    return;  -- should no longer happen
-                custring_view* dstr = d_strings[pos];
-                if( !dstr )
-                    return;
-                char* buffer = d_buffer + d_offsets[idx];
-                d_results[idx] = custring_view::create_from(buffer,*dstr);
-            });
-        //
-        //printCudaError(cudaDeviceSynchronize(),"nvs-gather");
-    }
+    // build resulting instance
+    NVStrings* rtn = new NVStrings(elements);
+    NVStrings_init_from_custrings(rtn->pImpl, d_results, elements);
     if( !bdevmem )
         RMM_FREE((void*)d_pos,0);
     return rtn;
@@ -118,7 +125,7 @@ NVStrings* NVStrings::gather( const bool* mask, bool bdevmem )
     if( !bdevmem )
     {
         d_mask = const_cast<const bool*>(device_alloc<bool>(count,0));
-        cudaMemcpyAsync((void*)d_mask,mask,count*sizeof(mask[0]),cudaMemcpyHostToDevice,0);
+        CUDA_TRY(cudaMemcpyAsync((void*)d_mask,mask,count*sizeof(mask[0]),cudaMemcpyHostToDevice,0))
     }
     // create list of index positions from the mask array
     rmm::device_vector<int> indexes(count);
@@ -130,6 +137,62 @@ NVStrings* NVStrings::gather( const bool* mask, bool bdevmem )
         RMM_FREE((void*)d_mask,0);
     count = d_indexes_end - d_indexes;
     return gather( d_indexes, count, true );
+}
+
+//
+// s1 = ['a','b,'c','d']
+// s2 = ['e','f']
+// pos = [1,3]  -- must be the same length as s2
+// s3 = s1.scatter(s2,pos)
+// ['a','e','c','f']
+//
+NVStrings* NVStrings::scatter( NVStrings& strs, const int* pos, bool bdevmem )
+{
+    unsigned int count = size();
+    unsigned int elements = strs.size();
+    if( pos==0 )
+        throw std::invalid_argument("position parameter cannot be null");
+
+    auto execpol = rmm::exec_policy(0);
+    const int* d_pos = pos;
+    if( !bdevmem )
+    {   // copy indexes to device memory
+        d_pos = const_cast<const int*>(device_alloc<int>(elements,0));
+        CUDA_TRY(cudaMemcpyAsync((void*)d_pos,pos,elements*sizeof(int),cudaMemcpyHostToDevice))
+    }
+    // The most efficient method here is to build pointer array
+    // applying the parameters to the specified positions and
+    // then build a new instance from the resulting pointers.
+    rmm::device_vector<custring_view*> results(count,nullptr);
+    auto d_results = results.data().get();
+    rmm::device_vector<bool> flags(elements,false);
+    auto d_flags = flags.data().get();
+    custring_view_array d_strings = pImpl->getStringsPtr();
+    custring_view_array d_new_strings = strs.pImpl->getStringsPtr();
+    // initialize output
+    thrust::copy( execpol->on(0), d_strings, d_strings+count, d_results );
+    // replace individual pointers as specified
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), elements,
+        [d_strings, d_new_strings, d_pos, count, d_results, d_flags] __device__(unsigned int idx) {
+            int pos = d_pos[idx];
+            if( (pos < 0) || (pos >= count) )
+                d_flags[idx] = true;
+            else
+                d_results[pos] = d_new_strings[idx];
+        });
+    // check for invalid position values
+    if( thrust::count(execpol->on(0), flags.begin(), flags.end(), true) )
+    {
+        if( !bdevmem )
+            RMM_FREE((void*)d_pos,0);
+        throw std::out_of_range("scatter position value out of range");
+    }
+    // build resulting instance
+    NVStrings* rtn = new NVStrings(count);
+    NVStrings_init_from_custrings(rtn->pImpl, d_results, count);
+    if( !bdevmem )
+        RMM_FREE((void*)d_pos,0);
+    return rtn;
 }
 
 NVStrings* NVStrings::sublist( unsigned int start, unsigned int end, int step )
@@ -156,27 +219,29 @@ NVStrings* NVStrings::sublist( unsigned int start, unsigned int end, int step )
 }
 
 // remove the specified strings and return a new instance
-NVStrings* NVStrings::remove_strings( const int* pos, unsigned int elems, bool bdevmem )
+NVStrings* NVStrings::remove_strings( const int* pos, unsigned int elements, bool bdevmem )
 {
     unsigned int count = size();
-    if( count==0 || elems==0 || pos==0 )
-        return nullptr; // return copy of ourselves?
+    if( count==0 )
+        return new NVStrings(0);
+    if( elements==0 || pos==0 )
+        return copy();
 
     auto execpol = rmm::exec_policy(0);
-    int* dpos = device_alloc<int>(elems,0);
+    int* dpos = device_alloc<int>(elements,0);
     if( bdevmem )
-       CUDA_TRY( cudaMemcpyAsync((void*)dpos,pos,elems*sizeof(unsigned int),cudaMemcpyDeviceToDevice))
+       CUDA_TRY( cudaMemcpyAsync((void*)dpos,pos,elements*sizeof(unsigned int),cudaMemcpyDeviceToDevice))
     else
-       CUDA_TRY( cudaMemcpyAsync((void*)dpos,pos,elems*sizeof(unsigned int),cudaMemcpyHostToDevice))
+       CUDA_TRY( cudaMemcpyAsync((void*)dpos,pos,elements*sizeof(unsigned int),cudaMemcpyHostToDevice))
     // sort the position values
-    thrust::sort(execpol->on(0),dpos,dpos+elems,thrust::greater<int>());
+    thrust::sort(execpol->on(0),dpos,dpos+elements,thrust::greater<int>());
     // also should remove duplicates
-    int* nend = thrust::unique(execpol->on(0),dpos,dpos+elems,thrust::equal_to<int>());
-    elems = (unsigned int)(nend - dpos);
-    if( count < elems )
+    int* nend = thrust::unique(execpol->on(0),dpos,dpos+elements,thrust::equal_to<int>());
+    elements = (unsigned int)(nend - dpos);
+    if( count < elements )
     {
         RMM_FREE(dpos,0);
-        fprintf(stderr,"nvs.remove_strings: more positions (%u) specified than the number of strings (%u)\n",elems,count);
+        fprintf(stderr,"remove_strings: more positions (%u) specified than the number of strings (%u)\n",elements,count);
         return nullptr;
     }
 
@@ -184,87 +249,43 @@ NVStrings* NVStrings::remove_strings( const int* pos, unsigned int elems, bool b
     rmm::device_vector<int> dnpos(count);
     thrust::sequence(execpol->on(0),dnpos.begin(),dnpos.end());
     int* d_npos = dnpos.data().get();
-    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), elems,
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), elements,
         [dpos, d_npos, count] __device__ (unsigned int idx) {
-            unsigned int pos = dpos[idx];
-            if( pos < count )
+            int pos = dpos[idx];
+            if( (pos >= 0) && (pos < count) )
                 d_npos[pos] = -1;
         });
 
     // now remove the positions marked with -1
     int* dend = thrust::remove_if(execpol->on(0),d_npos,d_npos+count,[] __device__ (int val) { return val < 0; });
-    unsigned int newCount = (unsigned int)(dend-d_npos);
+    unsigned int new_count = (unsigned int)(dend-d_npos);
     // gather string pointers based on indexes in dnpos (new-positions)
     custring_view** d_strings = pImpl->getStringsPtr();
-    rmm::device_vector<custring_view*> newList(newCount,nullptr);              // newList will hold
-    custring_view_array d_newList = newList.data().get();                      // all the remaining
-    thrust::gather(execpol->on(0),d_npos,d_npos+newCount,d_strings,d_newList); // strings ptrs
+    rmm::device_vector<custring_view*> results(new_count,nullptr);
+    custring_view_array d_results = results.data().get();
+    thrust::gather(execpol->on(0),d_npos,d_npos+new_count,d_strings,d_results);
 
-    // get individual sizes for the new strings list
-    rmm::device_vector<size_t> sizes(newCount,0);
-    size_t* d_sizes = sizes.data().get();
-    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), newCount,
-        [d_newList, d_sizes] __device__(unsigned int idx){
-            custring_view* dstr = d_newList[idx];
-            if( dstr )
-                d_sizes[idx] = ALIGN_SIZE(dstr->alloc_size());
-        });
-    // create output object
-    NVStrings* rtn = new NVStrings(newCount);
-    char* d_buffer = rtn->pImpl->createMemoryFor(d_sizes);
-    if( d_buffer==0 )
-    {
-        RMM_FREE(dpos,0);
-        return rtn;
-    }
-    // create offsets
-    rmm::device_vector<size_t> offsets(newCount,0);
-    thrust::exclusive_scan(execpol->on(0),sizes.begin(),sizes.end(),offsets.begin());
-    // finally, copy the strings
-    custring_view_array d_results = rtn->pImpl->getStringsPtr();
-    size_t* d_offsets = offsets.data().get();
-    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), newCount,
-        [d_newList, d_buffer, d_offsets, d_results] __device__(unsigned int idx){
-            custring_view* dstr = d_newList[idx];
-            if( !dstr )
-                return;
-            char* buffer = d_buffer + d_offsets[idx];
-            d_results[idx] = custring_view::create_from(buffer,*dstr);
-        });
-    //
-    //printCudaError(cudaDeviceSynchronize(),"nvs-remove_strings");
+    // create output object from results pointers
+    NVStrings* rtn = new NVStrings(new_count);
+    NVStrings_init_from_custrings(rtn->pImpl, d_results, new_count);
     RMM_FREE(dpos,0);
     return rtn;
 }
 
 
-// this now sorts the strings into a new instance;
+// this sorts the strings into a new instance;
 // a sorted strings list can improve performance by reducing divergence
 NVStrings* NVStrings::sort( sorttype stype, bool ascending, bool nullfirst )
 {
     unsigned int count = size();
     custring_view_array d_strings = pImpl->getStringsPtr();
     auto execpol = rmm::exec_policy(0);
-    // get the lengths so they can be sorted too
-    rmm::device_vector<size_t> lengths(count,0);
-    size_t* d_lengths = lengths.data().get();
-    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-        [d_strings, d_lengths] __device__(unsigned int idx){
-            custring_view* dstr = d_strings[idx];
-            if( dstr )
-                d_lengths[idx] = ALIGN_SIZE(dstr->alloc_size());
-        });
-    //
-    NVStrings* rtn = new NVStrings(count);
-    char* d_buffer = rtn->pImpl->createMemoryFor(d_lengths);
-    if( d_buffer==0 )
-        return rtn; // all are null so we are done
-    // copy the pointers to temporary vector and sort them along with the alloc-lengths
-    rmm::device_vector<custring_view*> sortvector(count,nullptr);
-    custring_view_array d_sortvector = sortvector.data().get();
-    thrust::copy( execpol->on(0), d_strings, d_strings+count, d_sortvector );
-    //cudaMemcpy(d_sortvector,d_strings,sizeof(custring_view*)*count,cudaMemcpyDeviceToDevice);
-    thrust::sort_by_key(execpol->on(0), d_sortvector, d_sortvector+count, d_lengths,
+
+    // copy the pointers so we can sort them
+    rmm::device_vector<custring_view*> results(count,nullptr);
+    custring_view_array d_results = results.data().get();
+    thrust::copy( execpol->on(0), d_strings, d_strings+count, d_results );
+    thrust::sort(execpol->on(0), d_results, d_results+count,
         [stype, ascending, nullfirst] __device__( custring_view*& lhs, custring_view*& rhs ) {
             if( lhs==0 || rhs==0 )
                 return (nullfirst ? rhs!=0 : lhs!=0); // null < non-null
@@ -276,23 +297,10 @@ NVStrings* NVStrings::sort( sorttype stype, bool ascending, bool nullfirst )
                 diff = lhs->compare(*rhs);
             return (ascending ? (diff < 0) : (diff > 0));
         });
-    //
-    // create offsets from the sorted lengths
-    rmm::device_vector<size_t> offsets(count,0);
-    size_t* d_offsets = offsets.data().get();
-    thrust::exclusive_scan(execpol->on(0),lengths.begin(),lengths.end(),offsets.begin());
-    // gather the sorted results into the new memory
-    custring_view_array d_results = rtn->pImpl->getStringsPtr();
-    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-        [d_sortvector, d_buffer, d_offsets, d_results] __device__(unsigned int idx){
-            custring_view* dstr = d_sortvector[idx];
-            if( dstr )
-            {
-                char* buffer = d_buffer + d_offsets[idx];
-                d_results[idx] = custring_view::create_from(buffer,*dstr);
-            }
-        });
-    //
+
+    // build new instance from the sorted pointers
+    NVStrings* rtn = new NVStrings(count);
+    NVStrings_init_from_custrings( rtn->pImpl, d_results, count );
     return rtn;
 }
 

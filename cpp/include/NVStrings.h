@@ -277,6 +277,18 @@ public:
      */
     NVStrings* gather( const bool* mask, bool devmem=true );
     /**
+     * @brief Returns new instance using the provided index values and strings instance.
+     * The position values specify the location in the new strings instance.
+     * Missing values pass through from this instance at those positions.
+     *
+     * @param[in] strs The instance for which to retrieve the values specified in pos array.
+     * @param[in] pos The 0-based index values to retrieve from the provided instance. 
+     *                Number of values must equal the number of strings in strs pararameter.
+     * @param devmem Indicates whether the pos parameter points to device memory or CPU memory.
+     * @return New instance with the specified strings.
+     */
+    NVStrings* scatter( NVStrings& strs, const int* pos, bool devmem=true );
+    /**
      * @brief Returns a new instance without the specified strings.
      *
      * @param[in] pos The 0-based index of the strings to be ignored when creating a copy of this instance.
