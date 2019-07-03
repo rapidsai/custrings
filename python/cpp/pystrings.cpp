@@ -3209,7 +3209,7 @@ static PyObject* n_scatter( PyObject* self, PyObject* args )
         Py_RETURN_NONE;
     }
     NVStrings* strs = (NVStrings*)PyLong_AsVoidPtr(PyObject_GetAttrString(pystrs,"m_cptr"));
-    
+
     PyObject* pyidxs = PyTuple_GetItem(args,2);
     DataBuffer<int> dbvalues(pyidxs);
     if( dbvalues.is_error() )
@@ -3222,22 +3222,19 @@ static PyObject* n_scatter( PyObject* self, PyObject* args )
         PyErr_Format(PyExc_TypeError,"scatter: values must be of type int32");
         Py_RETURN_NONE;
     }
+    unsigned int count = dbvalues.get_count();
+    if( count && (count < strs->size()) )
+    {
+        PyErr_Format(PyExc_TypeError,"scatter: number of values must match the number of strings in strs argument");
+        Py_RETURN_NONE;
+    }
 
     bool bdevmem = dbvalues.is_device_type();
 
     NVStrings* rtn = 0;
     std::string message;
     Py_BEGIN_ALLOW_THREADS
-    try
-    {
-        rtn = tptr->scatter(*strs,dbvalues.get_values(),bdevmem);
-    }
-    catch(const std::out_of_range& eor)
-    {
-        std::ostringstream errmsg;
-        errmsg << "one or more indexes out of range [0:" << tptr->size() << ")";
-        message = errmsg.str();
-    }
+    rtn = tptr->scatter(*strs,dbvalues.get_values(),bdevmem);
     Py_END_ALLOW_THREADS
 
     //
