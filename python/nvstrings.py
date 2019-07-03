@@ -2348,7 +2348,7 @@ class nvstrings:
         ----------
         indexes : List of ints or GPU memory pointer
             0-based indexes of strings to return from an nvstrings object.
-            Values must be of type in32.
+            Values must be of type int32.
         count : int
             Number of ints if indexes parm is a device pointer.
             Otherwise it is ignored.
@@ -2362,6 +2362,36 @@ class nvstrings:
 
         """
         rtn = pyniNVStrings.n_gather(self.m_cptr, indexes, count)
+        if rtn is not None:
+            rtn = nvstrings(rtn)
+        return rtn
+
+    def scatter(self, strs, indexes):
+        """
+        Return a new list of strings combining this instance
+        with the provided strings using the specified indexes.
+
+        Parameters
+        ----------
+        strs : nvstrings
+            Strings to be combined with this instance.
+        indexes : List of ints or GPU memory pointer
+            0-based indexes of strings indicating which strings
+            should be replaced by the corresponding element in strs.
+            Values must be of type int32. The number of values
+            should be the same as strs.size(). Repeated indexes
+            will cause undefined results.
+
+        Examples
+        --------
+        >>> import nvstrings
+        >>> s1 = nvstrings.to_device(["a","b","c","d"])
+        >>> s2 = nvstrings.to_device(["e","f"])
+        >>> print(s1.scatter(s2, [1, 3]))
+        ['a', 'e', 'c', 'f']
+
+        """
+        rtn = pyniNVStrings.n_scatter(self.m_cptr, strs, indexes)
         if rtn is not None:
             rtn = nvstrings(rtn)
         return rtn

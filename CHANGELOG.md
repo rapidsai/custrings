@@ -2,6 +2,8 @@
 
 ## New Features
 
+- PR #363 Added scatter method to nvstrings
+
 ## Improvements
 
 - PR #354 Removed rmm submodule
