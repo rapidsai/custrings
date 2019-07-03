@@ -293,7 +293,7 @@ public:
      * @param nullfirst Null strings are either always placed first or last regardless of ascending parameter.
      * @return New instance with sorted strings as specified.
      */
-    NVStrings* sort( sorttype stype, bool ascending=true, bool nullfirst=true );
+    NVStrings* sort( sorttype stype=sorttype::name, bool ascending=true, bool nullfirst=true );
     /**
      * @brief Returns new row index positions for strings sorted in this instance.
      *

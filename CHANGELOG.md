@@ -5,6 +5,7 @@
 ## Improvements
 
 - PR #354 Removed rmm submodule
+- PR #359 Set default sort-type to alphabetical
 - PR #357 Improved error checking on memory allocates
 - PR #358 Added improved hash algorithm to reduce collisions
 

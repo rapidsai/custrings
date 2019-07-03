@@ -2272,7 +2272,7 @@ class nvstrings:
             rtn = nvstrings(rtn)
         return rtn
 
-    def sort(self, stype, asc=True, nullfirst=True):
+    def sort(self, stype=2, asc=True, nullfirst=True):
         """
         Sort this list by name (2) or length (1) or both (3).
         Sorting can help improve performance for other operations.
@@ -2303,7 +2303,7 @@ class nvstrings:
             rtn = nvstrings(rtn)
         return rtn
 
-    def order(self, stype, asc=True, nullfirst=True, devptr=0):
+    def order(self, stype=2, asc=True, nullfirst=True, devptr=0):
         """
         Sort this list by name (2) or length (1) or both (3).
         This sort only provides the new indexes and does not reorder the
