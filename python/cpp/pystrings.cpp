@@ -802,7 +802,7 @@ static PyObject* n_createFromBools( PyObject* self, PyObject* args )
     const char* tstr = PyUnicode_AsUTF8(pytstr);
     if( pyfstr==Py_None )
     {
-        PyErr_Format(PyExc_TypeError,"nvstrings.from_bools(): false must not be null");
+        PyErr_Format(PyExc_ValueError,"nvstrings.from_bools(): false must not be null");
         Py_RETURN_NONE;
     }
     const char* fstr = PyUnicode_AsUTF8(pyfstr);
@@ -3225,7 +3225,7 @@ static PyObject* n_scatter( PyObject* self, PyObject* args )
     unsigned int count = dbvalues.get_count();
     if( count && (count < strs->size()) )
     {
-        PyErr_Format(PyExc_TypeError,"scatter: number of values must match the number of strings in strs argument");
+        PyErr_Format(PyExc_ValueError,"scatter: number of values must match the number of strings in strs argument");
         Py_RETURN_NONE;
     }
 
