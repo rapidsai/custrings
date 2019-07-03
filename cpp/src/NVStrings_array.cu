@@ -165,28 +165,10 @@ NVStrings* NVStrings::scatter( NVStrings& strs, const int* pos, bool bdevmem )
     // then build a new instance from the resulting pointers.
     rmm::device_vector<custring_view*> results(count,nullptr);
     auto d_results = results.data().get();
-    rmm::device_vector<bool> flags(elements,false);
-    auto d_flags = flags.data().get();
     custring_view_array d_strings = pImpl->getStringsPtr();
     custring_view_array d_new_strings = strs.pImpl->getStringsPtr();
-    // initialize output
     thrust::copy( execpol->on(0), d_strings, d_strings+count, d_results );
-    // replace individual pointers as specified
-    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), elements,
-        [d_strings, d_new_strings, d_pos, count, d_results, d_flags] __device__(unsigned int idx) {
-            int pos = d_pos[idx];
-            if( (pos < 0) || (pos >= count) )
-                d_flags[idx] = true;
-            else
-                d_results[pos] = d_new_strings[idx];
-        });
-    // check for invalid position values
-    if( thrust::count(execpol->on(0), flags.begin(), flags.end(), true) )
-    {
-        if( !bdevmem )
-            RMM_FREE((void*)d_pos,0);
-        throw std::out_of_range("scatter position value out of range");
-    }
+    thrust::scatter( execpol->on(0), d_new_strings, d_new_strings+elements, d_pos, d_results );
     // build resulting instance
     NVStrings* rtn = new NVStrings(count);
     NVStrings_init_from_custrings(rtn->pImpl, d_results, count);
