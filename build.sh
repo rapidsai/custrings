@@ -85,7 +85,7 @@ if hasArg -n; then
 fi
 
  # If no args or clean given, run it prior to any other steps
-if (( NUMARGS == 0 )) || hasArg clean; then
+ if (( NUMARGS == 0 )) || hasArg clean; then
     # If the dirs to clean are mounted dirs in a container, the
     # contents should be removed but the mounted dirs will remain.
     # The find removes all contents but leaves the dirs, the rmdir
@@ -100,7 +100,7 @@ fi
 
 ################################################################################
 # Configure, build, and install libcustrings
-if (( NUMARGS == 0 )) || hasArg libcustrings; then
+if hasArg libcustrings; then
     createBuildArea
     make -j${PARALLEL_LEVEL} VERBOSE=${VERBOSE}
     if [[ ${INSTALL_TARGET} != "" ]]; then
@@ -110,10 +110,12 @@ fi
 
  # Build and install the custrings Python package
 if (( NUMARGS == 0 )) || hasArg custrings; then
+    # Build and install libcustrings.so 
+    createBuildArea
+    make -j${PARALLEL_LEVEL} VERBOSE=${VERBOSE}
+    make -j${PARALLEL_LEVEL} VERBOSE=${VERBOSE} install
+
+    # build custrings
     cd $CUSTRINGS_BUILD_DIR
-    if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py install --single-version-externally-managed --record=record.txt
-    else
-        python setup.py build_ext --inplace --library-dir="${LIBCUSTRINGS_BUILD_DIR}"
-    fi
+    python setup.py install --single-version-externally-managed --record=record.txt
 fi

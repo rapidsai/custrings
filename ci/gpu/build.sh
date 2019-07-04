@@ -95,5 +95,5 @@ logger "Check GPU usage..."
 nvidia-smi
 
 logger "Simple test..."
-cd tests
+cd ${WORKSPACE}/python/tests
 pytest --cache-clear --junitxml=${WORKSPACE}/junit-custrings.xml -v
