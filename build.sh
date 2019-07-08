@@ -32,7 +32,7 @@ HELP="$0 [clean] [libcustrings] [custrings] [-v] [-g] [-n] [-h]
 "
 LIBCUSTRINGS_BUILD_DIR=${REPODIR}/cpp/build
 CUSTRINGS_BUILD_DIR=${REPODIR}/python
-BUILD_DIRS="${LIBCUSTRINGS_BUILD_DIR} ${CUSTRINGS_BUILD_DIR}"
+BUILD_DIRS="${LIBCUSTRINGS_BUILD_DIR}"
 
  # Set defaults for vars modified by flags to this script
 VERBOSE=""
@@ -44,6 +44,7 @@ INSTALL_TARGET=install
 #         CONDA_PREFIX, but there is no fallback from there!
 INSTALL_PREFIX=${INSTALL_PREFIX:=${PREFIX:=${CONDA_PREFIX}}}
 PARALLEL_LEVEL=${PARALLEL_LEVEL:=""}
+PYTHON=${PYTHON:-python}
 
  function hasArg {
     (( NUMARGS != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
@@ -117,11 +118,5 @@ if (( NUMARGS == 0 )) || hasArg custrings; then
 
     # build custrings
     cd "$CUSTRINGS_BUILD_DIR"
-
-    if [[ -z "${PYTHON}" ]]; then
-        python setup.py install --single-version-externally-managed --record=record.txt
-    else
-        $PYTHON setup.py install --single-version-externally-managed --record=record.txt
-    fi
-
+    $PYTHON setup.py install --single-version-externally-managed --record=record.txt
 fi
