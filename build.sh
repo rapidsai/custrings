@@ -116,6 +116,12 @@ if (( NUMARGS == 0 )) || hasArg custrings; then
     make -j${PARALLEL_LEVEL} VERBOSE=${VERBOSE} install
 
     # build custrings
-    cd $CUSTRINGS_BUILD_DIR
-    python setup.py install --single-version-externally-managed --record=record.txt
+    cd "$CUSTRINGS_BUILD_DIR"
+
+    if [[ -z "${PYTHON}" ]]; then
+        python setup.py install --single-version-externally-managed --record=record.txt
+    else
+        $PYTHON setup.py install --single-version-externally-managed --record=record.txt
+    fi
+
 fi
