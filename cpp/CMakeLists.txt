@@ -114,33 +114,42 @@ link_directories("${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES}"
 # - library targets -------------------------------------------------------------------------------
 
 add_library(NVStrings SHARED 
-            src/NVStrings.cu
-            src/NVStringsImpl.cu
-            src/NVStrings_array.cu
-            src/NVStrings_attrs.cu
-            src/NVStrings_combine.cu
-            src/NVStrings_split.cu
-            src/NVStrings_pad.cu
-            src/NVStrings_substr.cu
-            src/NVStrings_modify.cu
-            src/NVStrings_strip.cu
-            src/NVStrings_case.cu
-            src/NVStrings_find.cu
-            src/NVStrings_convert.cu
-            src/NVStrings_datetime.cu
+            src/strings/NVStrings.cu
+            src/strings/NVStringsImpl.cu
+            src/strings/array.cu
+            src/strings/attrs.cu
+            src/strings/case.cu
+            src/strings/combine.cu
+            src/strings/convert.cu
+            src/strings/count.cu
+            src/strings/datetime.cu
+            src/strings/extract.cu
+            src/strings/extract_record.cu
+            src/strings/find.cu
+            src/strings/findall.cu
+            src/strings/findall_record.cu
+            src/strings/modify.cu
+            src/strings/pad.cu
+            src/strings/replace.cu
+            src/strings/replace_backref.cu
+            src/strings/split.cu
+            src/strings/strip.cu
+            src/strings/substr.cu
             src/util.cu
             src/regex/regexec.cpp
             src/regex/regcomp.cpp)
 
 add_library(NVCategory SHARED
-            src/NVCategory.cu
-            src/numeric_category.cu
-            src/numeric_category_int.cu
-            src/numeric_category_float.cu
+            src/category/NVCategory.cu
+            src/category/numeric_category.cu
+            src/category/numeric_category_int.cu
+            src/category/numeric_category_long.cu
+            src/category/numeric_category_float.cu
+            src/category/numeric_category_double.cu
             )
 
 add_library(NVText SHARED
-            src/NVText.cu)
+            src/text/NVText.cu)
 
 ###################################################################################################
 # - link libraries --------------------------------------------------------------------------------
