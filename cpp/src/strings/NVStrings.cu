@@ -52,29 +52,27 @@ NVStrings::NVStrings()
     pImpl = new NVStringsImpl(0);
 }
 
-NVStrings::NVStrings(const NVStrings& strsIn)
+NVStrings::NVStrings(const NVStrings& strs)
 {
-    //NVStrings& strs = (NVStrings&)strsIn;
-    unsigned int count = strsIn.size();
+    unsigned int count = strs.size();
     pImpl = new NVStringsImpl(count);
     if( count )
     {
         std::vector<NVStringsImpl*> strslist;
-        strslist.push_back(strsIn.pImpl);
+        strslist.push_back(strs.pImpl);
         NVStrings_copy_strings(pImpl,strslist);
     }
 }
 
-NVStrings& NVStrings::operator=(const NVStrings& strsIn)
+NVStrings& NVStrings::operator=(const NVStrings& strs)
 {
     delete pImpl;
-    //NVStrings& strs = (NVStrings&)strsIn;
-    unsigned int count = strsIn.size();
+    unsigned int count = strs.size();
     pImpl = new NVStringsImpl(count);
     if( count )
     {
         std::vector<NVStringsImpl*> strslist;
-        strslist.push_back(strsIn.pImpl);
+        strslist.push_back(strs.pImpl);
         NVStrings_copy_strings(pImpl,strslist);
     }
     return *this;
