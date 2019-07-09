@@ -18,8 +18,6 @@
 
 // see cudf/cpp/include/cudf/types.h for reference
 // these are the floating point types
-template<> const char* numeric_category<float>::get_type_name() { return "float32"; };
-template class numeric_category<float>;
 template<> const char* numeric_category<double>::get_type_name() { return "float64"; };
 template class numeric_category<double>;
 

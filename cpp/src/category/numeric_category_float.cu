@@ -17,9 +17,7 @@
 #include "numeric_category.inl"
 
 // see cudf/cpp/include/cudf/types.h for reference
-// these are the integer types
-template<> const char* numeric_category<int>::get_type_name() { return "int32"; };
-template class numeric_category<int>;
-template<> const char* numeric_category<long>::get_type_name() { return "int64"; };
-template class numeric_category<long>;
+// these are the floating point types
+template<> const char* numeric_category<float>::get_type_name() { return "float32"; };
+template class numeric_category<float>;
 

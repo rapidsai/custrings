@@ -10,6 +10,7 @@
 - PR #359 Set default sort-type to alphabetical
 - PR #357 Improved error checking on memory allocates
 - PR #358 Added improved hash algorithm to reduce collisions
+- PR #369 Reconfigure C++ source directory structure
 
 ## Bug Fixes
 

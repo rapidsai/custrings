@@ -17,8 +17,6 @@
 #include <stdexcept>
 #include <cuda_runtime.h>
 #include <thrust/device_vector.h>
-#include <thrust/host_vector.h>
-#include <thrust/execution_policy.h>
 #include <thrust/sequence.h>
 #include <thrust/sort.h>
 #include <thrust/unique.h>
@@ -30,10 +28,10 @@
 #include <rmm/thrust_rmm_allocator.h>
 #include "NVCategory.h"
 #include "NVStrings.h"
-#include "custring_view.cuh"
-#include "custring.cuh"
 #include "ipc_transfer.h"
-#include "util.h"
+#include "../custring_view.cuh"
+#include "../custring.cuh"
+#include "../util.h"
 
 //
 typedef custring_view** custring_view_array;

@@ -31,10 +31,10 @@
 #include "NVStrings.h"
 #include "NVStringsImpl.h"
 #include "ipc_transfer.h"
-#include "custring_view.cuh"
+#include "../custring_view.cuh"
 #include "StringsStatistics.h"
-#include "unicode/is_flags.h"
-#include "util.h"
+#include "../unicode/is_flags.h"
+#include "../util.h"
 
 #ifdef __INTELLISENSE__
 unsigned int atomicAdd(unsigned int* address, unsigned int val);

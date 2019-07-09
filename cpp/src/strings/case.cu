@@ -15,17 +15,15 @@
 */
 
 #include <cuda_runtime.h>
-#include <device_launch_parameters.h>
 #include <thrust/device_vector.h>
-#include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
 #include <rmm/rmm.h>
 #include <rmm/thrust_rmm_allocator.h>
 #include "NVStrings.h"
 #include "NVStringsImpl.h"
-#include "custring_view.cuh"
-#include "unicode/is_flags.h"
-#include "util.h"
+#include "../custring_view.cuh"
+#include "../unicode/is_flags.h"
+#include "../util.h"
 
 //
 NVStrings* NVStrings::lower()

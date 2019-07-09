@@ -17,10 +17,8 @@
 #include <exception>
 #include <locale.h>
 #include <cuda_runtime.h>
-#include <device_launch_parameters.h>
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
-#include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
 #include <thrust/extrema.h>
 #include <thrust/sort.h>
@@ -28,11 +26,11 @@
 #include <rmm/thrust_rmm_allocator.h>
 #include "NVStrings.h"
 #include "NVStringsImpl.h"
-#include "custring_view.cuh"
-#include "custring.cuh"
-#include "unicode/unicode_flags.h"
-#include "unicode/charcases.h"
-#include "util.h"
+#include "../custring_view.cuh"
+#include "../custring.cuh"
+#include "../unicode/unicode_flags.h"
+#include "../unicode/charcases.h"
+#include "../util.h"
 
 //
 void printCudaError( cudaError_t err, const char* prefix )

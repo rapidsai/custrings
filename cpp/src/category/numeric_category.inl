@@ -15,7 +15,6 @@
 */
 
 #include "../include/numeric_category.h"
-#include <thrust/execution_policy.h>
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 #include <thrust/for_each.h>
@@ -351,6 +350,16 @@ int numeric_category<T>::get_index_for(T key)
     return index;
 }
 
+struct indexes_for_fn
+{
+    const int* d_values;
+    int index;
+    __device__ bool operator()(int idx)
+    {
+        return d_values[idx]==index;
+    }
+};
+
 template<typename T>
 size_t numeric_category<T>::get_indexes_for(T key, int* d_results)
 {
@@ -358,16 +367,12 @@ size_t numeric_category<T>::get_indexes_for(T key, int* d_results)
     int index = get_index_for(key);
     const int* d_values = pImpl->get_values();
     size_t count = size();
-    auto fn_values_equal = [index, d_values] __device__ (int idx) { return d_values[idx]==index; };
     if( d_results==nullptr )
-        return thrust::count_if( execpol->on(0),
-                                 thrust::make_counting_iterator<int>(0),
-                                 thrust::make_counting_iterator<int>(count),
-                                 fn_values_equal );
+        return thrust::count( execpol->on(0), d_values, d_values+count, index);
     int* nend = thrust::copy_if( execpol->on(0),
                                  thrust::make_counting_iterator<int>(0),
                                  thrust::make_counting_iterator<int>(count),
-                                 d_results, fn_values_equal );
+                                 d_results, indexes_for_fn{d_values,index} );
     return (size_t)(nend - d_results);
 }
 
@@ -382,8 +387,10 @@ size_t numeric_category<T>::get_indexes_for_null_key(int* d_results)
     size_t count = thrust::count( execpol->on(0), d_values, d_values + size(), index );
     if( d_results == nullptr )
         return count;
-    thrust::copy_if( execpol->on(0), thrust::make_counting_iterator<int>(0), thrust::make_counting_iterator<int>(count), d_results,
-        [index, d_values] __device__ (int idx) { return d_values[idx]==index; });
+    thrust::copy_if( execpol->on(0),
+                     thrust::make_counting_iterator<int>(0),
+                     thrust::make_counting_iterator<int>(count),
+                     d_results, indexes_for_fn{d_values,index} );
     return count;
 }
 
@@ -861,6 +868,25 @@ numeric_category<T>* numeric_category<T>::merge( numeric_category<T>& cat )
     return result;
 }
 
+// only valid for null included in keyset
+struct gather_nullbits_fn
+{
+    const int* indexes;
+    size_t count;
+    BYTE* d_nulls;
+    __device__ void operator()(size_t byte_idx)
+    {
+        BYTE mask = 0;
+        for( int bit=0; bit<8; ++bit )
+        {
+            size_t idx = (byte_idx*8) + bit;
+            if( idx < count )
+                mask |= (int)(indexes[idx]!=0) << bit;
+        }
+        d_nulls[byte_idx] = mask;
+    }
+};
+
 template<typename T>
 numeric_category<T>* numeric_category<T>::gather_and_remap(const int* indexes, size_t count)
 {
@@ -893,16 +919,7 @@ numeric_category<T>* numeric_category<T>::gather_and_remap(const int* indexes, s
         BYTE* d_new_nulls = result->pImpl->get_nulls(count);
         size_t byte_count = (count+7)/8;
         thrust::for_each_n( execpol->on(0), thrust::make_counting_iterator<size_t>(0), byte_count,
-            [indexes, count, d_new_nulls] __device__ (size_t byte_idx) {
-                BYTE mask = 0;
-                for( int bit=0; bit<8; ++bit )
-                {
-                    size_t idx = (byte_idx*8) + bit;
-                    if( idx < count )
-                        mask |= (int)(indexes[idx]!=0) << bit;
-                }
-                d_new_nulls[byte_idx] = mask;
-            });
+            gather_nullbits_fn{indexes, count, d_new_nulls} );
         result->pImpl->bkeyset_includes_null = (count_nulls(d_new_nulls,count)>0);
     }
     return result;
@@ -929,16 +946,7 @@ numeric_category<T>* numeric_category<T>::gather(const int* indexes, size_t coun
         BYTE* d_new_nulls = result->pImpl->get_nulls(count);
         size_t byte_count = (count+7)/8;
         thrust::for_each_n( execpol->on(0), thrust::make_counting_iterator<size_t>(0), byte_count,
-            [indexes, count, d_new_nulls] __device__ (size_t byte_idx) {
-                BYTE mask = 0;
-                for( int bit=0; bit<8; ++bit )
-                {
-                    size_t idx = (byte_idx*8) + bit;
-                    if( idx < count )
-                        mask |= (int)(indexes[idx]!=0) << bit;
-                }
-                d_new_nulls[byte_idx] = mask;
-            });
+            gather_nullbits_fn{indexes, count, d_new_nulls});
     }
     return result;
 }
