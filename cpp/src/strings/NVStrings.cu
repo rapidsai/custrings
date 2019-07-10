@@ -64,20 +64,6 @@ NVStrings::NVStrings(const NVStrings& strs)
     }
 }
 
-NVStrings& NVStrings::operator=(const NVStrings& strs)
-{
-    delete pImpl;
-    unsigned int count = strs.size();
-    pImpl = new NVStringsImpl(count);
-    if( count )
-    {
-        std::vector<NVStringsImpl*> strslist;
-        strslist.push_back(strs.pImpl);
-        NVStrings_copy_strings(pImpl,strslist);
-    }
-    return *this;
-}
-
 NVStrings::~NVStrings()
 {
     delete pImpl;

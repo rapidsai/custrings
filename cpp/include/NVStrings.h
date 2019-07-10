@@ -53,7 +53,7 @@ class NVStrings
     NVStrings();
     NVStrings(unsigned int count);
     NVStrings(const NVStrings&);
-    NVStrings& operator=(const NVStrings&);
+    NVStrings& operator=(const NVStrings&) = delete;
     ~NVStrings();
 
 public:
