@@ -14,6 +14,7 @@
 * limitations under the License.
 */
 
+#include <cstdio>
 #include <exception>
 #include <sstream>
 #include <cuda_runtime.h>
@@ -106,19 +107,12 @@ NVStrings* NVStrings::slice_replace( const char* repl, int start, int stop )
 NVStrings* NVStrings::replace( const char* str, const char* repl, int maxrepl )
 {
     if( !str || !*str )
-        throw std::invalid_argument("nvstrings::replace parameter cannot be null or empty");
+        throw std::invalid_argument("replace parameter cannot be null or empty");
     auto execpol = rmm::exec_policy(0);
-    unsigned int ssz = (unsigned int)strlen(str);
-    char* d_str = device_alloc<char>(ssz,0);
-    CUDA_TRY( cudaMemcpyAsync(d_str,str,ssz,cudaMemcpyHostToDevice))
-    unsigned int sszch = custring_view::chars_in_string(str,ssz);
-
+    custring_view* d_str = custring_from_host(str);
     if( !repl )
         repl = "";
-    unsigned int rsz = (unsigned int)strlen(repl);
-    char* d_repl = device_alloc<char>(rsz,0);
-    CUDA_TRY( cudaMemcpyAsync(d_repl,repl,rsz,cudaMemcpyHostToDevice))
-    unsigned int rszch = custring_view::chars_in_string(repl,rsz);
+    custring_view* d_repl = custring_from_host(repl);
 
     // compute size of the output
     unsigned int count = size();
@@ -126,7 +120,7 @@ NVStrings* NVStrings::replace( const char* str, const char* repl, int maxrepl )
     rmm::device_vector<size_t> sizes(count,0);
     size_t* d_sizes = sizes.data().get();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-        [d_strings, d_str, ssz, sszch, d_repl, rsz, rszch, maxrepl, d_sizes] __device__(unsigned int idx){
+        [d_strings, d_str, d_repl, maxrepl, d_sizes] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
             if( !dstr )
                 return;
@@ -134,13 +128,13 @@ NVStrings* NVStrings::replace( const char* str, const char* repl, int maxrepl )
             if( mxn < 0 )
                 mxn = dstr->chars_count(); //max possible replaces for this string
             unsigned int bytes = dstr->size(), nchars = dstr->chars_count();
-            int pos = dstr->find(d_str,ssz);
+            int pos = dstr->find(*d_str);
             // counting bytes and chars
             while((pos >= 0) && (mxn > 0))
             {
-                bytes += rsz - ssz;
-                nchars += rszch - sszch;
-                pos = dstr->find(d_str,ssz,(unsigned)pos+sszch); // next one
+                bytes += d_repl->size() - d_str->size();
+                nchars += d_repl->chars_count() - d_str->chars_count();
+                pos = dstr->find(*d_str,(unsigned)pos+d_str->chars_count()); // next one
                 --mxn;
             }
             unsigned int size = custring_view::alloc_size(bytes,nchars);
@@ -163,7 +157,7 @@ NVStrings* NVStrings::replace( const char* str, const char* repl, int maxrepl )
     custring_view_array d_results = rtn->pImpl->getStringsPtr();
     size_t* d_offsets = offsets.data().get();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-        [d_strings, d_str, ssz, sszch, d_repl, rsz, d_buffer, d_offsets, maxrepl, d_results] __device__(unsigned int idx){
+        [d_strings, d_str, d_repl, d_buffer, d_offsets, maxrepl, d_results] __device__(unsigned int idx){
             custring_view* dstr = d_strings[idx];
             if( !dstr )
                 return;
@@ -175,25 +169,175 @@ NVStrings* NVStrings::replace( const char* str, const char* repl, int maxrepl )
             char* sptr = dstr->data();
             char* optr = buffer;
             unsigned int size = dstr->size();
-            int pos = dstr->find(d_str,ssz), lpos=0;
+            int pos = dstr->find(*d_str), lpos=0;
             while((pos >= 0) && (mxn > 0))
-            {                                                 // i:bbbbsssseeee
-                int spos = dstr->byte_offset_for(pos);        //       ^
-                memcpy(optr,sptr+lpos,spos-lpos);             // o:bbbb
-                optr += spos - lpos;                          //       ^
-                memcpy(optr,d_repl,rsz);                      // o:bbbbrrrr
-                optr += rsz;                                  //           ^
-                lpos = spos + ssz;                            // i:bbbbsssseeee
-                pos = dstr->find(d_str,ssz,pos+sszch);        //           ^
+            {                                                      // i:bbbbsssseeee
+                int spos = dstr->byte_offset_for(pos);             //       ^
+                copy_and_incr(optr,sptr+lpos,spos-lpos);           // o:bbbb
+                copy_and_incr(optr,d_repl->data(),d_repl->size()); // o:bbbbrrrr
+                lpos = spos + d_str->size();//ssz;                 // i:bbbbsssseeee
+                pos = dstr->find(*d_str,pos+d_str->chars_count()); //           ^
                 --mxn;
             }
-            memcpy(optr,sptr+lpos,size-lpos);                 // o:bbbbrrrreeee
+            memcpy(optr,sptr+lpos,size-lpos);                      // o:bbbbrrrreeee
             unsigned int nsz = (unsigned int)(optr - buffer) + size - lpos;
             d_results[idx] = custring_view::create_from(buffer,buffer,nsz);
         });
     //
     RMM_FREE(d_str,0);
     RMM_FREE(d_repl,0);
+    return rtn;
+}
+
+// used by both mult-replaces below
+// also does the size calculations inline
+struct replace_multi_fn
+{
+    custring_view_array d_strings;
+    custring_view_array d_targets;
+    unsigned int target_count;
+    custring_view_array d_repls;
+    unsigned int repl_count;
+    size_t* d_offsets;
+    bool bcompute_size_only{true};
+    char* d_buffer;
+    custring_view_array d_results;
+
+    __device__ void operator()(unsigned int idx)
+    {
+        custring_view* dstr = d_strings[idx];
+        if( !dstr )
+            return;
+        char* buffer = nullptr;
+        if( !bcompute_size_only )
+            buffer = d_buffer + d_offsets[idx];
+        char* optr = buffer;
+        unsigned int nbytes = dstr->size(), nchars = dstr->chars_count();
+        char* sptr = dstr->data();
+        unsigned int size = nbytes, spos = 0, lpos = 0;
+        while( spos < size )
+        {   // check each character against each target
+            for( int tidx=0; tidx < target_count; ++tidx )
+            {
+                custring_view* dtgt = d_targets[tidx];
+                if( dtgt && // skip over any nulls
+                    (dtgt->size() <= (size-spos)) && // check fit
+                    (dtgt->compare(sptr+spos,dtgt->size())==0) ) // does it match
+                {   // found one
+                    custring_view* d_repl = (repl_count==1 ? reinterpret_cast<custring_view*>(d_repls):d_repls[tidx]);
+                    if( bcompute_size_only )
+                    {
+                        nbytes += (d_repl ? d_repl->size():0) - dtgt->size();
+                        nchars += (d_repl ? d_repl->chars_count():0) - dtgt->chars_count();
+                    }
+                    else
+                    {
+                        copy_and_incr(optr,sptr+lpos,spos-lpos);               // copy left
+                        if( d_repl )                                           // and
+                            copy_and_incr(optr,d_repl->data(),d_repl->size()); // replace
+                        lpos = spos + dtgt->size();
+                    }
+                    spos += dtgt->size()-1;
+                    break;
+                }
+            }
+            ++spos;
+        }
+        if( bcompute_size_only )
+        {
+            unsigned int nsize = custring_view::alloc_size(nbytes,nchars);
+            d_offsets[idx] = ALIGN_SIZE(nsize);
+        }
+        else
+        {
+            memcpy(optr,sptr+lpos,size-lpos); // copy remainder
+            unsigned int nsz = (unsigned int)(optr - buffer) + size - lpos;
+            d_results[idx] = custring_view::create_from(buffer,buffer,nsz);
+        }
+    }
+};
+
+//
+NVStrings* NVStrings::replace( NVStrings& targets, const char* repl )
+{
+    if( targets.size()==0 )
+        throw std::invalid_argument("replace parameter contains no strings");
+    auto execpol = rmm::exec_policy(0);
+    if( !repl )
+        repl = "";
+    custring_view* d_repl = custring_from_host(repl);
+
+    // compute size of the output
+    custring_view** d_strings = pImpl->getStringsPtr();
+    unsigned int count = size();
+    custring_view** d_targets = targets.pImpl->getStringsPtr();
+    unsigned int target_count = targets.size();
+    custring_view_array d_repls = reinterpret_cast<custring_view_array>(d_repl);
+    rmm::device_vector<size_t> sizes(count,0);
+    size_t* d_sizes = sizes.data().get();
+    // get the sizes
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        replace_multi_fn{d_strings, d_targets, target_count, d_repls, 1, d_sizes} );
+    //
+    // create output object
+    NVStrings* rtn = new NVStrings(count);
+    char* d_buffer = rtn->pImpl->createMemoryFor(d_sizes);
+    if( d_buffer==0 )
+    {
+        RMM_FREE(d_repl,0);
+        return rtn; // all strings are null
+    }
+    // create offsets
+    rmm::device_vector<size_t> offsets(count,0);
+    thrust::exclusive_scan(execpol->on(0),sizes.begin(),sizes.end(),offsets.begin());
+    // do the thing
+    custring_view_array d_results = rtn->pImpl->getStringsPtr();
+    size_t* d_offsets = offsets.data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        replace_multi_fn{d_strings, d_targets, target_count, d_repls, 1, d_offsets, false, d_buffer, d_results });
+    //
+    RMM_FREE(d_repl,0);
+    return rtn;
+}
+
+//
+NVStrings* NVStrings::replace( NVStrings& targets, NVStrings& repls )
+{
+    if( targets.size()==0 )
+        throw std::invalid_argument("replace parameter contains no strings");
+    if( repls.size() != targets.size() )
+        throw std::invalid_argument("replace targets and replacement sizes must match");
+    auto execpol = rmm::exec_policy(0);
+
+    // compute size of the output
+    custring_view** d_strings = pImpl->getStringsPtr();
+    unsigned int count = size();
+    custring_view** d_targets = targets.pImpl->getStringsPtr();
+    unsigned int target_count = targets.size();
+    custring_view_array d_repls = repls.pImpl->getStringsPtr();
+    unsigned int repl_count = repls.size();
+    if( repl_count==1 )
+        d_repls = reinterpret_cast<custring_view_array>(d_repls[0]); // special case
+    rmm::device_vector<size_t> sizes(count,0);
+    size_t* d_sizes = sizes.data().get();
+    // get the sizes
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        replace_multi_fn{d_strings, d_targets, target_count, d_repls, repl_count, d_sizes} );
+    //
+    // create output object
+    NVStrings* rtn = new NVStrings(count);
+    char* d_buffer = rtn->pImpl->createMemoryFor(d_sizes);
+    if( d_buffer==0 )
+        return rtn; // all strings are null
+    // create offsets
+    rmm::device_vector<size_t> offsets(count,0);
+    thrust::exclusive_scan(execpol->on(0),sizes.begin(),sizes.end(),offsets.begin());
+    // do the thing
+    custring_view_array d_results = rtn->pImpl->getStringsPtr();
+    size_t* d_offsets = offsets.data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        replace_multi_fn{d_strings, d_targets, target_count, d_repls, repl_count, d_offsets, false, d_buffer, d_results });
+    //
     return rtn;
 }
 
