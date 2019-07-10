@@ -52,32 +52,16 @@ NVStrings::NVStrings()
     pImpl = new NVStringsImpl(0);
 }
 
-NVStrings::NVStrings(const NVStrings& strsIn)
+NVStrings::NVStrings(const NVStrings& strs)
 {
-    NVStrings& strs = (NVStrings&)strsIn;
     unsigned int count = strs.size();
     pImpl = new NVStringsImpl(count);
     if( count )
     {
-        std::vector<NVStrings*> strslist;
-        strslist.push_back(&strs);
+        std::vector<NVStringsImpl*> strslist;
+        strslist.push_back(strs.pImpl);
         NVStrings_copy_strings(pImpl,strslist);
     }
-}
-
-NVStrings& NVStrings::operator=(const NVStrings& strsIn)
-{
-    delete pImpl;
-    NVStrings& strs = (NVStrings&)strsIn;
-    unsigned int count = strs.size();
-    pImpl = new NVStringsImpl(count);
-    if( count )
-    {
-        std::vector<NVStrings*> strslist;
-        strslist.push_back(&strs);
-        NVStrings_copy_strings(pImpl,strslist);
-    }
-    return *this;
 }
 
 NVStrings::~NVStrings()
@@ -133,7 +117,12 @@ NVStrings* NVStrings::create_from_strings( std::vector<NVStrings*> strs )
         count += (*itr)->size();
     NVStrings* rtn = new NVStrings(count);
     if( count )
-        NVStrings_copy_strings(rtn->pImpl,strs);
+    {
+        std::vector<NVStringsImpl*> impls;
+        for( auto itr=strs.begin(); itr!=strs.end(); itr++ )
+            impls.push_back( (*itr)->pImpl );
+        NVStrings_copy_strings(rtn->pImpl,impls);
+    }
     return rtn;
 }
 
@@ -173,7 +162,7 @@ void NVStrings::destroy(NVStrings* inst)
 
 size_t NVStrings::memsize() const
 {
-    return pImpl->bufferSize;
+    return pImpl->getMemorySize() + pImpl->getPointerSize();
 }
 
 NVStrings* NVStrings::copy()
@@ -182,8 +171,8 @@ NVStrings* NVStrings::copy()
     NVStrings* rtn = new NVStrings(count);
     if( count )
     {
-        std::vector<NVStrings*> strslist;
-        strslist.push_back(this);
+        std::vector<NVStringsImpl*> strslist;
+        strslist.push_back(pImpl);
         NVStrings_copy_strings(rtn->pImpl,strslist);
     }
     return rtn;
@@ -601,7 +590,7 @@ unsigned int NVStrings::get_nulls( unsigned int* array, bool emptyIsNull, bool d
 // number of strings in this instance
 unsigned int NVStrings::size() const
 {
-    return (unsigned int)pImpl->pList->size();
+    return pImpl->getCount();
 }
 
 struct statistics_attrs

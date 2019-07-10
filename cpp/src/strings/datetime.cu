@@ -138,9 +138,9 @@ struct DTFormatCompiler
             template_string.append(ch,flen);
         }
         // create in device memory
-        size_t memsize = items.size() * sizeof(DTFormatItem);
-        d_items = reinterpret_cast<DTFormatItem*>(device_alloc<char>(memsize,0));
-        CUDA_TRY( cudaMemcpyAsync(d_items, items.data(), memsize, cudaMemcpyHostToDevice))
+        size_t buffer_size = items.size() * sizeof(DTFormatItem);
+        d_items = reinterpret_cast<DTFormatItem*>(device_alloc<char>(buffer_size,0));
+        CUDA_TRY( cudaMemcpyAsync(d_items, items.data(), buffer_size, cudaMemcpyHostToDevice))
         DTProgram hprog{items.size(),d_items};
         d_prog = reinterpret_cast<DTProgram*>(device_alloc<char>(sizeof(DTProgram),0));
         CUDA_TRY( cudaMemcpyAsync(d_prog,&hprog,sizeof(DTProgram),cudaMemcpyHostToDevice))
@@ -149,12 +149,6 @@ struct DTFormatCompiler
 
     // call valid only after compile
     size_t string_length() { return template_string.size(); }
-    //{
-    //    size_t size = 0;
-    //    for( size_t idx=0; idx < items.size(); ++idx )
-    //        size += items[idx].length;
-    //    return size;
-    //}
     const char* string_template() { return template_string.c_str(); }
 
     size_t size() { return items.size(); }

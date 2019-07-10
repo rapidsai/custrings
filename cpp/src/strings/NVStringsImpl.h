@@ -39,8 +39,10 @@ public:
     char* createMemoryFor( size_t* d_lengths );
 
     inline custring_view_array getStringsPtr()      { return pList->data().get(); }
+    inline unsigned int getCount() { return (unsigned int)pList->size(); }
     inline char* getMemoryPtr()    { return memoryBuffer; }
     inline size_t getMemorySize()  { return bufferSize;  }
+    inline size_t getPointerSize() { return pList->size()*sizeof(custring_view*); }
     inline cudaStream_t getStream()    { return stream_id;  }
     inline void setMemoryBuffer( void* ptr, size_t memSize )
     {
@@ -65,5 +67,5 @@ int NVStrings_init_from_strings(NVStringsImpl* pImpl, const char** strs, unsigne
 int NVStrings_init_from_indexes( NVStringsImpl* pImpl, std::pair<const char*,size_t>* indexes, unsigned int count, bool bdevmem, NVStrings::sorttype stype );
 int NVStrings_init_from_offsets( NVStringsImpl* pImpl, const char* strs, int count, const int* offsets, const unsigned char* bitmask, int nulls );
 int NVStrings_init_from_device_offsets( NVStringsImpl* pImpl, const char* strs, int count, const int* offsets, const unsigned char* bitmask, int nulls );
-int NVStrings_copy_strings( NVStringsImpl* pImpl, std::vector<NVStrings*>& strslist );
+int NVStrings_copy_strings( NVStringsImpl* pImpl, std::vector<NVStringsImpl*>& strslist );
 int NVStrings_fixup_pointers( NVStringsImpl* pImpl, char* baseaddr );
