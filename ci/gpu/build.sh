@@ -80,7 +80,7 @@ nvidia-smi
 ################################################################################
 
 logger "Building libcustrings and custrings..."
-${WORKSPACE}/build.sh 
+${WORKSPACE}/build.sh clean libcustrings custrings
 
 ################################################################################
 # TEST - Test custrings

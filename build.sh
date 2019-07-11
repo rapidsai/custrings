@@ -15,9 +15,8 @@ NUMARGS=$#
 ARGS=$*
 
  # Get root of git repository without assuming location of build.sh script
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+SCRIPT_DIR=$( cd $( dirname ${BASH_SOURCE[0]} ) && pwd )
 cd "$SCRIPT_DIR"
-REPODIR=$(git rev-parse --show-toplevel)
 
 VALIDARGS="clean libcustrings custrings -v -g -n -h"
 HELP="$0 [clean] [libcustrings] [custrings] [-v] [-g] [-n] [-h]
@@ -30,9 +29,9 @@ HELP="$0 [clean] [libcustrings] [custrings] [-v] [-g] [-n] [-h]
    -h           - print this text
     default action (no args) is to build and install 'libcustrings' then 'custrings' targets
 "
-LIBCUSTRINGS_BUILD_DIR=${REPODIR}/cpp/build
-CUSTRINGS_BUILD_DIR=${REPODIR}/python
-BUILD_DIRS="${LIBCUSTRINGS_BUILD_DIR}"
+LIBCUSTRINGS_BUILD_DIR=${SCRIPT_DIR}/cpp/build
+CUSTRINGS_BUILD_DIR=${SCRIPT_DIR}/python/build
+BUILD_DIRS="${LIBCUSTRINGS_BUILD_DIR} ${CUSTRINGS_BUILD_DIR}"
 
  # Set defaults for vars modified by flags to this script
 VERBOSE=""
@@ -50,15 +49,7 @@ PYTHON=${PYTHON:-python}
     (( NUMARGS != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
 }
 
-function createBuildArea {
-    mkdir -p "${LIBCUSTRINGS_BUILD_DIR}"
-    cd "${LIBCUSTRINGS_BUILD_DIR}"
-    cmake -DCMAKE_INSTALL_PREFIX="${INSTALL_PREFIX}" \
-          -DCMAKE_CXX11_ABI=ON \
-          -DCMAKE_BUILD_TYPE=${BUILD_TYPE} ..
-}
-
- if hasArg -h; then
+if hasArg -h; then
     echo "${HELP}"
     exit 0
 fi
@@ -101,8 +92,17 @@ fi
 
 ################################################################################
 # Configure, build, and install libcustrings
-if hasArg libcustrings; then
-    createBuildArea
+if (( NUMARGS == 0 )) || hasArg libcustrings; then
+    # Preparing build environment
+    mkdir -p "${LIBCUSTRINGS_BUILD_DIR}"
+    cd "${LIBCUSTRINGS_BUILD_DIR}"
+
+    # Configure build environment
+    cmake -DCMAKE_INSTALL_PREFIX="${INSTALL_PREFIX}" \
+          -DCMAKE_CXX11_ABI=ON \
+          -DCMAKE_BUILD_TYPE=${BUILD_TYPE} ..
+
+    # Build libcustrings by default. Install libcustrings only if specifically requested.
     make -j${PARALLEL_LEVEL} VERBOSE=${VERBOSE}
     if [[ ${INSTALL_TARGET} != "" ]]; then
         make -j${PARALLEL_LEVEL} VERBOSE=${VERBOSE} install
@@ -111,12 +111,11 @@ fi
 
  # Build and install the custrings Python package
 if (( NUMARGS == 0 )) || hasArg custrings; then
-    # Build and install libcustrings.so 
-    createBuildArea
-    make -j${PARALLEL_LEVEL} VERBOSE=${VERBOSE}
-    make -j${PARALLEL_LEVEL} VERBOSE=${VERBOSE} install
-
     # build custrings
-    cd "$CUSTRINGS_BUILD_DIR"
-    $PYTHON setup.py install --single-version-externally-managed --record=record.txt
+    cd "$SCRIPT_DIR/python"
+    if [[ ${INSTALL_TARGET} != "" ]]; then
+        $PYTHON setup.py install --single-version-externally-managed --record=record.txt
+    else
+        $PYTHON setup.py build_ext --library-dir="${LIBCUSTRINGS_BUILD_DIR}"
+    fi
 fi

@@ -82,8 +82,8 @@ See detailed build [instructions](CONTRIBUTING.md#setting-up-your-build-environm
 Build and install `libcustrings` and `custrings` using build.sh. Build.sh creates build dir under cpp/ directory found in the root of the git repository. build.sh depends on the `nvcc` executable being on your path or defined in `$CUDACXX`.
 ```bash
 $ ./build.sh -h                                     # Display help and exit
-$ ./build.sh -n custrings                           # Build without installing
-$ ./build.sh                                        # Build and install
+$ ./build.sh -n custrings                           # Build the custrings target without installing
+$ ./build.sh                                        # Build and install libcustrings and custrings
 
 ## Contributing
 
