@@ -760,6 +760,15 @@ public:
      * @return New instance with the characters replaced appropriately.
      */
     NVStrings* replace_re( const char* pattern, const char* repl, int maxrepl=-1 );
+    /**
+     * @brief Replaces occurrences found of string list with corresponding string in each string of this instance.
+     *
+     * This method uses the given regular expression pattern to search for the target \p str to replace.
+     * @param[in] patterns Null-terminated CPU strings with regular expressions.
+     * @param[in] repls Strings to replace any found strings.
+     * @return New instance with the characters replaced appropriately.
+     */
+    NVStrings* replace_re( std::vector<const char*>& patterns, NVStrings& repls );
 
     // replace_backref.cu
     /**

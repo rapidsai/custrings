@@ -3,6 +3,7 @@
 ## New Features
 
 - PR #363 Added scatter method to nvstrings
+- PR #371 Added replace() with multiple strings parameters
 
 ## Improvements
 
