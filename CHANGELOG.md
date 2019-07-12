@@ -16,6 +16,7 @@
 ## Bug Fixes
 
 - PR #353 Fixed sizer calculation for multiple replaces
+- PR #373 Properly catch/throw exceptions raised by `gather_strings`
 
 
 # cuStrings/nvStrings 0.8.0 (27 June 2019)
