@@ -6,11 +6,11 @@
 #include <unistd.h>
 #include <cuda_runtime.h>
 #include "../include/NVStrings.h"
-
+#include "../include/NVText.h"
 
 //
 // cd ../build
-// g++ -std=c++11 ../tests/test_replace.cpp -I/usr/local/cuda/include -L. -lNVStrings -o test_replace -Wl,-rpath,.:
+// g++ -std=c++11 ../tests/test_replace.cpp -I/usr/local/cuda/include -L. -lNVStrings -lNVText -o test_replace -Wl,-rpath,.:
 //
 
 double GetTime()
@@ -197,11 +197,52 @@ void test_regex2()
     NVStrings::destroy(strs);
 }
 
+void test_text1()
+{
+    const char* hstrs[] = { "the quick brown fox jumps over the lazy dog",
+                            "the fat cat lays next to the other accénted cat",
+                            "a slow moving turtlé cannot catch the bird",
+                            "which can be composéd together to form a more complete",
+                            "thé result does not include the value in the sum in",
+                            "", "absent stop words" };
+    size_t count = 7;
+    NVStrings* strs = NVStrings::create_from_array(hstrs,count);
+    printf("strings: (%ld bytes)\n", strs->memsize());
+    strs->print(0,10);
+
+    const char* htgts[] = {"the", "a", "in", "to", "be", "not"};
+    unsigned int tcount = 6;
+    NVStrings* tgts = NVStrings::create_from_array(htgts,tcount);
+    printf("tokens: (%ld bytes)\n", tgts->memsize());
+    tgts->print();
+
+    const char* hrpls[] = {"1", "2", "3", "4", "5", "6"};
+    unsigned int rcount = 6;
+    NVStrings* rpls = NVStrings::create_from_array(hrpls,rcount);
+    printf("repls: (%ld bytes)\n", rpls->memsize());
+    rpls->print();
+
+    {
+        double st = GetTime();
+        NVStrings* result = NVText::replace_tokens(*strs,*tgts,*rpls);
+        double et = GetTime() - st;
+        printf("result: (%ld bytes)\n", result->memsize());
+        result->print(0,10);
+        printf("%g seconds\n",et);
+        NVStrings::destroy(result);
+    }
+
+    NVStrings::destroy(rpls);
+    NVStrings::destroy(tgts);
+    NVStrings::destroy(strs);
+}
+
 int main( int argc, char** argv )
 {
     test1();
     //test2();
-    test_regex1();
-    test_regex2();
+    //test_regex1();
+    //test_regex2();
+    test_text1();
     return 0;
 }
