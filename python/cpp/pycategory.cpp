@@ -538,8 +538,8 @@ static PyObject* n_gather_strings( PyObject* self, PyObject* args )
             errmsg << "one or more indexes out of range [0:" << cat->keys_size() << ")";
             message = errmsg.str();
         }
-        delete indexes;
         Py_END_ALLOW_THREADS
+        delete indexes;
     }
     else
     {
