@@ -162,8 +162,13 @@ int NVStrings_init_from_strings(NVStringsImpl* pImpl, const char** strs, unsigne
         return (int)err;
 
     // Host serialization
-    unsigned int cheat = 0;//sizeof(custring_view);
+    size_t cheat = 0;//sizeof(custring_view);
     char* h_flatstrs = (char*)malloc(nbytes);
+    if( !h_flatstrs )
+    {
+        fprintf(stderr,"init_from_strings: not enough CPU memory for intermediate buffer of size %ld bytes\n", nbytes);
+        return -1;
+    }
     for( unsigned int idx = 0; idx < count; ++idx )
         memcpy(h_flatstrs + hoffsets[idx] + cheat, strs[idx], hlengths[idx]);
 

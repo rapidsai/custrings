@@ -73,7 +73,13 @@ NVStrings* NVStrings::create_from_array( const char** strs, unsigned int count)
 {
     NVStrings* rtn = new NVStrings(count);
     if( count )
-        NVStrings_init_from_strings(rtn->pImpl,strs,count);
+    {
+        if( NVStrings_init_from_strings(rtn->pImpl,strs,count) )
+        {
+            delete rtn;
+            throw std::runtime_error("create_from_array runtime_error");
+        }
+    }
     return rtn;
 }
 

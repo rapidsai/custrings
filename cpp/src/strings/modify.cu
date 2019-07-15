@@ -224,7 +224,7 @@ struct replace_multi_fn
                     (dtgt->size() <= (size-spos)) && // check fit
                     (dtgt->compare(sptr+spos,dtgt->size())==0) ) // does it match
                 {   // found one
-                    custring_view* d_repl = (repl_count==1 ? reinterpret_cast<custring_view*>(d_repls):d_repls[tidx]);
+                    custring_view* d_repl = (repl_count==1 ? d_repls[0]:d_repls[tidx]);
                     if( bcompute_size_only )
                     {
                         nbytes += (d_repl ? d_repl->size():0) - dtgt->size();
@@ -258,54 +258,11 @@ struct replace_multi_fn
 };
 
 //
-NVStrings* NVStrings::replace( NVStrings& targets, const char* repl )
-{
-    if( targets.size()==0 )
-        throw std::invalid_argument("replace parameter contains no strings");
-    auto execpol = rmm::exec_policy(0);
-    if( !repl )
-        repl = "";
-    custring_view* d_repl = custring_from_host(repl);
-
-    // compute size of the output
-    custring_view** d_strings = pImpl->getStringsPtr();
-    unsigned int count = size();
-    custring_view** d_targets = targets.pImpl->getStringsPtr();
-    unsigned int target_count = targets.size();
-    custring_view_array d_repls = reinterpret_cast<custring_view_array>(d_repl);
-    rmm::device_vector<size_t> sizes(count,0);
-    size_t* d_sizes = sizes.data().get();
-    // get the sizes
-    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-        replace_multi_fn{d_strings, d_targets, target_count, d_repls, 1, d_sizes} );
-    //
-    // create output object
-    NVStrings* rtn = new NVStrings(count);
-    char* d_buffer = rtn->pImpl->createMemoryFor(d_sizes);
-    if( d_buffer==0 )
-    {
-        RMM_FREE(d_repl,0);
-        return rtn; // all strings are null
-    }
-    // create offsets
-    rmm::device_vector<size_t> offsets(count,0);
-    thrust::exclusive_scan(execpol->on(0),sizes.begin(),sizes.end(),offsets.begin());
-    // do the thing
-    custring_view_array d_results = rtn->pImpl->getStringsPtr();
-    size_t* d_offsets = offsets.data().get();
-    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-        replace_multi_fn{d_strings, d_targets, target_count, d_repls, 1, d_offsets, false, d_buffer, d_results });
-    //
-    RMM_FREE(d_repl,0);
-    return rtn;
-}
-
-//
 NVStrings* NVStrings::replace( NVStrings& targets, NVStrings& repls )
 {
-    if( targets.size()==0 )
-        throw std::invalid_argument("replace parameter contains no strings");
-    if( repls.size() != targets.size() )
+    if( targets.size()==0 || repls.size()==0 )
+        throw std::invalid_argument("replace one or both parameters contains no strings");
+    if( repls.size()>1 && (repls.size() != targets.size()) )
         throw std::invalid_argument("replace targets and replacement sizes must match");
     auto execpol = rmm::exec_policy(0);
 
@@ -316,8 +273,6 @@ NVStrings* NVStrings::replace( NVStrings& targets, NVStrings& repls )
     unsigned int target_count = targets.size();
     custring_view_array d_repls = repls.pImpl->getStringsPtr();
     unsigned int repl_count = repls.size();
-    if( repl_count==1 )
-        d_repls = reinterpret_cast<custring_view_array>(d_repls[0]); // special case
     rmm::device_vector<size_t> sizes(count,0);
     size_t* d_sizes = sizes.data().get();
     // get the sizes

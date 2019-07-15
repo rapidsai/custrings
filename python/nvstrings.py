@@ -1463,7 +1463,9 @@ class nvstrings:
             String to be replaced.
             This can also be a regex expression -- not a compiled regex.
         repl : str
-            String to replace found section with
+            String to replace found string in the output instance.
+        regex : boolean
+            Set to True if pat is a regular expression string.
 
         Examples
         --------
@@ -1474,6 +1476,49 @@ class nvstrings:
 
         """
         rtn = pyniNVStrings.n_replace(self.m_cptr, pat, repl, n, regex)
+        if rtn is not None:
+            rtn = nvstrings(rtn)
+        return rtn
+
+    def replace_multi(self, pats, repls, regex=True):
+        """
+        Replace multiple strings (pats) in each string with corresponding
+        strings (repls).
+
+        Parameters
+        ----------
+        pats : list or nvstrings
+            Strings to be replaced.
+            These can also be a regex expressions patterns.
+            If so, this must not be nvstrings instance.
+        repls : list or nvstrings
+            Strings to replace found pattern/string.
+            Must be the same number of strings as pats.
+            Alternately, this can be a single str instance
+            and would be used as replacement for strings found.
+        regex : boolean
+            Set to True if pats are regular expression strings.
+
+        Examples
+        --------
+        >>> import nvstrings
+        >>> s = nvstrings.to_device(["hello","goodbye"])
+        >>> print(s.replace_multi(['e', 'o'],['E','O']))
+        ['hEllO', 'gOOdbyE']
+
+        """
+        if regex is True:
+            if isinstance(pats, list) is False:
+                raise ValueError("pats must be list of str")
+        else:
+            if isinstance(pats, list):
+                pats = to_device(pats)
+        if isinstance(repls, str):
+            repls = to_device([repls])
+        if isinstance(repls, list):
+            repls = to_device(repls)
+
+        rtn = pyniNVStrings.n_replace_multi(self.m_cptr, pats, repls.m_cptr, regex)
         if rtn is not None:
             rtn = nvstrings(rtn)
         return rtn

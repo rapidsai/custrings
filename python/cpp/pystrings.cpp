@@ -1931,6 +1931,59 @@ static PyObject* n_replace( PyObject* self, PyObject* args )
     Py_RETURN_NONE;
 }
 
+static PyObject* n_replace_multi( PyObject* self, PyObject* args )
+{
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    PyObject* argPats = PyTuple_GetItem(args,1);
+    PyObject* argRepls = PyTuple_GetItem(args,2);
+    bool bregex = (bool)PyObject_IsTrue(PyTuple_GetItem(args,3));
+    NVStrings* repls = (NVStrings*)PyLong_AsVoidPtr(argRepls);
+
+    NVStrings* rtn = 0;
+    std::string message;
+    if( bregex )
+    {
+        // convert list into vector
+        unsigned int count = (unsigned int)PyList_Size(argPats);
+        std::vector<const char*> pats;
+        for( unsigned int idx=0; idx < count; ++idx )
+        {
+            PyObject* pystr = PyList_GetItem(argPats,idx);
+            if( pystr != Py_None )
+                pats.push_back(PyUnicode_AsUTF8(pystr));
+        }
+        Py_BEGIN_ALLOW_THREADS
+        try
+        {
+            rtn = tptr->replace_re(pats,*repls);
+        }
+        catch(const std::exception& e)
+        {
+            message = e.what();
+        }
+        Py_END_ALLOW_THREADS
+    }
+    else
+    {
+        NVStrings* ptns = (NVStrings*)PyLong_AsVoidPtr(PyObject_GetAttrString(argPats,"m_cptr"));
+        Py_BEGIN_ALLOW_THREADS
+        try
+        {
+            rtn = tptr->replace(*ptns,*repls);
+        }
+        catch(const std::exception& e)
+        {
+            message = e.what();
+        }
+        Py_END_ALLOW_THREADS
+    }
+    if( !message.empty() )
+        PyErr_Format(PyExc_ValueError,message.c_str());
+    if( rtn )
+        return PyLong_FromVoidPtr((void*)rtn);
+    Py_RETURN_NONE;
+}
+
 //
 static PyObject* n_replace_with_backrefs( PyObject* self, PyObject* args )
 {
@@ -3785,6 +3838,7 @@ static PyMethodDef s_Methods[] = {
     { "n_slice_from", n_slice_from, METH_VARARGS, "" },
     { "n_slice_replace", n_slice_replace, METH_VARARGS, "" },
     { "n_replace", n_replace, METH_VARARGS, "" },
+    { "n_replace_multi", n_replace_multi, METH_VARARGS, "" },
     { "n_replace_with_backrefs", n_replace_with_backrefs, METH_VARARGS, "" },
     { "n_fillna", n_fillna, METH_VARARGS, "" },
     { "n_insert", n_insert, METH_VARARGS, "" },

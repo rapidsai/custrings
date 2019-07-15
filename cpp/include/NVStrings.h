@@ -701,22 +701,13 @@ public:
      */
     NVStrings* replace( const char* str, const char* repl, int maxrepl=-1 );
     /**
-     * @brief Replaces any occurrences found in list of strings with another string in each string of this instance.
-     *
-     * This method does not use regular expression to search for the target string to replace.
-     * All occurrences found of any of the specified strings are replaced.
-     * @param[in] strs List of strings to search for replacement.
-     * @param[in] repl Null-terminated CPU string to replace any found strings.
-     * @return New instance with the characters replaced appropriately.
-     */
-    NVStrings* replace( NVStrings& strs, const char* repl );
-    /**
      * @brief Replaces any occurrences found in list of strings with corresponding string in each string of this instance.
      *
      * This method does not use regular expression to search for the target string to replace.
      * All occurrences found of any of the specified strings are replaced.
+     * If only a single string is present in repls, it is used for replacement for all targets.
      * @param[in] strs List of strings to search for replacement.
-     * @param[in] repls List of strings to substitute for the corresponding string in strs. Must have the same number of strings as strs.
+     * @param[in] repls List of strings to substitute for the corresponding string in strs. Must have the same number of strings as strs or just 1 string.
      * @return New instance with the characters replaced appropriately.
      */
     NVStrings* replace( NVStrings& strs, NVStrings& repls );

@@ -160,8 +160,6 @@ NVStrings* NVStrings::replace_re( std::vector<const char*>& patterns, NVStrings&
     char* d_buffer = nullptr;
     custring_view_array d_results = nullptr;
 
-    printf("progs_count=%d,repl_count=%d,count=%d\n",progs_count,repl_count,count);
-
     // first loop will compute size output
     // 2nd loop will do the operation in the allocated memory
     enum scan_and_operate { scan, operate };

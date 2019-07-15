@@ -110,9 +110,10 @@ public:
      * @param repls Tokens to insert in place of those found. 
      *              This must be have the same number of strings as tgts.
      *              Or, if there is only one string, all tgts are replace by this one string.
+     * @param delimiter String or character used to identify tokens.
      * @return New instance with tokens replaced appropriately.
      */
-    static NVStrings* replace_tokens(NVStrings& strs, NVStrings& tgts, NVStrings& repl);
+    static NVStrings* replace_tokens(NVStrings& strs, NVStrings& tgts, NVStrings& repl, const char* delimiter=nullptr );
 
     /**
      * @brief Edit distance algorithms

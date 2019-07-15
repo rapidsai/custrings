@@ -437,6 +437,46 @@ static PyObject* n_tokens_counts( PyObject* self, PyObject* args )
     return ret;
 }
 
+static PyObject* n_replace_tokens( PyObject* self, PyObject* args )
+{
+    PyObject* pystrs = PyTuple_GetItem(args,0);
+    NVStrings* strs = strings_from_object(pystrs);
+    if( strs==0 )
+        Py_RETURN_NONE;
+    //
+    PyObject* argTgts = PyTuple_GetItem(args,1);
+    PyObject* argRepls = PyTuple_GetItem(args,2);
+    if( argTgts == Py_None || argRepls == Py_None)
+    {
+        PyErr_Format(PyExc_ValueError,"tgts and repls argument must be specified");
+        Py_RETURN_NONE;
+    }
+    NVStrings* tgts = 0;
+    NVStrings* repls = 0;
+    std::string cname = argTgts->ob_type->tp_name;
+    if( cname.compare("nvstrings")==0 )
+        tgts = (NVStrings*)PyLong_AsVoidPtr(PyObject_GetAttrString(argTgts,"m_cptr"));
+    cname = argRepls->ob_type->tp_name;
+    if( cname.compare("nvstrings")==0 )
+        repls = (NVStrings*)PyLong_AsVoidPtr(PyObject_GetAttrString(argRepls,"m_cptr"));
+    if( !tgts || !repls )
+    {
+        PyErr_Format(PyExc_ValueError,"invalid tgts or repls parameter");
+        Py_RETURN_NONE;
+    }
+
+    const char* delimiter = nullptr;
+    PyObject* argDelim = PyTuple_GetItem(args,3);
+    if( argDelim != Py_None )
+        delimiter = PyUnicode_AsUTF8(argDelim);
+
+    NVStrings* rtn = 0;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = NVText::replace_tokens(*strs,*tgts,*repls,delimiter);
+    Py_END_ALLOW_THREADS
+    return PyLong_FromLong((long)rtn);
+}
+
 static PyObject* n_edit_distance( PyObject* self, PyObject* args )
 {
     PyObject* pystrs = PyTuple_GetItem(args,0);
@@ -544,7 +584,7 @@ static PyObject* n_create_ngrams( PyObject* self, PyObject* args )
     PyObject* pyngrams = PyTuple_GetItem(args,1);
     if( pyngrams != Py_None )
         ngrams = (unsigned int)PyLong_AsLong(pyngrams);
-    
+
     const char* separator = " ";
     PyObject* pysep = PyTuple_GetItem(args,2);
     if( pysep != Py_None )
@@ -567,6 +607,7 @@ static PyMethodDef s_Methods[] = {
     { "n_contains_strings", n_contains_strings, METH_VARARGS, "" },
     { "n_strings_counts", n_strings_counts, METH_VARARGS, "" },
     { "n_tokens_counts", n_tokens_counts, METH_VARARGS, "" },
+    { "n_replace_tokens", n_replace_tokens, METH_VARARGS, "" },
     { "n_edit_distance", n_edit_distance, METH_VARARGS, "" },
     { "n_create_ngrams", n_create_ngrams, METH_VARARGS, "" },
     { NULL, NULL, 0, NULL }

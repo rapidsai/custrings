@@ -31,6 +31,19 @@
 
 typedef custring_view** custring_view_array;
 
+//
+static custring_view* custring_from_host( const char* str )
+{
+    if( !str )
+        return nullptr;
+    unsigned int length = (unsigned int)strlen(str);
+    unsigned int bytes = custring_view::alloc_size(str,length);
+    custring_view* d_str = reinterpret_cast<custring_view*>(device_alloc<char>(bytes,0));
+    custring_view::create_from_host(d_str,str,length);
+    return d_str;
+}
+
+
 // common token counter for all split methods
 struct nvtext_token_counter
 {
@@ -633,10 +646,21 @@ struct replace_tokens_fn
     unsigned int token_count;
     custring_view_array d_repls;
     unsigned int repl_count;
+    custring_view* d_delimiter;
     size_t* d_offsets;
     bool bcompute_size_only{true};
     char* d_buffer;
     thrust::pair<const char*,size_t>* d_indexes;
+
+    __device__ bool is_delimiter(Char ch)
+    {
+        if( !d_delimiter )
+            return (ch <= ' ');
+        for( auto itr = d_delimiter->begin(); itr != d_delimiter->end(); itr++ )
+            if( (*itr)==ch )
+                return true;
+        return false;
+    }
 
     __device__ bool next_token( custring_view* dstr, bool& spaces, custring_view::iterator& itr, int& spos, int& epos )
     {
@@ -645,7 +669,7 @@ struct replace_tokens_fn
         for( ; itr != dstr->end(); itr++ )
         {
             Char ch = *itr;
-            if( spaces == (ch <= ' ') )
+            if( spaces == is_delimiter(ch) ) // (ch <= ' ')
             {
                 if( spaces )
                     spos = itr.position()+1;
@@ -676,7 +700,7 @@ struct replace_tokens_fn
         char* sptr = dstr->data();  // input buffer
         char* buffer = nullptr;     // output buffer
         if( !bcompute_size_only )
-            buffer = d_buffer + d_offsets[idx];     
+            buffer = d_buffer + d_offsets[idx];
         char* optr = buffer; // running output pointer
         int nbytes = dstr->size(), nchars = dstr->chars_count();
         int lpos = 0, spos = 0, epos = nchars;
@@ -691,7 +715,7 @@ struct replace_tokens_fn
             {
                 custring_view* d_token = d_tokens[tidx];
                 int length = epos_bo - spos_bo;
-                if( d_token && 
+                if( d_token &&
                     (length==d_token->size()) &&
                     (d_token->compare(dstr->data()+spos_bo,length)==0) )
                 {
@@ -712,7 +736,7 @@ struct replace_tokens_fn
             epos = nchars;
             itr++;
         }
-        // set result        
+        // set result
         if( bcompute_size_only )
             d_offsets[idx] = nbytes;
         else
@@ -724,7 +748,7 @@ struct replace_tokens_fn
     }
 };
 
-NVStrings* NVText::replace_tokens(NVStrings& strs, NVStrings& tgts, NVStrings& repls)
+NVStrings* NVText::replace_tokens(NVStrings& strs, NVStrings& tgts, NVStrings& repls, const char* delimiter)
 {
     if( strs.size()==0 || tgts.size()==0 )
         return strs.copy();
@@ -746,11 +770,13 @@ NVStrings* NVText::replace_tokens(NVStrings& strs, NVStrings& tgts, NVStrings& r
     custring_view** d_repls = repl_strings.data().get();
     repls.create_custring_index(d_repls);
 
+    custring_view* d_delimiter = custring_from_host(delimiter);
+
     // first, calculate size of the output
     rmm::device_vector<size_t> offsets(count,0);
     size_t* d_offsets = offsets.data().get();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-        replace_tokens_fn{d_strings, d_tokens, token_count, d_repls, repl_count, d_offsets} );
+        replace_tokens_fn{d_strings, d_tokens, token_count, d_repls, repl_count, d_delimiter, d_offsets} );
 
     size_t buffer_size = thrust::reduce(execpol->on(0), d_offsets, d_offsets+count);
     if( buffer_size==0 )
@@ -761,7 +787,7 @@ NVStrings* NVText::replace_tokens(NVStrings& strs, NVStrings& tgts, NVStrings& r
     rmm::device_vector< thrust::pair<const char*,size_t> > indexes(count);
     thrust::pair<const char*,size_t>* d_indexes = indexes.data().get();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-        replace_tokens_fn{d_strings, d_tokens, token_count, d_repls, repl_count, d_offsets, false, d_buffer, d_indexes} );
+        replace_tokens_fn{d_strings, d_tokens, token_count, d_repls, repl_count, d_delimiter, d_offsets, false, d_buffer, d_indexes} );
 
     return NVStrings::create_from_index((std::pair<const char*,size_t>*)d_indexes,count);
 }
@@ -978,7 +1004,7 @@ NVStrings* NVText::create_ngrams(NVStrings& strs, unsigned int ngrams, const cha
     unsigned int count = strs.size();
     if( count==0 )
         return strs.copy();
-    
+
     auto execpol = rmm::exec_policy(0);
     rmm::device_vector<custring_view*> strings(count,nullptr);
     custring_view** d_strings = strings.data().get();
