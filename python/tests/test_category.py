@@ -103,13 +103,22 @@ def test_gather_strings():
     assert_eq(got, expected)
 
 
-def test_gather_strings_exception():
+@pytest.mark.parametrize(
+    "func",
+    [
+        lambda cat, indexes: cat.gather_strings(indexes),
+        lambda cat, indexes: cat.gather(indexes),
+        lambda cat, indexes: cat.gather_and_remap(indexes),
+    ],
+)
+def test_gather_index_exception(func):
     strs = nvstrings.to_device(
         ["eee", "aaa", "eee", "ddd", "ccc", "ccc", "ccc", "eee", "aaa"]
     )
     cat = nvcategory.from_strings(strs)
+    indexes = [0, 2, 0, 4]
     with pytest.raises(Exception):
-        cat.gather_strings([0, 2, 0, 4])
+        func(cat, indexes)
 
 
 def test_remove_strings():
