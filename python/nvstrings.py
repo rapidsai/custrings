@@ -1518,7 +1518,8 @@ class nvstrings:
         if isinstance(repls, list):
             repls = to_device(repls)
 
-        rtn = pyniNVStrings.n_replace_multi(self.m_cptr, pats, repls.m_cptr, regex)
+        rtn = pyniNVStrings.n_replace_multi(self.m_cptr, pats, repls.m_cptr,
+                                            regex)
         if rtn is not None:
             rtn = nvstrings(rtn)
         return rtn
