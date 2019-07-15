@@ -589,37 +589,53 @@ static PyObject* n_gather( PyObject* self, PyObject* args )
     PyObject* pyidxs = PyTuple_GetItem(args,1);
     std::string cname = pyidxs->ob_type->tp_name;
     NVCategory* rtn = 0;
-    try
+    std::string message;
+
+    if( cname.compare("list")==0 )
     {
-        if( cname.compare("list")==0 )
+        unsigned int count = (unsigned int)PyList_Size(pyidxs);
+        int* indexes = new int[count];
+        for( unsigned int idx=0; idx < count; ++idx )
         {
-            unsigned int count = (unsigned int)PyList_Size(pyidxs);
-            int* indexes = new int[count];
-            for( unsigned int idx=0; idx < count; ++idx )
-            {
-                PyObject* pyidx = PyList_GetItem(pyidxs,idx);
-                indexes[idx] = (int)PyLong_AsLong(pyidx);
-            }
-            //
-            Py_BEGIN_ALLOW_THREADS
+            PyObject* pyidx = PyList_GetItem(pyidxs,idx);
+            indexes[idx] = (int)PyLong_AsLong(pyidx);
+        }
+        //
+        Py_BEGIN_ALLOW_THREADS
+        try
+        {
             rtn = cat->gather(indexes,count,false);
-            Py_END_ALLOW_THREADS
-            delete indexes;
         }
-        else
+        catch(const std::out_of_range& eor)
         {
-            // assume device pointer
-            int* indexes = (int*)PyLong_AsVoidPtr(pyidxs);
-            unsigned int count = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,2));
-            Py_BEGIN_ALLOW_THREADS
-            rtn = cat->gather(indexes,count);
-            Py_END_ALLOW_THREADS
+            std::ostringstream errmsg;
+            errmsg << "one or more indexes out of range [0:" << cat->keys_size() << ")";
+            message = errmsg.str();
         }
+        Py_END_ALLOW_THREADS
+        delete indexes;
     }
-    catch(const std::out_of_range& eor)
+    else
     {
-        PyErr_Format(PyExc_IndexError,"one or more indexes out of range [0:%u)",cat->keys_size());
+        // assume device pointer
+        int* indexes = (int*)PyLong_AsVoidPtr(pyidxs);
+        unsigned int count = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,2));
+        Py_BEGIN_ALLOW_THREADS
+        try
+        {
+            rtn = cat->gather(indexes,count);
+        }
+        catch(const std::out_of_range& eor)
+        {
+            std::ostringstream errmsg;
+            errmsg << "one or more indexes out of range [0:" << cat->keys_size() << ")";
+            message = errmsg.str();
+        }
+        Py_END_ALLOW_THREADS
     }
+
+    if( !message.empty() )
+        PyErr_Format(PyExc_IndexError,message.c_str());
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
@@ -635,37 +651,53 @@ static PyObject* n_gather_and_remap( PyObject* self, PyObject* args )
     PyObject* pyidxs = PyTuple_GetItem(args,1);
     std::string cname = pyidxs->ob_type->tp_name;
     NVCategory* rtn = 0;
-    try
+    std::string message;
+
+    if( cname.compare("list")==0 )
     {
-        if( cname.compare("list")==0 )
+        unsigned int count = (unsigned int)PyList_Size(pyidxs);
+        int* indexes = new int[count];
+        for( unsigned int idx=0; idx < count; ++idx )
         {
-            unsigned int count = (unsigned int)PyList_Size(pyidxs);
-            int* indexes = new int[count];
-            for( unsigned int idx=0; idx < count; ++idx )
-            {
-                PyObject* pyidx = PyList_GetItem(pyidxs,idx);
-                indexes[idx] = (int)PyLong_AsLong(pyidx);
-            }
-            //
-            Py_BEGIN_ALLOW_THREADS
+            PyObject* pyidx = PyList_GetItem(pyidxs,idx);
+            indexes[idx] = (int)PyLong_AsLong(pyidx);
+        }
+        //
+        Py_BEGIN_ALLOW_THREADS
+        try
+        {
             rtn = cat->gather_and_remap(indexes,count,false);
-            Py_END_ALLOW_THREADS
-            delete indexes;
         }
-        else
+        catch(const std::out_of_range& eor)
         {
-            // assume device pointer
-            int* indexes = (int*)PyLong_AsVoidPtr(pyidxs);
-            unsigned int count = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,2));
-            Py_BEGIN_ALLOW_THREADS
-            rtn = cat->gather_and_remap(indexes,count);
-            Py_END_ALLOW_THREADS
+            std::ostringstream errmsg;
+            errmsg << "one or more indexes out of range [0:" << cat->keys_size() << ")";
+            message = errmsg.str();
         }
+        Py_END_ALLOW_THREADS
+        delete indexes;
     }
-    catch(const std::out_of_range& eor)
+    else
     {
-        PyErr_Format(PyExc_IndexError,"one or more indexes out of range [0:%u)",cat->keys_size());
+        // assume device pointer
+        int* indexes = (int*)PyLong_AsVoidPtr(pyidxs);
+        unsigned int count = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,2));
+        Py_BEGIN_ALLOW_THREADS
+        try
+        {
+            rtn = cat->gather_and_remap(indexes,count);
+        }
+        catch(const std::out_of_range& eor)
+        {
+            std::ostringstream errmsg;
+            errmsg << "one or more indexes out of range [0:" << cat->keys_size() << ")";
+            message = errmsg.str();
+        }
+        Py_END_ALLOW_THREADS
     }
+
+    if( !message.empty() )
+        PyErr_Format(PyExc_IndexError,message.c_str());
     if( rtn )
         return PyLong_FromVoidPtr((void*)rtn);
     Py_RETURN_NONE;
