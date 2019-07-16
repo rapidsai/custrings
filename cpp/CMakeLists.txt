@@ -132,6 +132,7 @@ add_library(NVStrings SHARED
             src/strings/pad.cu
             src/strings/replace.cu
             src/strings/replace_backref.cu
+            src/strings/replace_multi.cu
             src/strings/split.cu
             src/strings/strip.cu
             src/strings/substr.cu

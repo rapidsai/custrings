@@ -250,7 +250,7 @@ public:
      */
     int to_host(char** list, int start, int end);
 
-    // NVStrings_array.cu
+    // array.cu
     /**
      * @brief Create a new instance containing only the strings in the specified range.
      * @param start First 0-based index to capture from.
@@ -282,7 +282,7 @@ public:
      * Missing values pass through from this instance at those positions.
      *
      * @param[in] strs The instance for which to retrieve the values specified in pos array.
-     * @param[in] pos The 0-based index values to retrieve from the provided instance. 
+     * @param[in] pos The 0-based index values to retrieve from the provided instance.
      *                Number of values must equal the number of strings in strs pararameter.
      * @param devmem Indicates whether the pos parameter points to device memory or CPU memory.
      * @return New instance with the specified strings.
@@ -321,7 +321,7 @@ public:
      */
     int order( sorttype stype, bool ascending, unsigned int* indexes, bool nullfirst=true, bool devmem=true );
 
-    // NVStrings_attr.cu
+    // attrs.cu
     /**
      * @brief Retrieve the number of characters in each string.
      * @param[in,out] lengths The length in characters for each string.
@@ -414,7 +414,7 @@ public:
      */
     unsigned int is_empty( bool* results, bool devmem=true );
 
-    // NVStrings_combine.cu
+    // combine.cu
     /**
      * @brief Concatenates the given strings to this instance of strings and returns as new instance.
      * @param[in] others The number of strings must match this instance.
@@ -439,7 +439,7 @@ public:
      */
     NVStrings* join( const char* separator, const char* narep=0 );
 
-    // NVStrings_split.cu
+    // split.cu
     /**
      * @brief Each string is split into a list of new strings.
      *
@@ -539,7 +539,7 @@ public:
      */
     int rpartition( const char* delimiter, std::vector<NVStrings*>& results);
 
-    // NVStrings_pad.cu
+    // pad.cu
     /**
      * @brief Concatenate each string with itself the number of times specified.
      * @param count The number of times to repeat each string.
@@ -627,7 +627,7 @@ public:
      */
     NVStrings* wrap( unsigned int width );
 
-    // NVStrings_substr.cu
+    // substr.cu
     /**
      * @brief Return a specific character (as a string) by position for each string.
      *
@@ -657,6 +657,8 @@ public:
      * @return New instance containing strings with characters specified.
      */
     NVStrings* slice_from( const int* starts=0, const int* ends=0 );
+
+    // extract.cu
     /**
      * @brief Returns a list of strings for each group specified in the given regular expression pattern.
      *
@@ -666,6 +668,8 @@ public:
      * @return The number of instances returned in results.
      */
     int extract( const char* pattern, std::vector<NVStrings*>& results );
+
+    // extract_record.cu
     /**
      * @brief Returns a list of strings for each group specified in the given regular expression pattern.
      *
@@ -676,7 +680,7 @@ public:
      */
     int extract_record( const char* pattern, std::vector<NVStrings*>& results );
 
-    // NVStrings_modify.cu
+    // modify.cu
     /**
      * @brief Inserts the specified string (repl) into each string at the specified position.
      * @param[in] repl Null-terminated CPU string to insert into each string.
@@ -697,22 +701,17 @@ public:
      */
     NVStrings* replace( const char* str, const char* repl, int maxrepl=-1 );
     /**
-     * @brief Replaces occurrences found of one string with another string in each string of this instance.
+     * @brief Replaces any occurrences found in list of strings with corresponding string in each string of this instance.
      *
-     * This method uses the given regular expression pattern to search for the target \p str to replace.
-     * @param[in] pattern Null-terminated CPU string with regular expression.
-     * @param[in] repl Null-terminated CPU string to replace any found strings.
-     * @param maxrepl Maximum number of times to search and replace.
+     * This method does not use regular expression to search for the target string to replace.
+     * All occurrences found of any of the specified strings are replaced.
+     * If only a single string is present in repls, it is used for replacement for all targets.
+     * @param[in] strs List of strings to search for replacement.
+     * @param[in] repls List of strings to substitute for the corresponding string in strs.
+     *                  Must have the same number of strings as strs or contain just a single string.
      * @return New instance with the characters replaced appropriately.
      */
-    NVStrings* replace_re( const char* pattern, const char* repl, int maxrepl=-1 );
-    /**
-     * @brief Extract values using pattern and place them repl as indicated by backref indicators.
-     * @param[in] pattern Null-terminated CPU string with regular expression.
-     * @param[in] repl Null-terminated CPU string with back-reference indicators.
-     * @return New instance with the characters replaced appropriately.
-     */
-    NVStrings* replace_with_backrefs( const char* pattern, const char* repl );
+    NVStrings* replace( NVStrings& strs, NVStrings& repls );
     /**
      * @brief Translate characters in each string using the character-mapping table provided.
      * @param[in] table Individual Unicode characters and their replacment counterparts.
@@ -742,7 +741,41 @@ public:
      */
     NVStrings* insert( const char* repl, int pos=0 );
 
-    // NVStrings_strip.cu
+    // replace.cu
+    /**
+     * @brief Replaces occurrences found of one string with another string in each string of this instance.
+     *
+     * This method uses the given regular expression pattern to search for the target \p str to replace.
+     * @param[in] pattern Null-terminated CPU string with regular expression.
+     * @param[in] repl Null-terminated CPU string to replace any found strings.
+     * @param maxrepl Maximum number of times to search and replace.
+     * @return New instance with the characters replaced appropriately.
+     */
+    NVStrings* replace_re( const char* pattern, const char* repl, int maxrepl=-1 );
+
+    // replace_multi.cu
+    /**
+     * @brief Replaces occurrences found of string list with corresponding strings in each string of this instance.
+     *
+     * This method uses the given regular expression patterns to search for the target \p str to replace.
+     * If only a single string is present in repls, it is used for replacement for all targets.
+     * @param[in] patterns Null-terminated CPU strings with regular expressions.
+     * @param[in] repls Strings to replace any found strings.
+     *                  Must have the same number of strings as strs or contain just a single string.
+     * @return New instance with the characters replaced appropriately.
+     */
+    NVStrings* replace_re( std::vector<const char*>& patterns, NVStrings& repls );
+
+    // replace_backref.cu
+    /**
+     * @brief Extract values using pattern and place them repl as indicated by backref indicators.
+     * @param[in] pattern Null-terminated CPU string with regular expression.
+     * @param[in] repl Null-terminated CPU string with back-reference indicators.
+     * @return New instance with the characters replaced appropriately.
+     */
+    NVStrings* replace_with_backrefs( const char* pattern, const char* repl );
+
+    // strip.cu
     /**
      * @brief Remove the specified character(s) if found at the beginning of each string.
      * @param[in] to_strip Null-terminated CPU string of characters (UTF-8 encoded) to remove.
@@ -762,7 +795,7 @@ public:
      */
     NVStrings* rstrip( const char* to_strip );
 
-    // NVStrings_case.cu
+    // case.cu
     /**
      * @brief Return new instance modifying uppercase characters to lowercase.
      * @return New instance with each string case modified.
@@ -789,7 +822,7 @@ public:
      */
     NVStrings* title();
 
-    // NVStrings_find.cu
+    // find.cu
     /**
      * @brief Compare string to all the strings in this instance.
      *
@@ -852,20 +885,6 @@ public:
      */
     unsigned int find_multiple( NVStrings& strs, int* results, bool devmem=true );
     /**
-     * @brief Return all occurrences of the specified regular expression pattern in each string.
-     * @param[in] pattern The regulare expression pattern to search.
-     * @param[out] results List of instances.
-     * @return Number of strings returned in the results vector.
-     */
-    int findall( const char* pattern, std::vector<NVStrings*>& results );
-    /**
-     * @brief Return all occurrences of the specified regular expression pattern in each string.
-     * @param[in] pattern The regular expression pattern to search.
-     * @param[out] results List of instances.
-     * @return Number of strings returned in the results vector.
-     */
-    int findall_record( const char* pattern, std::vector<NVStrings*>& results );
-    /**
      * @brief Search for string within each string of this instance.
      * @param[in] str Null-terminated CPU string to search for in each string.
      * @param[in,out] results Array this method will fill in with the results.
@@ -875,24 +894,6 @@ public:
      */
     int contains( const char* str, bool* results, bool devmem=true );
     /**
-     * @brief Search for regular expression pattern within each string of this instance.
-     * @param[in] pattern Null-terminated CPU string of regular expression.
-     * @param[in,out] results Array this method will fill in with the results.
-     *                        This must point to memory able to hold size() values.
-     * @param devmem Indicates whether results points to device memory or CPU memory.
-     * @return Number of matches.
-     */
-    int contains_re( const char* pattern, bool* results, bool devmem=true );
-    /**
-     * @brief Search for regular expression pattern match at the beginning of each string.
-     * @param[in] pattern Null-terminated CPU string of regular expression.
-     * @param[in,out] results Array this method will fill in with the results.
-     *                        This must point to memory able to hold size() values.
-     * @param devmem Indicates whether results points to device memory or CPU memory.
-     * @return Number of matches.
-     */
-    int match( const char* pattern, bool* results, bool devmem=true );
-    /**
      * @brief Check each argument string matches with the corresponding strings in this list.
      * @param[in] strs Strings to compare against. The number of strings must match with this instance.
      * @param[in,out] results Array this method will fill in with the results.
@@ -901,15 +902,6 @@ public:
      * @return Number of matches.
      */
     int match_strings( NVStrings& strs, bool* results, bool devmem=true );
-    /**
-     * @brief Search for regular expression pattern match and count their occurrences for each string.
-     * @param[in] pattern Null-terminated CPU string of regular expression.
-     * @param[in,out] results Array this method will fill in with the results.
-     *                        This must point to memory able to hold size() values.
-     * @param devmem Indicates whether results points to device memory or CPU memory.
-     * @return Number of matches.
-     */
-    int count_re( const char* pattern, int* results, bool devmem=true );
     /**
      * @brief Compares the beginning of each string with the specified string.
      * @param[in] str Null-terminated CPU string to search for.
@@ -929,7 +921,54 @@ public:
      */
     unsigned int endswith( const char* str, bool* results, bool devmem=true );
 
-    // NVStrings_convert.cu
+    // findall.cu
+    /**
+     * @brief Return all occurrences of the specified regular expression pattern in each string.
+     * @param[in] pattern The regulare expression pattern to search.
+     * @param[out] results List of instances.
+     * @return Number of strings returned in the results vector.
+     */
+    int findall( const char* pattern, std::vector<NVStrings*>& results );
+
+    // findall_record.cu
+    /**
+     * @brief Return all occurrences of the specified regular expression pattern in each string.
+     * @param[in] pattern The regular expression pattern to search.
+     * @param[out] results List of instances.
+     * @return Number of strings returned in the results vector.
+     */
+    int findall_record( const char* pattern, std::vector<NVStrings*>& results );
+
+    // count.cu
+    /**
+     * @brief Search for regular expression pattern within each string of this instance.
+     * @param[in] pattern Null-terminated CPU string of regular expression.
+     * @param[in,out] results Array this method will fill in with the results.
+     *                        This must point to memory able to hold size() values.
+     * @param devmem Indicates whether results points to device memory or CPU memory.
+     * @return Number of matches.
+     */
+    int contains_re( const char* pattern, bool* results, bool devmem=true );
+    /**
+     * @brief Search for regular expression pattern match at the beginning of each string.
+     * @param[in] pattern Null-terminated CPU string of regular expression.
+     * @param[in,out] results Array this method will fill in with the results.
+     *                        This must point to memory able to hold size() values.
+     * @param devmem Indicates whether results points to device memory or CPU memory.
+     * @return Number of matches.
+     */
+    int match( const char* pattern, bool* results, bool devmem=true );
+    /**
+     * @brief Search for regular expression pattern match and count their occurrences for each string.
+     * @param[in] pattern Null-terminated CPU string of regular expression.
+     * @param[in,out] results Array this method will fill in with the results.
+     *                        This must point to memory able to hold size() values.
+     * @param devmem Indicates whether results points to device memory or CPU memory.
+     * @return Number of matches.
+     */
+    int count_re( const char* pattern, int* results, bool devmem=true );
+
+    // convert.cu
     /**
      * @brief Returns integer values represented by each string.
      * @param[in,out] results Array this method will fill in with the results.
@@ -1085,6 +1124,8 @@ public:
         us,              ///< precision is microseconds
         ns               ///< precision is nanoseconds
     };
+
+    // datetime.cu
     /**
      * @brief Returns integer representation date-time string.
      *
