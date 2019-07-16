@@ -108,7 +108,7 @@ struct replace_multi_regex_fn
 NVStrings* NVStrings::replace_re( std::vector<const char*>& patterns, NVStrings& repls )
 {
     if( patterns.size()==0 || repls.size()==0 )
-        throw std::invalid_argument("replace_re pattern parameter cannot be empty");
+        throw std::invalid_argument("replace_re patterns and repls parameters cannot be empty");
     if( repls.size()>1 && (repls.size()!=patterns.size()) )
         throw std::invalid_argument("replace_re patterns and repls must have the same number of strings");
     unsigned int count = size();

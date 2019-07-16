@@ -707,7 +707,8 @@ public:
      * All occurrences found of any of the specified strings are replaced.
      * If only a single string is present in repls, it is used for replacement for all targets.
      * @param[in] strs List of strings to search for replacement.
-     * @param[in] repls List of strings to substitute for the corresponding string in strs. Must have the same number of strings as strs or just 1 string.
+     * @param[in] repls List of strings to substitute for the corresponding string in strs.
+     *                  Must have the same number of strings as strs or contain just a single string.
      * @return New instance with the characters replaced appropriately.
      */
     NVStrings* replace( NVStrings& strs, NVStrings& repls );
@@ -751,12 +752,16 @@ public:
      * @return New instance with the characters replaced appropriately.
      */
     NVStrings* replace_re( const char* pattern, const char* repl, int maxrepl=-1 );
+
+    // replace_multi.cu
     /**
-     * @brief Replaces occurrences found of string list with corresponding string in each string of this instance.
+     * @brief Replaces occurrences found of string list with corresponding strings in each string of this instance.
      *
-     * This method uses the given regular expression pattern to search for the target \p str to replace.
+     * This method uses the given regular expression patterns to search for the target \p str to replace.
+     * If only a single string is present in repls, it is used for replacement for all targets.
      * @param[in] patterns Null-terminated CPU strings with regular expressions.
      * @param[in] repls Strings to replace any found strings.
+     *                  Must have the same number of strings as strs or contain just a single string.
      * @return New instance with the characters replaced appropriately.
      */
     NVStrings* replace_re( std::vector<const char*>& patterns, NVStrings& repls );

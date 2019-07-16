@@ -261,7 +261,7 @@ struct replace_multi_fn
 NVStrings* NVStrings::replace( NVStrings& targets, NVStrings& repls )
 {
     if( targets.size()==0 || repls.size()==0 )
-        throw std::invalid_argument("replace one or both parameters contains no strings");
+        throw std::invalid_argument("replace targets and repls parameters cannot be empty");
     if( repls.size()>1 && (repls.size() != targets.size()) )
         throw std::invalid_argument("replace targets and replacement sizes must match");
     auto execpol = rmm::exec_policy(0);

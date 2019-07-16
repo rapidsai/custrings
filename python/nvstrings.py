@@ -1490,12 +1490,12 @@ class nvstrings:
         pats : list or nvstrings
             Strings to be replaced.
             These can also be a regex expressions patterns.
-            If so, this must not be nvstrings instance.
+            If so, this must not be an nvstrings instance.
         repls : list or nvstrings
             Strings to replace found pattern/string.
             Must be the same number of strings as pats.
             Alternately, this can be a single str instance
-            and would be used as replacement for strings found.
+            and would be used as replacement for each string found.
         regex : boolean
             Set to True if pats are regular expression strings.
 

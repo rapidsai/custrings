@@ -195,7 +195,7 @@ def replace_tokens(strs, tgts, repls, delimiter=None):
     """
     The tgts tokens are searched for within each strs and replaced
     with the corresponding repls if found. Tokens are identified by
-    the delimiter provided.
+    the delimiter character(s) provided.
 
     Parameters
     ----------
@@ -204,9 +204,11 @@ def replace_tokens(strs, tgts, repls, delimiter=None):
     tgts : nvstrings
         The tokens to search for inside each strs.
     repls : nvstrings or str
-        The strings to replace for each found tgts token.
+        The strings to replace for each found tgts token found.
+        Alternately, this can be a single str instance
+        and would be used as replacement for each string found.
     delimiter : str
-        The character used to locate the tokens of each string.
+        The characters used to locate the tokens of each string.
         Default is whitespace.
 
     Examples
