@@ -1,5 +1,7 @@
 # cuStrings/nvStrings 0.9.0 (TBD)
 
+- PR #355 Add and use unified build script
+
 ## New Features
 
 - PR #363 Added scatter method to nvstrings
