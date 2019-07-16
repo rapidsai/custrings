@@ -12,9 +12,8 @@ endif()
 # - common test utils -----------------------------------------------------------------------------
 
 #add_library(cudftestutil STATIC
-#            "${CMAKE_CURRENT_SOURCE_DIR}/utilities/cudf_test_utils.cu"
-#            "${CMAKE_CURRENT_SOURCE_DIR}/utilities/valid_vectors.cpp"
-#            "${CMAKE_CURRENT_SOURCE_DIR}/utilities/nvcategory_utils.cu")
+#            "${CMAKE_CURRENT_SOURCE_DIR}/utilities/test_utils.cu"
+#            "${CMAKE_CURRENT_SOURCE_DIR}/utilities/valid_vectors.cpp")
 
 #target_link_libraries(rmm cudart cuda NVCategory NVStrings)
 
@@ -60,8 +59,8 @@ link_directories("${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES}"
 ###################################################################################################
 # - create tests ----------------------------------------------------------------------------------
 
-set(TO_HOST_TEST_SRC "${CMAKE_CURRENT_SOURCE_DIR}/to_host.cu")
+set(TEST_ARRAY_SRC "${CMAKE_CURRENT_SOURCE_DIR}/test_array.cu")
 
-ConfigureTest(TO_HOST_TEST "${TO_HOST_TEST_SRC}")
+ConfigureTest(TEST_ARRAY "${TEST_ARRAY_SRC}")
 
 
