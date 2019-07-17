@@ -192,6 +192,7 @@ NVStrings* NVStrings::cat( std::vector<NVStrings*>& others, const char* separato
             custring_view* dstr = d_strings[idx];
             int nchars = 0;
             int bytes = 0;
+            bool allnulls = !dstr && !d_narep;
             if( dstr )
             {
                 nchars += dstr->chars_count();
@@ -202,12 +203,11 @@ NVStrings* NVStrings::cat( std::vector<NVStrings*>& others, const char* separato
                 nchars += d_narep->chars_count();
                 bytes += d_narep->size();
             }
-
-            for( unsigned int jdx=0; jdx < others_count; ++jdx )
+            for( unsigned int jdx=0; !allnulls && (jdx < others_count); ++jdx )
             {
                 custring_view_array dcat2 = d_others[jdx];
                 dstr = dcat2[idx];
-                // separator
+                allnulls = !dstr && !d_narep;
                 if( d_separator )
                 {
                     nchars += d_separator->chars_count();
@@ -225,8 +225,10 @@ NVStrings* NVStrings::cat( std::vector<NVStrings*>& others, const char* separato
                 }
             }
             int size = custring_view::alloc_size(bytes,nchars);
-            //printf("cat:%lu:size=%d\n",idx,size);
             size = ALIGN_SIZE(size);
+            if( allnulls )
+                size = 0;
+            //printf("cat:%lu:size=%d\n",idx,size);
             d_sizes[idx] = size;
         });
 
@@ -249,7 +251,9 @@ NVStrings* NVStrings::cat( std::vector<NVStrings*>& others, const char* separato
     custring_view_array d_results = rtn->pImpl->getStringsPtr();
     size_t* d_offsets = offsets.data().get();
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
-        [d_strings, d_others, others_count, d_separator, d_narep, d_buffer, d_offsets, d_results] __device__(unsigned int idx){
+        [d_strings, d_others, others_count, d_separator, d_narep, d_buffer, d_sizes, d_offsets, d_results] __device__(unsigned int idx){
+            if( d_sizes[idx]==0 )
+                return; // null string
             char* buffer = d_buffer + d_offsets[idx];
             custring_view* dstr = d_strings[idx];
             custring_view* dout = custring_view::create_from(buffer,0,0); // init empty string

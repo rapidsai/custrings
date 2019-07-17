@@ -59,10 +59,8 @@ link_directories("${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES}"
 ###################################################################################################
 # - create tests ----------------------------------------------------------------------------------
 
-#set(TEST_ARRAY_SRC "${CMAKE_CURRENT_SOURCE_DIR}/test_array.cu")
-
-#ConfigureTest(TEST_ARRAY "${TEST_ARRAY_SRC}")
-ConfigureTest(ARRAY_TEST "${CMAKE_CURRENT_SOURCE_DIR}/test_array.cu")
-ConfigureTest(ATTRS_TEST "${CMAKE_CURRENT_SOURCE_DIR}/test_attrs.cu")
-
-
+ConfigureTest(ARRAY_TEST   "${CMAKE_CURRENT_SOURCE_DIR}/test_array.cu")
+ConfigureTest(ATTRS_TEST   "${CMAKE_CURRENT_SOURCE_DIR}/test_attrs.cu")
+ConfigureTest(CASE_TEST    "${CMAKE_CURRENT_SOURCE_DIR}/test_case.cu")
+ConfigureTest(COMBINE_TEST "${CMAKE_CURRENT_SOURCE_DIR}/test_combine.cu")
+ConfigureTest(CONVERT_TEST "${CMAKE_CURRENT_SOURCE_DIR}/test_convert.cu")

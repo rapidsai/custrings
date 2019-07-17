@@ -422,7 +422,7 @@ public:
      * @param[in] narep Null-terminated CPU string that should represent any null strings found.
      * @return New instance with this instance concatentated with the provided instance.
      */
-    NVStrings* cat( NVStrings* others, const char* separator, const char* narep=0);
+    NVStrings* cat( NVStrings* others, const char* separator, const char* narep=nullptr);
     /**
      * @brief Concatenates the given list of strings to this instance of strings and returns as new instance.
      * @param[in] others The number of strings in each item must match this instance.
@@ -430,14 +430,14 @@ public:
      * @param[in] narep Null-terminated CPU string that should represent any null strings found.
      * @return New instance with this instance concatentated with the provided instances.
      */
-    NVStrings* cat( std::vector<NVStrings*>& others, const char* separator, const char* narep=0);
+    NVStrings* cat( std::vector<NVStrings*>& others, const char* separator, const char* narep=nullptr);
     /**
      * @brief Concatenates all strings into one new string.
      * @param[in] separator Null-terminated CPU string that should appear between each string.
      * @param[in] narep Null-terminated CPU string that should represent any null strings found.
      * @return Resulting instance with one string.
      */
-    NVStrings* join( const char* separator, const char* narep=0 );
+    NVStrings* join( const char* separator="", const char* narep=nullptr );
 
     // split.cu
     /**
@@ -568,7 +568,7 @@ public:
      *                     Default is the ASCII space character (0x20).
      * @return New instance with each string padded appropriately.
      */
-    NVStrings* pad(unsigned int width, padside side, const char* fillchar=0);
+    NVStrings* pad(unsigned int width, padside side, const char* fillchar=nullptr);
     /**
      * @brief Add padding to the left of each string using a provided character.
      *
@@ -580,7 +580,7 @@ public:
      *                     Default is the ASCII space character (0x20).
      * @return New instance with each string padded appropriately.
      */
-    NVStrings* ljust( unsigned int width, const char* fillchar=0 );
+    NVStrings* ljust( unsigned int width, const char* fillchar=nullptr );
     /**
      * @brief Add padding to the left and right of each string using a provided character.
      *
@@ -593,7 +593,7 @@ public:
      *                     Default is the ASCII space character (0x20).
      * @return New instance with each string padded appropriately.
      */
-    NVStrings* center( unsigned int width, const char* fillchar=0 );
+    NVStrings* center( unsigned int width, const char* fillchar=nullptr );
     /**
      * @brief Add padding to the right of each string using a provided character.
      *
@@ -605,7 +605,7 @@ public:
      *                     Default is the ASCII space character (0x20).
      * @return New instance with each string padded appropriately.
      */
-    NVStrings* rjust( unsigned int width, const char* fillchar=0 );
+    NVStrings* rjust( unsigned int width, const char* fillchar=nullptr );
     /**
      * @brief Pads strings with leading zeros.
      *
@@ -656,7 +656,7 @@ public:
      *                 This must point to device memory of size() values.
      * @return New instance containing strings with characters specified.
      */
-    NVStrings* slice_from( const int* starts=0, const int* ends=0 );
+    NVStrings* slice_from( const int* starts=nullptr, const int* ends=nullptr );
 
     // extract.cu
     /**
@@ -1027,7 +1027,7 @@ public:
      * @param devmem Indicates whether results and nullbitmask points to device memory or CPU memory.
      * @return New instance with string representation of the values as appropriate.
      */
-    static NVStrings* itos(const int* values, unsigned int count, const unsigned char* nullbitmask=0, bool devmem=true);
+    static NVStrings* itos(const int* values, unsigned int count, const unsigned char* nullbitmask=nullptr, bool devmem=true);
     /**
      * @brief Returns string representation for the provided long integers.
      * @param[in] values Array of long integers to convert to strings.
@@ -1038,7 +1038,7 @@ public:
      * @param devmem Indicates whether results and nullbitmask points to device memory or CPU memory.
      * @return New instance with string representation of the values as appropriate.
      */
-    static NVStrings* ltos(const long* values, unsigned int count, const unsigned char* nullbitmask=0, bool devmem=true);
+    static NVStrings* ltos(const long* values, unsigned int count, const unsigned char* nullbitmask=nullptr, bool devmem=true);
     /**
      * @brief Returns string representation for the provided float values.
      *
@@ -1052,7 +1052,7 @@ public:
      * @param devmem Indicates whether results and nullbitmask points to device memory or CPU memory.
      * @return New instance with string representation of the values as appropriate.
      */
-    static NVStrings* ftos(const float* values, unsigned int count, const unsigned char* nullbitmask=0, bool devmem=true);
+    static NVStrings* ftos(const float* values, unsigned int count, const unsigned char* nullbitmask=nullptr, bool devmem=true);
     /**
      * @brief Returns string representation for the provided double float values.
      *
@@ -1066,7 +1066,7 @@ public:
      * @param devmem Indicates whether results and nullbitmask points to device memory or CPU memory.
      * @return New instance with string representation of the values as appropriate.
      */
-    static NVStrings* dtos(const double* values, unsigned int count, const unsigned char* nullbitmask=0, bool devmem=true);
+    static NVStrings* dtos(const double* values, unsigned int count, const unsigned char* nullbitmask=nullptr, bool devmem=true);
     /**
      * @brief Returns boolean representation of the strings in this instance.
      *
@@ -1090,7 +1090,7 @@ public:
      * @param devmem Indicates whether results and nullbitmask points to device memory or CPU memory.
      * @return New instance with string representation.
      */
-    static NVStrings* create_from_bools(const bool* values, unsigned int count, const char* true_string, const char* false_string, const unsigned char* nullbitmask=0, bool devmem=true);
+    static NVStrings* create_from_bools(const bool* values, unsigned int count, const char* true_string, const char* false_string, const unsigned char* nullbitmask=nullptr, bool devmem=true);
     /**
      * @brief Returns integer representation of IPv4 address.
      * @param[in,out] results Array this method will fill in with the results.
@@ -1109,7 +1109,7 @@ public:
      * @param devmem Indicates whether results points to device memory or CPU memory.
      * @return New instance with string representation of the integers as appropriate.
      */
-    static NVStrings* int2ip( const unsigned int* values, unsigned int count, const unsigned char* nullbitmask=0, bool devmem=true);
+    static NVStrings* int2ip( const unsigned int* values, unsigned int count, const unsigned char* nullbitmask=nullptr, bool devmem=true);
     /**
      * @brief  Units for timestamp conversion.
      */
@@ -1156,7 +1156,7 @@ public:
      * @param devmem Indicates whether results points to device memory or CPU memory.
      * @return New instance with string representation of the integers as appropriate.
      */
-    static NVStrings* long2timestamp( const unsigned long* values, unsigned int count, timestamp_units units, const char* format, const unsigned char* nullbitmask=0, bool devmem=true);
+    static NVStrings* long2timestamp( const unsigned long* values, unsigned int count, timestamp_units units, const char* format, const unsigned char* nullbitmask=nullptr, bool devmem=true);
 
     /**
      * @brief Output strings to stdout.

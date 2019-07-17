@@ -110,6 +110,33 @@ TEST(TestAttrs, IsNumeric)
     NVStrings::destroy(strs);
 }
 
+TEST(TestAttrs, IsSpace)
+{
+    NVStrings* strs = NVStrings::create_from_array(hstrs.data(), hstrs.size());
+
+    thrust::device_vector<bool> results(hstrs.size(),false);
+
+    strs->isspace(results.data().get());
+    {
+        bool expected[] = { false, false, false, false, false, false,
+                            false, false, false, false, false, false, false,
+                            false, false, true };
+        for( int idx=0; idx < hstrs.size(); ++idx )
+            EXPECT_EQ(results[idx],expected[idx]);
+    }
+
+    strs->is_empty(results.data().get());
+    {
+        bool expected[] = { false, false, true, false, false, true,
+                            false, false, false, false, false, false, false,
+                            false, false, false };
+        for( int idx=0; idx < hstrs.size(); ++idx )
+            EXPECT_EQ(results[idx],expected[idx]);
+    }
+
+    NVStrings::destroy(strs);
+}
+
 TEST(TestAttrs, IsUpperLower)
 {
     NVStrings* strs = NVStrings::create_from_array(hstrs.data(), hstrs.size());
@@ -130,10 +157,7 @@ TEST(TestAttrs, IsUpperLower)
                             true, true, true, true, true, true, true,
                             true, true, true };
         for( int idx=0; idx < hstrs.size(); ++idx )
-        {
-            //printf("%d:result=%d,expected=%d\n",idx,(int)results[idx],(int)expected[idx]);
             EXPECT_EQ(results[idx],expected[idx]);
-        }
     }
 
     NVStrings::destroy(strs);
