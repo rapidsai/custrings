@@ -77,7 +77,13 @@ Note: cuStrings is supported only on Linux, and with Python versions 3.6 or 3.7.
 See the [Get RAPIDS version picker](https://rapids.ai/start.html) for more OS and version info. 
 
 ## Build/Install from Source
-See build [instructions](CONTRIBUTING.md#setting-up-your-build-environment).
+See detailed build [instructions](CONTRIBUTING.md#setting-up-your-build-environment).
+
+Build and install `libcustrings` and `custrings` using build.sh. Build.sh creates build dir under cpp/ directory found in the root of the git repository. build.sh depends on the `nvcc` executable being on your path or defined in `$CUDACXX`.
+```bash
+$ ./build.sh -h                                     # Display help and exit
+$ ./build.sh -n custrings                           # Build the custrings target without installing
+$ ./build.sh                                        # Build and install libcustrings and custrings
 
 ## Contributing
 

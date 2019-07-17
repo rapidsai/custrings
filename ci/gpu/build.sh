@@ -76,30 +76,14 @@ nvidia-smi
 #  cuda-drivers=${DRIVER_VER} libcuda1-${LIBCUDA_VER}
 
 ################################################################################
-# BUILD - Build libNVStrings and NVStrings
+# BUILD - Build libcuStrings and cuStrings
 ################################################################################
 
-logger "Building custrings..."
-mkdir -p $WORKSPACE/cpp/build
-cd $WORKSPACE/cpp/build
-logger "Run cmake custrings..."
-cmake -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DCMAKE_CXX11_ABI=ON ..
-
-logger "Clean up make..."
-make clean
-
-logger "Make custrings..."
-make -j${PARALLEL_LEVEL}
-
-logger "Install custrings cpp..."
-make -j${PARALLEL_LEVEL} install
-
-logger "Install custrings python..."
-cd ../../python
-python setup.py install --single-version-externally-managed --record=record.txt
+logger "Building libcustrings and custrings..."
+${WORKSPACE}/build.sh clean libcustrings custrings
 
 ################################################################################
-# TEST - Test NVStrings
+# TEST - Test custrings
 ################################################################################
 
 if hasArg --skip-tests; then
@@ -111,5 +95,5 @@ logger "Check GPU usage..."
 nvidia-smi
 
 logger "Simple test..."
-cd tests
+cd ${WORKSPACE}/python/tests
 pytest --cache-clear --junitxml=${WORKSPACE}/junit-custrings.xml -v
