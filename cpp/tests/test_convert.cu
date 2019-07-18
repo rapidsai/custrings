@@ -1,7 +1,6 @@
 
 #include <gtest/gtest.h>
 #include <vector>
-#include <cuda_runtime.h>
 #include <thrust/device_vector.h>
 #include "../include/NVStrings.h"
 #include "utils.h"
