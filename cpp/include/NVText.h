@@ -152,4 +152,10 @@ public:
      */
     static NVStrings* create_ngrams(NVStrings& strs, unsigned int ngrams, const char* separator );
 
+    /**
+     * @brief Remove extra whitespace from the beginning, end, and between words (tokens separated by whitespace).
+     * @return Normalized strings
+     */
+    static NVStrings* normalize_spaces(NVStrings& strs);
+
 };

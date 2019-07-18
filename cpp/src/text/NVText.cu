@@ -1077,3 +1077,112 @@ NVStrings* NVText::create_ngrams(NVStrings& strs, unsigned int ngrams, const cha
     // build strings object from results elements
     return NVStrings::create_from_index((std::pair<const char*,size_t>*)d_results,ngrams_count);
 }
+
+struct normalize_spaces_fn
+{
+    custring_view_array d_strings;
+    size_t* d_offsets;
+    bool bcompute_size_only{true};
+    char* d_buffer;
+    thrust::pair<const char*,size_t>* d_indexes;
+
+    __device__ bool next_token( custring_view* dstr, bool& spaces, custring_view::iterator& itr, int& spos, int& epos )
+    {
+        if( spos >= dstr->chars_count() )
+            return false;
+        for( ; itr != dstr->end(); itr++ )
+        {
+            Char ch = *itr;
+            if( spaces == (ch <= ' ') )
+            {
+                if( spaces )
+                    spos = itr.position()+1;
+                else
+                    epos = itr.position()+1;
+                continue;
+            }
+            spaces = !spaces;
+            if( spaces )
+            {
+                epos = itr.position();
+                break;
+            }
+        }
+        return true;
+    }
+
+    __device__ void operator()(unsigned int idx)
+    {
+        if( !bcompute_size_only )
+        {
+            d_indexes[idx].first = nullptr;   // initialize to
+            d_indexes[idx].second = 0;        // null string
+        }
+        custring_view* dstr = d_strings[idx];
+        if( !dstr )
+            return;
+        char* sptr = dstr->data();  // input buffer
+        char* buffer = nullptr;     // output buffer
+        if( !bcompute_size_only )
+            buffer = d_buffer + d_offsets[idx];
+        char* optr = buffer; // running output pointer
+        int nbytes = 0, spos = 0, epos = dstr->chars_count();
+        bool spaces = true;
+        auto itr = dstr->begin();
+        while( next_token(dstr,spaces,itr,spos,epos) )
+        {
+            int spos_bo = dstr->byte_offset_for(spos); // convert char pos
+            int epos_bo = dstr->byte_offset_for(epos); // to byte offset
+            nbytes += epos_bo - spos_bo + 1; // include space per token
+            if( !bcompute_size_only )
+            {
+                if( optr != buffer )
+                    copy_and_incr(optr,(char*)" ",1); // add just one space
+                copy_and_incr(optr,sptr+spos_bo,epos_bo-spos_bo); // copy token
+            }
+            spos = epos + 1;
+            epos = dstr->chars_count();
+            itr++; // skip the first whitespace
+        }
+        // set result (remove extra space for last token)
+        if( bcompute_size_only )
+            d_offsets[idx] = (nbytes ? nbytes-1:0);
+        else
+        {
+            d_indexes[idx].first = buffer;
+            d_indexes[idx].second = (nbytes ? nbytes-1:0);
+        }
+    }
+};
+
+NVStrings* NVText::normalize_spaces(NVStrings& strs)
+{
+    if( strs.size()==0 )
+        return strs.copy();
+
+    auto execpol = rmm::exec_policy(0);
+    // go get the strings for all the parameters
+    unsigned int count = strs.size();
+    rmm::device_vector<custring_view*> strings(count,nullptr);
+    custring_view** d_strings = strings.data().get();
+    strs.create_custring_index(d_strings);
+
+    // first, calculate size of the output
+    rmm::device_vector<size_t> offsets(count,0);
+    size_t* d_offsets = offsets.data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        normalize_spaces_fn{d_strings, d_offsets} );
+
+    size_t buffer_size = thrust::reduce(execpol->on(0), d_offsets, d_offsets+count);
+    if( buffer_size==0 )
+        return nullptr;
+    char* d_buffer = device_alloc<char>(buffer_size,0);
+    thrust::exclusive_scan( execpol->on(0), offsets.begin(), offsets.end(), offsets.begin() );
+    // build the output strings
+    rmm::device_vector< thrust::pair<const char*,size_t> > indexes(count);
+    thrust::pair<const char*,size_t>* d_indexes = indexes.data().get();
+    thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
+        normalize_spaces_fn{d_strings, d_offsets, false, d_buffer, d_indexes} );
+
+    return NVStrings::create_from_index((std::pair<const char*,size_t>*)d_indexes,count);
+}
