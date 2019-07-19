@@ -19,6 +19,7 @@
 ## Bug Fixes
 
 - PR #353 Fixed sizer calculation for multiple replaces
+- PR #378 Fixed small memory leak in string categories
 
 
 # cuStrings/nvStrings 0.8.0 (27 June 2019)
