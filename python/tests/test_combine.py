@@ -41,7 +41,7 @@ def test_cat_multiple():
     strs1 = nvstrings.to_device(["1", "2", "3", "4", "5", "é", None])
     strs2 = nvstrings.to_device(["1", "2", "3", None, "5", "é", ""])
     got = strs.cat([strs1, strs2])
-    expected = ['abc11', 'df22', '33', '4', 'jkl55', 'mnéé', 'accént']
+    expected = ['abc11', 'df22', None, None, 'jkl55', 'mnéé', None]
     assert_eq(got, expected)
 
     got = strs.cat([strs1, strs2], sep=":", na_rep="_")

@@ -174,10 +174,9 @@ struct count_fn
         u_char data1[stack_size], data2[stack_size];
         prog->set_stack_mem(data1,data2);
         custring_view* dstr = d_strings[idx];
-        int fnd = -1;
+        int fnd = 0;
         if( dstr )
         {
-            fnd = 0;
             int nchars = (int)dstr->chars_count();
             int begin = 0;
             while( begin <= nchars )
@@ -238,7 +237,7 @@ int NVStrings::count_re( const char* pattern, int* results, bool todevice )
         thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
             count_fn<RX_STACK_LARGE>{prog, d_strings, d_rtn});
     // count the number of successful finds
-    int matches = thrust::count(execpol->on(0), d_rtn, d_rtn+count, true);
+    int matches = (int)count - thrust::count(execpol->on(0), d_rtn, d_rtn+count, 0);
     if( !todevice )
     {   // copy result back to host
         CUDA_TRY( cudaMemcpyAsync(results,d_rtn,sizeof(int)*count,cudaMemcpyDeviceToHost))

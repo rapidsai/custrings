@@ -72,7 +72,16 @@ if(CMAKE_BUILD_TYPE MATCHES Debug)
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -G -Xcompiler -rdynamic")
 endif(CMAKE_BUILD_TYPE MATCHES Debug)
 
-option(BUILD_TESTS "Configure CMake to build tests" OFF)
+option(BUILD_TESTS "Configure CMake to build tests" ON)
+
+###################################################################################################
+# - cmake modules ---------------------------------------------------------------------------------
+
+set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules/" ${CMAKE_MODULE_PATH})
+
+include(FeatureSummary)
+include(CheckIncludeFiles)
+include(CheckLibraryExists)
 
 ###################################################################################################
 # - rmm -------------------------------------------------------------------------------------------
@@ -93,6 +102,22 @@ add_library(rmm SHARED IMPORTED ${RMM_LIBRARY})
 if (RMM_INCLUDE AND RMM_LIBRARY)
     set_target_properties(rmm PROPERTIES IMPORTED_LOCATION ${RMM_LIBRARY})
 endif (RMM_INCLUDE AND RMM_LIBRARY)
+
+###################################################################################################
+# - add gtest -------------------------------------------------------------------------------------
+
+if(BUILD_TESTS)
+    include(CTest)
+    include(ConfigureGoogleTest)
+
+    if(GTEST_FOUND)
+        message(STATUS "Google C++ Testing Framework (Google Test) found in ${GTEST_ROOT}")
+        include_directories(${GTEST_INCLUDE_DIR})
+        add_subdirectory(${CMAKE_SOURCE_DIR}/tests)
+    else()
+        message(AUTHOR_WARNING "Google C++ Testing Framework (Google Test) not found: automated tests are disabled.")
+    endif(GTEST_FOUND)
+endif(BUILD_TESTS)
 
 ###################################################################################################
 # - include paths ---------------------------------------------------------------------------------

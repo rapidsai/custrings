@@ -15,6 +15,7 @@
 - PR #358 Added improved hash algorithm to reduce collisions
 - PR #369 Reconfigure C++ source directory structure
 - PR #370 Updated memsize() to include pointer memory too
+- PR #375 Added gtests for C++ unit testing
 
 ## Bug Fixes
 
