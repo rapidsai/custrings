@@ -291,8 +291,11 @@ int NVStrings_init_from_indexes( NVStringsImpl* pImpl, std::pair<const char*,siz
     // allocate device memory
     size_t nbytes = thrust::reduce(execpol->on(0),sizes.begin(),sizes.end());
     //printf("nvs-idx: %'lu bytes\n",nbytes);
-    if( nbytes==0 )
+    if( nbytes==0 ) {
+        if( !bdevmem )
+            RMM_FREE(d_indexes,0);
         return 0;  // done, all the strings were null
+    }
     char* d_flatdstrs = nullptr;
     rerr = RMM_ALLOC(&d_flatdstrs,nbytes,0);
     if( rerr != RMM_SUCCESS )
