@@ -19,6 +19,7 @@
 ## Bug Fixes
 
 - PR #353 Fixed sizer calculation for multiple replaces
+- PR #378 Fixed small memory leak in string categories
 - PR #373 Properly catch/throw exceptions raised by `gather_strings`
 
 
