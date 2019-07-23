@@ -1,8 +1,6 @@
 
 
 #include <gtest/gtest.h>
-#include <vector>
-#include <cuda_runtime.h>
 #include "../include/NVStrings.h"
 #include "utils.h"
 
@@ -11,14 +9,14 @@ TEST(TestURL, UrlEncode)
 {
     std::vector<const char*> hstrs{"www.nvidia.com/rapids?p=é", "/_file-7.txt", "a b+c~d",
                                    "e\tfgh\\jklmnopqrstuvwxyz", "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-                                   "0123456789", " \t\f\n", 
+                                   "0123456789", " \t\f\n",
                                    nullptr, "" };
     NVStrings* strs = NVStrings::create_from_array(hstrs.data(),hstrs.size());
 
     NVStrings* got = strs->url_encode();
     const char* expected[] = { "www.nvidia.com%2Frapids%3Fp%3D%C3%A9", "%2F_file-7.txt", "a%20b%2Bc~d",
                                "e%09fgh%5Cjklmnopqrstuvwxyz", "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-                               "0123456789", "%20%09%0C%0A", 
+                               "0123456789", "%20%09%0C%0A",
                                nullptr, "" };
     EXPECT_TRUE( verify_strings(got, expected));
 

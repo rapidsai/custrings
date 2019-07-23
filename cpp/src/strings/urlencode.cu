@@ -27,7 +27,7 @@
 #include "../custring_view.cuh"
 #include "../util.h"
 
-// 
+//
 struct url_encoder
 {
     custring_view_array d_strings;

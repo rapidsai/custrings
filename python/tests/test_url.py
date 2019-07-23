@@ -16,7 +16,7 @@ def test_encode_url():
     got = s.url_encode()
     expected = []
     for url in urls1:
-        expected.append(urllib.parse.quote(url, safe=''))
+        expected.append(urllib.parse.quote(url, safe='~'))
     assert_eq(got, expected)
 
 
