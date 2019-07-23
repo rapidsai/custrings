@@ -2550,3 +2550,42 @@ class nvstrings:
         """
         rtn = pyniNVStrings.n_get_info(self.m_cptr)
         return rtn
+
+    def url_encode(self):
+        """
+        URL-encode each string and return as a new instance.
+        No format checking is performed. All characters are encoded except
+        for ASCII letters, digits, and these characters: '.','_','-','~'.
+        Encoding converts to hex using UTF-8 encoded bytes.
+
+        Examples
+        --------
+        >>> import nvstrings
+        >>> s = nvstrings.to_device(["a/b-c/d","E F.G","1-2,3"])
+        >>> print(s.url_encode())
+        ['a%2Fb-c%2Fd', 'E%20F.G', '1-2%2C3']
+
+        """
+        rtn = pyniNVStrings.n_url_encode(self.m_cptr)
+        if rtn is not None:
+            rtn = nvstrings(rtn)
+        return rtn
+
+    def url_decode(self):
+        """
+        URL-decode each string and return as a new instance.
+        No format checking is performed. All characters are
+        expected to be encoded as UTF-8 hex values.
+
+        Examples
+        --------
+        >>> import nvstrings
+        >>> s = nvstrings.to_device(['A%2FB-C%2FD', 'e%20f.g', '4-5%2C6'])
+        >>> print(s.url_decode())
+        ['A/B-C/D', 'e f.g', '4-5,6']
+
+        """
+        rtn = pyniNVStrings.n_url_decode(self.m_cptr)
+        if rtn is not None:
+            rtn = nvstrings(rtn)
+        return rtn
