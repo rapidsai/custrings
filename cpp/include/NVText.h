@@ -107,7 +107,7 @@ public:
      * @brief Replace specified tokens with new tokens in whitespace-delimited strings.
      * @param strs Strings to search/replace.
      * @param tgts Tokens to search for in each string in strs.
-     * @param repls Tokens to insert in place of those found. 
+     * @param repls Tokens to insert in place of those found.
      *              This must be have the same number of strings as tgts.
      *              Or, if there is only one string, all tgts are replace by this one string.
      * @param delimiter String or character used to identify tokens.
@@ -151,5 +151,15 @@ public:
      * @return The tokens as ngrams.
      */
     static NVStrings* create_ngrams(NVStrings& strs, unsigned int ngrams, const char* separator );
+
+    /**
+     * @brief Computes Porter Stemmer measure on words in the provided NVStrings instance.
+     * @param strs Words that preprocessed to lowercase with no punctuation and no whitespace.
+     * @param vowels Characters to check as vowels.
+     * @param y_char The 'y' character used for extra vowel checking.
+     * @param[in,out] results Array of measures, one per string.
+     * @return 0 if successful
+     */
+    static unsigned int porter_stemmer_measure(NVStrings& strs, const char* vowels, const char* y_char, unsigned int* results, bool devmem=true );
 
 };
