@@ -7,6 +7,7 @@
 - PR #363 Added scatter method to nvstrings
 - PR #371 Added replace() with multiple strings parameters
 - PR #382 Added url encode/decode method
+- PR #386 Added normalize_spaces method to nvtext
 
 ## Improvements
 

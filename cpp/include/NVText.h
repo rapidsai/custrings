@@ -116,6 +116,12 @@ public:
     static NVStrings* replace_tokens(NVStrings& strs, NVStrings& tgts, NVStrings& repl, const char* delimiter=nullptr );
 
     /**
+     * @brief Remove extra whitespace from the beginning, end, and between words (tokens separated by whitespace).
+     * @return Normalized strings
+     */
+    static NVStrings* normalize_spaces(NVStrings& strs);
+
+    /**
      * @brief Edit distance algorithms
      */
     enum distance_type {
