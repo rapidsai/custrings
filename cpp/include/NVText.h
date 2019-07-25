@@ -107,7 +107,7 @@ public:
      * @brief Replace specified tokens with new tokens in whitespace-delimited strings.
      * @param strs Strings to search/replace.
      * @param tgts Tokens to search for in each string in strs.
-     * @param repls Tokens to insert in place of those found. 
+     * @param repls Tokens to insert in place of those found.
      *              This must be have the same number of strings as tgts.
      *              Or, if there is only one string, all tgts are replace by this one string.
      * @param delimiter String or character used to identify tokens.
