@@ -1158,6 +1158,23 @@ public:
      */
     static NVStrings* long2timestamp( const unsigned long* values, unsigned int count, timestamp_units units, const char* format, const unsigned char* nullbitmask=nullptr, bool devmem=true);
 
+    // urlencode.cu
+    /**
+     * @brief URL-encodes each string and returns the new instance.
+     *        This uses UTF-8 encoding style and does no error checking on the strings.
+     *        All letters and digits are not encoded as well as characters '.','_','~','-'.
+     *
+     * @return New instance of url-encoded strings
+     */
+    NVStrings* url_encode();
+    /**
+     * @brief URL-decodes each string and returns the new instance.
+     *        This expects UTF-8 encoding style and does no error checking on the strings.
+     *
+     * @return New instance of url-encoded strings
+     */
+    NVStrings* url_decode();
+
     /**
      * @brief Output strings to stdout.
      * @param pos First string to start printing.
