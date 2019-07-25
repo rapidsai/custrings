@@ -73,4 +73,8 @@ ConfigureTest(PAD_TEST     "${CMAKE_CURRENT_SOURCE_DIR}/test_pad.cpp")
 ConfigureTest(STRIP_TEST   "${CMAKE_CURRENT_SOURCE_DIR}/test_strip.cpp")
 ConfigureTest(SPLIT_TEST   "${CMAKE_CURRENT_SOURCE_DIR}/test_split.cpp")
 ConfigureTest(REPLACE_TEST "${CMAKE_CURRENT_SOURCE_DIR}/test_replace.cpp")
+<<<<<<< HEAD
 ConfigureTest(TEXT_TEST    "${CMAKE_CURRENT_SOURCE_DIR}/test_text.cu")
+=======
+ConfigureTest(URL_TEST     "${CMAKE_CURRENT_SOURCE_DIR}/test_url.cpp")
+>>>>>>> branch-0.9

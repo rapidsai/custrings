@@ -3786,6 +3786,31 @@ static PyObject* n_get_info( PyObject* self, PyObject* args )
     return pydict;
 }
 
+static PyObject* n_url_encode( PyObject* self, PyObject* args )
+{
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    NVStrings* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->url_encode();
+    Py_END_ALLOW_THREADS
+    if( rtn )
+        return PyLong_FromVoidPtr((void*)rtn);
+    Py_RETURN_NONE;
+}
+
+static PyObject* n_url_decode( PyObject* self, PyObject* args )
+{
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    NVStrings* rtn = nullptr;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->url_decode();
+    Py_END_ALLOW_THREADS
+    if( rtn )
+        return PyLong_FromVoidPtr((void*)rtn);
+    Py_RETURN_NONE;
+}
+
+
 // Version 0.1, 0.1.1, 0.2, 0.2.1 features
 static PyMethodDef s_Methods[] = {
     { "n_createFromHostStrings", n_createFromHostStrings, METH_VARARGS, "" },
@@ -3887,6 +3912,8 @@ static PyMethodDef s_Methods[] = {
     { "n_isupper", n_isupper, METH_VARARGS, "" },
     { "n_is_empty", n_is_empty, METH_VARARGS, "" },
     { "n_get_info", n_get_info, METH_VARARGS, "" },
+    { "n_url_encode", n_url_encode, METH_VARARGS, "" },
+    { "n_url_decode", n_url_decode, METH_VARARGS, "" },
     { NULL, NULL, 0, NULL }
 };
 

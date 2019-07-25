@@ -161,6 +161,7 @@ add_library(NVStrings SHARED
             src/strings/split.cu
             src/strings/strip.cu
             src/strings/substr.cu
+            src/strings/urlencode.cu
             src/util.cu
             src/regex/regexec.cpp
             src/regex/regcomp.cpp)
