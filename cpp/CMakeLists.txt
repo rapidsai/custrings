@@ -176,7 +176,8 @@ add_library(NVCategory SHARED
             )
 
 add_library(NVText SHARED
-            src/text/NVText.cu)
+            src/text/NVText.cu
+            src/util.cu)
 
 ###################################################################################################
 # - link libraries --------------------------------------------------------------------------------
