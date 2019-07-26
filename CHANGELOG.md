@@ -8,6 +8,7 @@
 - PR #371 Added replace() with multiple strings parameters
 - PR #385 Added Porter Stemmer measure method
 - PR #382 Added url encode/decode method
+- PR #386 Added normalize_spaces method to nvtext
 
 ## Improvements
 
