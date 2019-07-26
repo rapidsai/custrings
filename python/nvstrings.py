@@ -2442,6 +2442,36 @@ class nvstrings:
             rtn = nvstrings(rtn)
         return rtn
 
+    def scalar_scatter(self, str, indexes, count):
+        """
+        Return a new list of strings placing the specified
+        string at the provided indexes.
+
+        Parameters
+        ----------
+        str : str
+            String to be placed
+        indexes : List of ints or GPU memory pointer
+            0-based indexes of strings indicating the positions
+            where the str parameter should be placed.
+            Existing strings at those positions will be replaced.
+            Values must be of type int32.
+        count : int
+            Number of elements in the indexes parameter.
+
+        Examples
+        --------
+        >>> import nvstrings
+        >>> s1 = nvstrings.to_device(["a","b","c","d"])
+        >>> print(s1.scalar_scatter("_", [1, 3]))
+        ['a', '_', 'c', '_']
+
+        """
+        rtn = pyniNVStrings.n_scalar_scatter(self.m_cptr, str, indexes, count)
+        if rtn is not None:
+            rtn = nvstrings(rtn)
+        return rtn
+
     def remove_strings(self, indexes, count=0):
         """
         Remove the specified strings and return a new instance.

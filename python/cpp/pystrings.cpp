@@ -3298,6 +3298,41 @@ static PyObject* n_scatter( PyObject* self, PyObject* args )
     Py_RETURN_NONE;
 }
 
+static PyObject* n_scalar_scatter( PyObject* self, PyObject* args )
+{
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    const char* repl_str = PyUnicode_AsUTF8(PyTuple_GetItem(args,1));
+    PyObject* pyidxs = PyTuple_GetItem(args,2);
+    DataBuffer<int> dbvalues(pyidxs);
+    if( dbvalues.is_error() )
+    {
+        PyErr_Format(PyExc_TypeError,"scatter: %s",dbvalues.get_error_text());
+        Py_RETURN_NONE;
+    }
+    if( dbvalues.get_type_width()!=sizeof(int) )
+    {
+        PyErr_Format(PyExc_TypeError,"scatter: values must be of type int32");
+        Py_RETURN_NONE;
+    }
+    unsigned int count = dbvalues.get_count();
+    if( !count )
+        count = (unsigned int)PyLong_AsLong(PyTuple_GetItem(args,3));
+    bool bdevmem = dbvalues.is_device_type();
+
+    NVStrings* rtn = 0;
+    std::string message;
+    Py_BEGIN_ALLOW_THREADS
+    rtn = tptr->scatter(repl_str,dbvalues.get_values(),count,bdevmem);
+    Py_END_ALLOW_THREADS
+
+    //
+    if( rtn )
+        return PyLong_FromVoidPtr((void*)rtn);
+    if( !message.empty() )
+        PyErr_Format(PyExc_IndexError,message.c_str());
+    Py_RETURN_NONE;
+}
+
 //
 static PyObject* n_remove_strings( PyObject* self, PyObject* args )
 {
@@ -3902,6 +3937,7 @@ static PyMethodDef s_Methods[] = {
     { "n_gather", n_gather, METH_VARARGS, "" },
     { "n_sublist", n_sublist, METH_VARARGS, "" },
     { "n_scatter", n_scatter, METH_VARARGS, "" },
+    { "n_scalar_scatter", n_scalar_scatter, METH_VARARGS, "" },
     { "n_isalnum", n_isalnum, METH_VARARGS, "" },
     { "n_isalpha", n_isalpha, METH_VARARGS, "" },
     { "n_isdigit", n_isdigit, METH_VARARGS, "" },
