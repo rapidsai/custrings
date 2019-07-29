@@ -529,6 +529,13 @@ class nvstrings:
         """
         return pyniNVStrings.n_size(self.m_cptr)
 
+    def device_memory(self):
+        """
+        The total device memory used by this instance
+        :return:
+        """
+        return pyniNVStrings.n_device_memory(self.m_cptr)
+
     def len(self, devptr=0):
         """
         Returns the number of characters of each string.
