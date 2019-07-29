@@ -25,9 +25,9 @@
 
 - PR #353 Fixed sizer calculation for multiple replaces
 - PR #378 Fixed small memory leak in string categories
-- PR #373 Properly catch/throw exceptions raised by `gather_strings`
 - PR #380 Removed obsolete directory from Dockerfile
 - PR #373 Properly catch/throw exceptions raised by gather_strings
+- PR #391 Corrected overflow logic in stod
 
 
 # cuStrings/nvStrings 0.8.0 (27 June 2019)
