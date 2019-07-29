@@ -9,6 +9,7 @@
 # cuStrings/nvStrings 0.9.0 (TBD)
 
 - PR #355 Add and use unified build script
+- PR #390 Fix local build generated file ownerships
 
 ## New Features
 
