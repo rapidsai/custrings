@@ -6,6 +6,10 @@
 
 - PR #363 Added scatter method to nvstrings
 - PR #371 Added replace() with multiple strings parameters
+- PR #385 Added Porter Stemmer measure method
+- PR #382 Added url encode/decode method
+- PR #387 Added scalar_scatter method to nvstrings
+- PR #386 Added normalize_spaces method to nvtext
 
 ## Improvements
 
@@ -23,6 +27,8 @@
 - PR #378 Fixed small memory leak in string categories
 - PR #373 Properly catch/throw exceptions raised by `gather_strings`
 - PR #380 Removed obsolete directory from Dockerfile
+- PR #373 Properly catch/throw exceptions raised by gather_strings
+
 
 # cuStrings/nvStrings 0.8.0 (27 June 2019)
 

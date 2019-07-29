@@ -89,18 +89,6 @@ unsigned short* get_charcases()
 }
 
 //
-custring_view* custring_from_host( const char* str )
-{
-    if( !str )
-        return nullptr;
-    unsigned int length = (unsigned int)strlen(str);
-    unsigned int bytes = custring_view::alloc_size(str,length);
-    custring_view* d_str = reinterpret_cast<custring_view*>(device_alloc<char>(bytes,0));
-    custring_view::create_from_host(d_str,str,length);
-    return d_str;
-}
-
-//
 NVStringsImpl::NVStringsImpl(unsigned int count)
               : bufferSize(0), memoryBuffer(nullptr), bIpcHandle(false), stream_id(0)
 {
