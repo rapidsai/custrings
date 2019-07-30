@@ -3770,7 +3770,7 @@ static PyObject* n_is_empty( PyObject* self, PyObject* args )
 static PyObject* n_device_memory( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
-    unsigned int mem_size  = 0;
+    size_t mem_size  = 0;
     Py_BEGIN_ALLOW_THREADS
     mem_size = tptr->memsize();
     Py_END_ALLOW_THREADS
