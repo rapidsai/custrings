@@ -10,6 +10,7 @@
 - PR #382 Added url encode/decode method
 - PR #387 Added scalar_scatter method to nvstrings
 - PR #386 Added normalize_spaces method to nvtext
+- PR #394 Added documentation on supported timestamp specifiers
 
 ## Improvements
 
