@@ -3767,6 +3767,16 @@ static PyObject* n_is_empty( PyObject* self, PyObject* args )
     return ret;
 }
 
+static PyObject* n_device_memory( PyObject* self, PyObject* args )
+{
+    NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
+    unsigned int mem_size  = 0;
+    Py_BEGIN_ALLOW_THREADS
+    mem_size = tptr->memsize();
+    Py_END_ALLOW_THREADS
+    return PyLong_FromLong(mem_size);
+}
+
 static PyObject* n_get_info( PyObject* self, PyObject* args )
 {
     NVStrings* tptr = (NVStrings*)PyLong_AsVoidPtr(PyTuple_GetItem(args,0));
@@ -3947,6 +3957,7 @@ static PyMethodDef s_Methods[] = {
     { "n_islower", n_islower, METH_VARARGS, "" },
     { "n_isupper", n_isupper, METH_VARARGS, "" },
     { "n_is_empty", n_is_empty, METH_VARARGS, "" },
+    { "n_device_memory", n_device_memory, METH_VARARGS, "" },
     { "n_get_info", n_get_info, METH_VARARGS, "" },
     { "n_url_encode", n_url_encode, METH_VARARGS, "" },
     { "n_url_decode", n_url_decode, METH_VARARGS, "" },
