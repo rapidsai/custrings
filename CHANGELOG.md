@@ -41,6 +41,7 @@
 - PR #325 Add test skipping functionality to build.sh
 - PR #332 Accept multiple nvstrings in cat() method
 - PR #327 Allow numeric keys in nvcategory
+- PR #396 Streamline CUDA_REL environment variable
 
 ## Improvements
 
