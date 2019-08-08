@@ -1,6 +1,6 @@
 # <div align="left"><img src="img/rapids_logo.png" width="90px"/>&nbsp;cuStrings - GPU String Manipulation</div>
 
-[![Build Status](http://18.191.94.64/buildStatus/icon?job=custrings-master)](http://18.191.94.64/job/custrings-master/)&nbsp;&nbsp;[![Documentation Status](https://readthedocs.org/projects/nvstrings/badge/?version=latest)](https://docs.rapids.ai/api/nvstrings/nightly/)
+[![Build Status](https://gpuci.gpuopenanalytics.com/buildStatus/icon?job=gpuCI%2Fcustrings%2Fbranches%2Fcustrings-gpu-branch-0.10)](https://gpuci.gpuopenanalytics.com/job/gpuCI/job/custrings/job/branches/job/custrings-gpu-branch-0.10/)&nbsp;&nbsp;[![Documentation Status](https://readthedocs.org/projects/nvstrings/badge/?version=latest)](https://docs.rapids.ai/api/nvstrings/nightly/)
 
 **NOTE:** For the latest stable [README.md](https://github.com/rapidsai/custrings/blob/master/README.md) ensure you are on the `master` branch.
 
