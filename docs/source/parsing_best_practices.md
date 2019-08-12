@@ -14,7 +14,7 @@ If your data has unequal length distribution (For example, the longest string mi
 
 As regexes operate one character at a time, longer length strings take longer to evaluate and operating on strings in parallel improves throughput.   The GPU works most efficiently when adjacent threads in a warp work in lock step. Wildly different string lengths within adjacent threads means that the threads operating on shorter strings become idle, reducing utilization.
 
-Sorting helps to obtain better wrapping heloing adjacent threads in a warp work in lock step to improve utilization . 
+Sorting helps to obtain better wrapping helping adjacent threads in a warp work in lock step to improve utilization . 
 
 ### Sorting Alphabetically
 
@@ -30,7 +30,7 @@ These two tenets of parallel computing mean sorting input strings by length can 
 
 ### Example:
 
-Lets walk throw a simple example to see the performence differences for ourselves. 
+Lets walk throw a simple example to see the performance differences for ourselves. 
 
 Lets take a simple example where we have to remove `-` character between 2 alphabetical characters while keeping the `-` between numerical characters on a dataset with 4 million short strings and 50k long strings . 
 
@@ -181,14 +181,14 @@ CPU times: user 724 ms, sys: 230 ms, total: 954 ms
 Wall time: 959 ms
 ```
 
-*Using `nvtext` is thus almost 10x+ faster than the other approches shown here.*
+*Using `nvtext` is thus almost 10x+ faster than the other approaches shown here.*
 
 
-## Splitting strings for better performence
+## Splitting strings for better performance
 
-In `nvstrings`, each operation runs in parallel threads and each string is assigned to a thread.The more strings, the more GPU threads and thus better possible parallelization. 
+In `nvstrings`, each operation runs in parallel threads and each string is assigned to a thread. The more strings, the more GPU threads and thus better possible parallelization. 
 
-As a rule of thumb, for the best performence on GPU's, try to keep the average length of strings less and the number of strings large. 
+As a rule of thumb, for the best performance on GPU's, try to keep the average length of strings less and the number of strings large. 
 
 Split functions come that come in handy to do this are:
 
