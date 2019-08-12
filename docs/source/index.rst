@@ -8,6 +8,7 @@ Welcome to nvstrings documentation!
    api.rst
    unicode.md
    regex.md
+   parsing_best_practices.md
 
 Indices and tables
 ==================
