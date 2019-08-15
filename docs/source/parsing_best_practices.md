@@ -73,17 +73,19 @@ Lets check our performance on sorted strings:
 
 ```python
 text_sr = cudf.Series(example_list)
-sorted_ser = text_sr.str.sort(3)
-%time sorted_ser.str.replace_with_backrefs('([a-z])-([a-z])',r'\1 \2')
+# sort by length
+%time sorted_ser = text_sr.str.sort(1)
+%time cleaned_ser = sorted_ser.str.replace_with_backrefs('([a-z])-([a-z])',r'\1 \2')
 ```
 
 ```python
-CPU times: user 174 ms, sys: 63.5 ms, total: 237 ms
-Wall time: 237 ms
-<cudf.Series nrows=4050000 >
+CPU times: user 27.8 ms, sys: 11.9 ms, total: 39.7 ms
+Wall time: 39.7 ms
+CPU times: user 194 ms, sys: 64.5 ms, total: 259 ms
+Wall time: 257 ms
 ```
 
-We see we can get a `14x` boost if we sort our strings by length
+We see we can get a `11x` boost if we sort our strings by length (including the sorting time)
  
 
 ## Character and Substring Substitution/Removal
