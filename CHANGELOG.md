@@ -1,4 +1,4 @@
-# cuStrings/nvStrings 0.9.0 (TBD)
+# cuStrings/nvStrings 0.9.0 (21 Aug 2019)
 
 - PR #355 Add and use unified build script
 
