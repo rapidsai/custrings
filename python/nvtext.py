@@ -191,6 +191,73 @@ def tokens_counts(strs, tgts, delimiter=' ', devptr=0):
     return rtn
 
 
+def replace_tokens(strs, tgts, repls, delimiter=None):
+    """
+    The tgts tokens are searched for within each strs and replaced
+    with the corresponding repls if found. Tokens are identified by
+    the delimiter character(s) provided.
+
+    Parameters
+    ----------
+    strs : nvstrings
+        The strings for this operation.
+    tgts : nvstrings
+        The tokens to search for inside each strs.
+    repls : nvstrings or str
+        The strings to replace for each found tgts token found.
+        Alternately, this can be a single str instance
+        and would be used as replacement for each string found.
+    delimiter : str
+        The characters used to locate the tokens of each string.
+        Default is whitespace.
+
+    Examples
+    --------
+    >>> import nvstrings, nvtext
+    >>> s = nvstrings.to_device(["this is me","theme music",""])
+    >>> t = nvstrings.to_device(['is','me'])
+    >>> r = nvtext.replace_tokens(s,t,'_')
+    >>> print(r)
+    ["this _ _", "theme music"]
+
+    """
+    if isinstance(repls, str):
+        repls = nvs.to_device([repls])
+    if isinstance(repls, list):
+        repls = nvs.to_device(repls)
+    if isinstance(tgts, list):
+        tgts = nvs.to_device(tgts)
+    rtn = pyniNVText.n_replace_tokens(strs, tgts, repls, delimiter)
+    if rtn is not None:
+        rtn = nvs.nvstrings(rtn)
+    return rtn
+
+
+def normalize_spaces(strs):
+    """
+    Remove extra whitespace between tokens and trim whitespace
+    from the beginning and the end of each string.
+
+    Parameters
+    ----------
+    strs : nvstrings
+        The strings for this operation.
+
+    Examples
+    --------
+    >>> import nvstrings, nvtext
+    >>> s = nvstrings.to_device(["hello \t world"," test string  "])
+    >>> n = nvtext.normalize_spaces(s)
+    >>> print(n)
+    ["hello world", "test string"]
+
+    """
+    rtn = pyniNVText.n_normalize_spaces(strs)
+    if rtn is not None:
+        rtn = nvs.nvstrings(rtn)
+    return rtn
+
+
 def edit_distance(strs, tgt, algo=0, devptr=0):
     """
     Compute the edit-distance between strs and tgt.

@@ -41,6 +41,13 @@ This will create a conda environment called `devstr` that can be used when build
 
 ### CMake for C++ interface
 
+Build and install libcustring from root of the git repository by
+```
+$ ./build.sh -h # To display all possible options
+$ ./build.sh libcustrings
+```
+
+### Manually build libcustrings
 Build by creating a `build` dir under `/cpp` and calling cmake:
 ```
     cd cpp

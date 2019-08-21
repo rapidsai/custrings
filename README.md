@@ -63,11 +63,11 @@ cuStrings can be installed with conda ([miniconda](https://conda.io/miniconda.ht
 ```bash
 # for CUDA 9.2
 conda install -c nvidia -c rapidsai -c numba -c conda-forge -c defaults \
-    nvstrings=0.7 python=3.6 cudatoolkit=9.2
+    nvstrings=0.8 python=3.6 cudatoolkit=9.2
 
 # or, for CUDA 10.0
 conda install -c nvidia -c rapidsai -c numba -c conda-forge -c defaults \
-    nvstrings=0.7 python=3.6 cudatoolkit=10.0
+    nvstrings=0.8 python=3.6 cudatoolkit=10.0
 ```
 
 We also provide [nightly conda packages](https://anaconda.org/rapidsai-nightly) built from the tip of our latest development branch.
@@ -77,7 +77,13 @@ Note: cuStrings is supported only on Linux, and with Python versions 3.6 or 3.7.
 See the [Get RAPIDS version picker](https://rapids.ai/start.html) for more OS and version info. 
 
 ## Build/Install from Source
-See build [instructions](CONTRIBUTING.md#setting-up-your-build-environment).
+See detailed build [instructions](CONTRIBUTING.md#setting-up-your-build-environment).
+
+Build and install `libcustrings` and `custrings` using build.sh. Build.sh creates build dir under cpp/ directory found in the root of the git repository. build.sh depends on the `nvcc` executable being on your path or defined in `$CUDACXX`.
+```bash
+$ ./build.sh -h                                     # Display help and exit
+$ ./build.sh -n custrings                           # Build the custrings target without installing
+$ ./build.sh                                        # Build and install libcustrings and custrings
 
 ## Contributing
 

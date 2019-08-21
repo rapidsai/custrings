@@ -15,7 +15,7 @@
 #=============================================================================
 cmake_minimum_required (VERSION 3.12)
 
-project(NVStrings VERSION 0.8.0 LANGUAGES C CXX CUDA)
+project(NVStrings VERSION 0.9.0 LANGUAGES C CXX CUDA)
 
 ###################################################################################################
 # - build type ------------------------------------------------------------------------------------
@@ -72,7 +72,16 @@ if(CMAKE_BUILD_TYPE MATCHES Debug)
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -G -Xcompiler -rdynamic")
 endif(CMAKE_BUILD_TYPE MATCHES Debug)
 
-option(BUILD_TESTS "Configure CMake to build tests" OFF)
+option(BUILD_TESTS "Configure CMake to build tests" ON)
+
+###################################################################################################
+# - cmake modules ---------------------------------------------------------------------------------
+
+set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules/" ${CMAKE_MODULE_PATH})
+
+include(FeatureSummary)
+include(CheckIncludeFiles)
+include(CheckLibraryExists)
 
 ###################################################################################################
 # - rmm -------------------------------------------------------------------------------------------
@@ -95,6 +104,22 @@ if (RMM_INCLUDE AND RMM_LIBRARY)
 endif (RMM_INCLUDE AND RMM_LIBRARY)
 
 ###################################################################################################
+# - add gtest -------------------------------------------------------------------------------------
+
+if(BUILD_TESTS)
+    include(CTest)
+    include(ConfigureGoogleTest)
+
+    if(GTEST_FOUND)
+        message(STATUS "Google C++ Testing Framework (Google Test) found in ${GTEST_ROOT}")
+        include_directories(${GTEST_INCLUDE_DIR})
+        add_subdirectory(${CMAKE_SOURCE_DIR}/tests)
+    else()
+        message(AUTHOR_WARNING "Google C++ Testing Framework (Google Test) not found: automated tests are disabled.")
+    endif(GTEST_FOUND)
+endif(BUILD_TESTS)
+
+###################################################################################################
 # - include paths ---------------------------------------------------------------------------------
 
 include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}"
@@ -114,33 +139,45 @@ link_directories("${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES}"
 # - library targets -------------------------------------------------------------------------------
 
 add_library(NVStrings SHARED 
-            src/NVStrings.cu
-            src/NVStringsImpl.cu
-            src/NVStrings_array.cu
-            src/NVStrings_attrs.cu
-            src/NVStrings_combine.cu
-            src/NVStrings_split.cu
-            src/NVStrings_pad.cu
-            src/NVStrings_substr.cu
-            src/NVStrings_modify.cu
-            src/NVStrings_strip.cu
-            src/NVStrings_case.cu
-            src/NVStrings_find.cu
-            src/NVStrings_convert.cu
-            src/NVStrings_datetime.cu
+            src/strings/NVStrings.cu
+            src/strings/NVStringsImpl.cu
+            src/strings/array.cu
+            src/strings/attrs.cu
+            src/strings/case.cu
+            src/strings/combine.cu
+            src/strings/convert.cu
+            src/strings/count.cu
+            src/strings/datetime.cu
+            src/strings/extract.cu
+            src/strings/extract_record.cu
+            src/strings/find.cu
+            src/strings/findall.cu
+            src/strings/findall_record.cu
+            src/strings/modify.cu
+            src/strings/pad.cu
+            src/strings/replace.cu
+            src/strings/replace_backref.cu
+            src/strings/replace_multi.cu
+            src/strings/split.cu
+            src/strings/strip.cu
+            src/strings/substr.cu
+            src/strings/urlencode.cu
             src/util.cu
             src/regex/regexec.cpp
             src/regex/regcomp.cpp)
 
 add_library(NVCategory SHARED
-            src/NVCategory.cu
-            src/numeric_category.cu
-            src/numeric_category_int.cu
-            src/numeric_category_float.cu
+            src/category/NVCategory.cu
+            src/category/numeric_category.cu
+            src/category/numeric_category_int.cu
+            src/category/numeric_category_long.cu
+            src/category/numeric_category_float.cu
+            src/category/numeric_category_double.cu
             )
 
 add_library(NVText SHARED
-            src/NVText.cu)
+            src/text/NVText.cu
+            src/util.cu)
 
 ###################################################################################################
 # - link libraries --------------------------------------------------------------------------------

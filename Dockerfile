@@ -7,7 +7,6 @@ RUN apt-get update && apt-get install -y vim locales
 ADD cpp /nvstrings/cpp
 ADD python /nvstrings/python
 ADD LICENSE /nvstrings/LICENSE
-ADD thirdparty /nvstrings/thirdparty
 WORKDIR /nvstrings/cpp
 
 ENV CONDA_ENV=cudf

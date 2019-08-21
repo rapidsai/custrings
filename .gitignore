@@ -4,6 +4,8 @@
 *.a
 *.o
 *.so
+__pycache__
+*.pytest_cache
 ##
 cpp/build/
 cpp/doxygen/html/

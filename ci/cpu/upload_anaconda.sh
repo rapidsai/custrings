@@ -7,11 +7,7 @@ export LIBCUSTRINGS_FILE=`conda build conda/recipes/libcustrings --output`
 export CUSTRINGS_FILE=`conda build --python=$PYTHON conda/recipes/custrings --output`
 
 SOURCE_BRANCH=master
-CUDA_REL=${CUDA:0:3}
-if [ "${CUDA:0:2}" == '10' ]; then
-    # CUDA 10 release
-    CUDA_REL=${CUDA:0:4}
-fi
+CUDA_REL=${CUDA_VERSION%.*}
 
 # Restrict uploads to master branch
 if [ ${GIT_BRANCH} != ${SOURCE_BRANCH} ]; then

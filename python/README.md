@@ -17,6 +17,11 @@ There are currently no other python packages required to use or build these modu
 
 See the [C/C++ readme](../cpp/README.md) for details on building the python modules.
 
+Build custrings from root of the git repository by:
+```
+$ ./build.sh custrings
+```
+
 ### Install
 
 Instructions in [C/C++ readme](../cpp/README.md) also include install the python modules.

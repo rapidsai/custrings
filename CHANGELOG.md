@@ -1,3 +1,36 @@
+# cuStrings/nvStrings 0.9.0 (21 Aug 2019)
+
+- PR #355 Add and use unified build script
+
+## New Features
+
+- PR #363 Added scatter method to nvstrings
+- PR #371 Added replace() with multiple strings parameters
+- PR #385 Added Porter Stemmer measure method
+- PR #382 Added url encode/decode method
+- PR #387 Added scalar_scatter method to nvstrings
+- PR #386 Added normalize_spaces method to nvtext
+- PR #395 Added python bindings for device memory to nvstrings
+
+## Improvements
+
+- PR #354 Removed rmm submodule
+- PR #359 Set default sort-type to alphabetical
+- PR #357 Improved error checking on memory allocates
+- PR #358 Added improved hash algorithm to reduce collisions
+- PR #369 Reconfigure C++ source directory structure
+- PR #370 Updated memsize() to include pointer memory too
+- PR #375 Added gtests for C++ unit testing
+
+## Bug Fixes
+
+- PR #353 Fixed sizer calculation for multiple replaces
+- PR #378 Fixed small memory leak in string categories
+- PR #380 Removed obsolete directory from Dockerfile
+- PR #373 Properly catch/throw exceptions raised by gather_strings
+- PR #391 Corrected overflow logic in stod
+
+
 # cuStrings/nvStrings 0.8.0 (27 June 2019)
 
 ## New Features
@@ -8,6 +41,7 @@
 - PR #325 Add test skipping functionality to build.sh
 - PR #332 Accept multiple nvstrings in cat() method
 - PR #327 Allow numeric keys in nvcategory
+- PR #396 Streamline CUDA_REL environment variable
 
 ## Improvements
 

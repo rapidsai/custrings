@@ -440,17 +440,17 @@ __device__ inline int dreprog::regexec(custring_view* dstr, Reljunk &jnk, int& b
     return match;
 }
 
-__device__ inline int dreprog::contains( unsigned int idx, custring_view* dstr )
-{
-    int begin=0, end=dstr->chars_count();
-    return call_regexec(idx,dstr,begin,end);
-}
-
-__device__ inline int dreprog::match( unsigned int idx, custring_view* dstr )
-{
-    int begin=0, end=1;
-    return call_regexec(idx,dstr,begin,end);
-}
+//__device__ inline int dreprog::contains( unsigned int idx, custring_view* dstr )
+//{
+//    int begin=0, end=dstr->chars_count();
+//    return call_regexec(idx,dstr,begin,end);
+//}
+//
+//__device__ inline int dreprog::match( unsigned int idx, custring_view* dstr )
+//{
+//    int begin=0, end=1;
+//    return call_regexec(idx,dstr,begin,end);
+//}
 
 __device__ inline int dreprog::find( unsigned int idx, custring_view* dstr, int& begin, int& end )
 {

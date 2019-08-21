@@ -1463,7 +1463,9 @@ class nvstrings:
             String to be replaced.
             This can also be a regex expression -- not a compiled regex.
         repl : str
-            String to replace found section with
+            String to replace found string in the output instance.
+        regex : boolean
+            Set to True if pat is a regular expression string.
 
         Examples
         --------
@@ -1474,6 +1476,50 @@ class nvstrings:
 
         """
         rtn = pyniNVStrings.n_replace(self.m_cptr, pat, repl, n, regex)
+        if rtn is not None:
+            rtn = nvstrings(rtn)
+        return rtn
+
+    def replace_multi(self, pats, repls, regex=True):
+        """
+        Replace multiple strings (pats) in each string with corresponding
+        strings (repls).
+
+        Parameters
+        ----------
+        pats : list or nvstrings
+            Strings to be replaced.
+            These can also be a regex expressions patterns.
+            If so, this must not be an nvstrings instance.
+        repls : list or nvstrings
+            Strings to replace found pattern/string.
+            Must be the same number of strings as pats.
+            Alternately, this can be a single str instance
+            and would be used as replacement for each string found.
+        regex : boolean
+            Set to True if pats are regular expression strings.
+
+        Examples
+        --------
+        >>> import nvstrings
+        >>> s = nvstrings.to_device(["hello","goodbye"])
+        >>> print(s.replace_multi(['e', 'o'],['E','O']))
+        ['hEllO', 'gOOdbyE']
+
+        """
+        if regex is True:
+            if isinstance(pats, list) is False:
+                raise ValueError("pats must be list of str")
+        else:
+            if isinstance(pats, list):
+                pats = to_device(pats)
+        if isinstance(repls, str):
+            repls = to_device([repls])
+        if isinstance(repls, list):
+            repls = to_device(repls)
+
+        rtn = pyniNVStrings.n_replace_multi(self.m_cptr, pats, repls.m_cptr,
+                                            regex)
         if rtn is not None:
             rtn = nvstrings(rtn)
         return rtn
@@ -2272,7 +2318,7 @@ class nvstrings:
             rtn = nvstrings(rtn)
         return rtn
 
-    def sort(self, stype, asc=True, nullfirst=True):
+    def sort(self, stype=2, asc=True, nullfirst=True):
         """
         Sort this list by name (2) or length (1) or both (3).
         Sorting can help improve performance for other operations.
@@ -2303,7 +2349,7 @@ class nvstrings:
             rtn = nvstrings(rtn)
         return rtn
 
-    def order(self, stype, asc=True, nullfirst=True, devptr=0):
+    def order(self, stype=2, asc=True, nullfirst=True, devptr=0):
         """
         Sort this list by name (2) or length (1) or both (3).
         This sort only provides the new indexes and does not reorder the
@@ -2348,7 +2394,7 @@ class nvstrings:
         ----------
         indexes : List of ints or GPU memory pointer
             0-based indexes of strings to return from an nvstrings object.
-            Values must be of type in32.
+            Values must be of type int32.
         count : int
             Number of ints if indexes parm is a device pointer.
             Otherwise it is ignored.
@@ -2362,6 +2408,66 @@ class nvstrings:
 
         """
         rtn = pyniNVStrings.n_gather(self.m_cptr, indexes, count)
+        if rtn is not None:
+            rtn = nvstrings(rtn)
+        return rtn
+
+    def scatter(self, strs, indexes):
+        """
+        Return a new list of strings combining this instance
+        with the provided strings using the specified indexes.
+
+        Parameters
+        ----------
+        strs : nvstrings
+            Strings to be combined with this instance.
+        indexes : List of ints or GPU memory pointer
+            0-based indexes of strings indicating which strings
+            should be replaced by the corresponding element in strs.
+            Values must be of type int32. The number of values
+            should be the same as strs.size(). Repeated indexes
+            will cause undefined results.
+
+        Examples
+        --------
+        >>> import nvstrings
+        >>> s1 = nvstrings.to_device(["a","b","c","d"])
+        >>> s2 = nvstrings.to_device(["e","f"])
+        >>> print(s1.scatter(s2, [1, 3]))
+        ['a', 'e', 'c', 'f']
+
+        """
+        rtn = pyniNVStrings.n_scatter(self.m_cptr, strs, indexes)
+        if rtn is not None:
+            rtn = nvstrings(rtn)
+        return rtn
+
+    def scalar_scatter(self, str, indexes, count):
+        """
+        Return a new list of strings placing the specified
+        string at the provided indexes.
+
+        Parameters
+        ----------
+        str : str
+            String to be placed
+        indexes : List of ints or GPU memory pointer
+            0-based indexes of strings indicating the positions
+            where the str parameter should be placed.
+            Existing strings at those positions will be replaced.
+            Values must be of type int32.
+        count : int
+            Number of elements in the indexes parameter.
+
+        Examples
+        --------
+        >>> import nvstrings
+        >>> s1 = nvstrings.to_device(["a","b","c","d"])
+        >>> print(s1.scalar_scatter("_", [1, 3]))
+        ['a', '_', 'c', '_']
+
+        """
+        rtn = pyniNVStrings.n_scalar_scatter(self.m_cptr, str, indexes, count)
         if rtn is not None:
             rtn = nvstrings(rtn)
         return rtn
@@ -2474,3 +2580,55 @@ class nvstrings:
         """
         rtn = pyniNVStrings.n_get_info(self.m_cptr)
         return rtn
+
+    def url_encode(self):
+        """
+        URL-encode each string and return as a new instance.
+        No format checking is performed. All characters are encoded except
+        for ASCII letters, digits, and these characters: '.','_','-','~'.
+        Encoding converts to hex using UTF-8 encoded bytes.
+
+        Examples
+        --------
+        >>> import nvstrings
+        >>> s = nvstrings.to_device(["a/b-c/d","E F.G","1-2,3"])
+        >>> print(s.url_encode())
+        ['a%2Fb-c%2Fd', 'E%20F.G', '1-2%2C3']
+
+        """
+        rtn = pyniNVStrings.n_url_encode(self.m_cptr)
+        if rtn is not None:
+            rtn = nvstrings(rtn)
+        return rtn
+
+    def url_decode(self):
+        """
+        URL-decode each string and return as a new instance.
+        No format checking is performed. All characters are
+        expected to be encoded as UTF-8 hex values.
+
+        Examples
+        --------
+        >>> import nvstrings
+        >>> s = nvstrings.to_device(['A%2FB-C%2FD', 'e%20f.g', '4-5%2C6'])
+        >>> print(s.url_decode())
+        ['A/B-C/D', 'e f.g', '4-5,6']
+
+        """
+        rtn = pyniNVStrings.n_url_decode(self.m_cptr)
+        if rtn is not None:
+            rtn = nvstrings(rtn)
+        return rtn
+
+    def device_memory(self):
+        """
+        Returns the total device memory used by this instance
+
+        Examples
+        --------
+        >>> import nvstrings
+        >> s = nvstrings.to_device(['a'*7])
+        >>> print(s.device_memory())
+        24
+        """
+        return pyniNVStrings.n_device_memory(self.m_cptr)

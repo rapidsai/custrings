@@ -19,6 +19,7 @@
 #include <string>
 
 class NVStrings;
+class custring_view;
 
 // csv parser flags
 #define CSV_SORT_LENGTH    1
@@ -26,13 +27,30 @@ class NVStrings;
 #define CSV_NULL_IS_EMPTY  8
 // this has become a thing
 NVStrings* createFromCSV(std::string csvfile, unsigned int column, unsigned int lines=0, unsigned int flags=0);
-
+//
 __host__ __device__ inline unsigned int u2u8( unsigned int unchr );
 __host__ __device__ inline unsigned int u82u( unsigned int utf8 );
+
+//
+custring_view* custring_from_host( const char* str );
 
 // copies and moves dest pointer
 __device__ inline char* copy_and_incr( char*& dest, char* src, unsigned int bytes );
 __device__ inline char* copy_and_incr_both( char*& dest, char*& src, unsigned int bytes );
+
+template<typename T>
+T* device_alloc(size_t count, cudaStream_t sid);
+
+// adapted from cudf/cpp/src/utilities/error_utils.hpp
+#define CUDA_TRY(call)                                            \
+  do {                                                            \
+    cudaError_t const status = (call);                            \
+    if (cudaSuccess != status) {                                  \
+        std::ostringstream message;                               \
+        message << "error " << status << " from cuda call";       \
+        throw std::runtime_error(message.str());                  \
+    }                                                             \
+  } while (0);
 
 //
 #include "util.inl"

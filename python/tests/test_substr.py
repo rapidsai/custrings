@@ -59,8 +59,8 @@ def test_replace(find, replace):
     s = ["abcdefghij", "0123456789", "9876543210", None, "accénted", ""]
     pstrs = pd.Series(s)
     nvstrs = nvstrings.to_device(s)
-    got = nvstrs.replace(find, replace)
-    expected = pstrs.str.replace(find, replace)
+    got = nvstrs.replace(find, replace, regex=False)
+    expected = pstrs.str.replace(find, replace, regex=False)
     assert_eq(got, expected)
 
 

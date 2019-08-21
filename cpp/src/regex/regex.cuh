@@ -54,9 +54,6 @@ class dreprog
     //
     __device__ inline int regexec( custring_view* dstr, Reljunk& jnk, int& begin, int& end, int groupid=0 );
     __device__ inline int call_regexec( unsigned idx, custring_view* dstr, int& begin, int& end, int groupid=0 );
-    __device__ inline int call_regexec_small( custring_view* dstr, Reljunk& jnk, int& begin, int& end, int groupid=0 );
-    __device__ inline int call_regexec_medium( custring_view* dstr, Reljunk& jnk, int& begin, int& end, int groupid=0 );
-    __device__ inline int call_regexec_large( custring_view* dstr, Reljunk& jnk, int& begin, int& end, int groupid=0 );
 
 public:
     //
@@ -73,8 +70,8 @@ public:
     __device__ inline int get_class(int idx, dreclass& cls);
     __device__ inline int* get_startinst_ids();
 
-    __device__ inline int contains( unsigned int idx, custring_view* dstr );
-    __device__ inline int match( unsigned int idx, custring_view* dstr );
+//    __device__ inline int contains( unsigned int idx, custring_view* dstr );
+//    __device__ inline int match( unsigned int idx, custring_view* dstr );
     __device__ inline int find( unsigned int idx, custring_view* dstr, int& begin, int& end );
     __device__ inline int extract( unsigned int idx, custring_view* str, int& begin, int& end, int col );
 
