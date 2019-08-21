@@ -3,6 +3,7 @@
 ## New Features
 
 ## Improvement
+- PR #403 Remove driver install from ci scripts
 
 ## Bug Fixes
 
