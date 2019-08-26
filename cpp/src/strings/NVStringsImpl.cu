@@ -24,8 +24,10 @@
 #include <thrust/sort.h>
 #include <rmm/rmm.h>
 #include <rmm/thrust_rmm_allocator.h>
+
 #include "NVStrings.h"
-#include "NVStringsImpl.h"
+
+#include "./NVStringsImpl.h"
 #include "../custring_view.cuh"
 #include "../custring.cuh"
 #include "../unicode/unicode_flags.h"
@@ -51,7 +53,7 @@ char32_t* to_char32( const char* ca )
     char32_t* rtn = new char32_t[count+1];
     char32_t* optr = rtn;
     const char* iptr = ca;
-    for( int i=0; i < size; ++i )
+    for( unsigned int i=0; i < size; ++i )
     {
         Char oc = 0;
         unsigned int cw = custring_view::char_to_Char(iptr,oc);
@@ -334,7 +336,7 @@ int NVStrings_init_from_offsets( NVStringsImpl* pImpl, const char* strs, int cou
     size_t nbytes = 0;
     thrust::host_vector<size_t> hoffsets(count+1,0);
     thrust::host_vector<size_t> hlengths(count,0);
-    for( unsigned int idx=0; idx < count; ++idx )
+    for( int idx=0; idx < count; ++idx )
     {
         int offset = offsets[idx];
         int len = offsets[idx+1] - offset;
@@ -353,7 +355,7 @@ int NVStrings_init_from_offsets( NVStringsImpl* pImpl, const char* strs, int cou
     // serialize host memory into a new buffer
     unsigned int cheat = 0;//sizeof(custring_view);
     char* h_flatstrs = (char*)malloc(nbytes);
-    for( unsigned int idx = 0; idx < count; ++idx )
+    for( int idx = 0; idx < count; ++idx )
         memcpy(h_flatstrs + hoffsets[idx] + cheat, strs + offsets[idx], hlengths[idx]);
 
     // copy whole thing to device memory

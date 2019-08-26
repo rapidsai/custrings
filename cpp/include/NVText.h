@@ -16,8 +16,8 @@
 #pragma once
 
 /**
- * @file NVStrings.h
- * @brief Class definition for NVStrings.
+ * @file NVText.h
+ * @brief Class definition for NVText.
  */
 
 class NVStrings;
@@ -113,10 +113,11 @@ public:
      * @param delimiter String or character used to identify tokens.
      * @return New instance with tokens replaced appropriately.
      */
-    static NVStrings* replace_tokens(NVStrings& strs, NVStrings& tgts, NVStrings& repl, const char* delimiter=nullptr );
+    static NVStrings* replace_tokens(NVStrings& strs, NVStrings& tgts, NVStrings& repls, const char* delimiter=nullptr );
 
     /**
      * @brief Remove extra whitespace from the beginning, end, and between words (tokens separated by whitespace).
+      @param strs Strings to normalize.
      * @return Normalized strings
      */
     static NVStrings* normalize_spaces(NVStrings& strs);
@@ -164,6 +165,7 @@ public:
      * @param vowels Characters to check as vowels.
      * @param y_char The 'y' character used for extra vowel checking.
      * @param[in,out] results Array of measures, one per string.
+     * @param devmem True if results in device memory.
      * @return 0 if successful
      */
     static unsigned int porter_stemmer_measure(NVStrings& strs, const char* vowels, const char* y_char, unsigned int* results, bool devmem=true );

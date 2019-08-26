@@ -50,7 +50,7 @@ Output:
 
 cuStrings is a standalone library with no other dependencies. Other RAPIDS projects (like cuDF) depend on cuStrings and its nvStrings Python bindings.
 
-For more examples, see [Python API documentation](https://docs.rapids.ai/api/nvstrings/stable/), and [cuStrings CUDA/C++ API](cpp/cuStrings-API.pdf).
+For more examples, see [Python API documentation](https://docs.rapids.ai/api/nvstrings/stable/).
 ## Quick Start
 
 Please see the [Demo Docker Repository](https://hub.docker.com/r/rapidsai/rapidsai/), choosing a tag based on the NVIDIA CUDA version you’re running. This provides a ready to run Docker container with example notebooks and data, showcasing how you can utilize cuStrings.

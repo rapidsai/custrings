@@ -4,9 +4,11 @@
 
 ## Improvement
 
+- PR #411 Format changes for merge with cudf repo
+
 ## Bug Fixes
 
-# cuStrings/nvStrings 0.9.0 (TBD)
+# cuStrings/nvStrings 0.9.0 (21 Aug 2019)
 
 - PR #355 Add and use unified build script
 - PR #390 Fix local build generated file ownerships

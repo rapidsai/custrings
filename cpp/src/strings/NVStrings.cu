@@ -28,11 +28,13 @@
 #include <thrust/unique.h>
 #include <rmm/rmm.h>
 #include <rmm/thrust_rmm_allocator.h>
+
 #include "NVStrings.h"
-#include "NVStringsImpl.h"
 #include "ipc_transfer.h"
-#include "../custring_view.cuh"
 #include "StringsStatistics.h"
+
+#include "./NVStringsImpl.h"
+#include "../custring_view.cuh"
 #include "../unicode/is_flags.h"
 #include "../util.h"
 
@@ -188,7 +190,7 @@ NVStrings* NVStrings::copy()
 void NVStrings::print( int start, int end, int maxwidth, const char* delimiter )
 {
     unsigned int count = size();
-    if( end < 0 || end > count )
+    if( end < 0 || end > (int)count )
         end = count;
     if( start < 0 )
         start = 0;
@@ -247,9 +249,9 @@ void NVStrings::print( int start, int end, int maxwidth, const char* delimiter )
     thrust::host_vector<custring_view*> h_strings(*(pImpl->pList)); // just for checking nulls
     thrust::host_vector<size_t> h_lens(lens);
     char* hstr = h_buffer;
-    for( int idx=0; idx < count; ++idx )
+    for( unsigned int idx=0; idx < count; ++idx )
     {
-        printf("%d:",idx);
+        printf("%u:",idx);
         if( !h_strings[idx] )
             printf("<null>");
         else
@@ -264,7 +266,7 @@ void NVStrings::print( int start, int end, int maxwidth, const char* delimiter )
 int NVStrings::to_host(char** list, int start, int end)
 {
     unsigned int count = size();
-    if( end < 0 || end > count )
+    if( end < 0 || end > (int)count )
         end = count;
     if( start >= end )
         return 0;

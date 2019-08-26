@@ -4,7 +4,7 @@
 #include <thrust/device_vector.h>
 #include "../include/NVStrings.h"
 #include "../include/NVText.h"
-#include "utils.h"
+#include "./utils.h"
 
 std::vector<const char*> tstrs{ "the fox jumped over the dog",
                                 "the dog chased the cat",
@@ -32,7 +32,7 @@ TEST(TestText, TokenCount)
 
     NVText::token_count(*strs," ",results.data().get());
     unsigned int expected[] = { 6, 5, 5, 0, 0, 5 };
-    for( int idx=0; idx < tstrs.size(); ++idx )
+    for( unsigned int idx=0; idx < tstrs.size(); ++idx )
         EXPECT_EQ(results[idx],expected[idx]);
 
     NVStrings::destroy(strs);
@@ -59,7 +59,7 @@ TEST(TestText, ContainsStrings)
 
     NVText::contains_strings(*strs,*tgts,results.data().get());
     bool expected[] = { true, false, true, true, true, true, false, false, false, false, true, false };
-    for( int idx=0; idx < tstrs.size()*hstrs.size(); ++idx )
+    for( unsigned int idx=0; idx < tstrs.size()*hstrs.size(); ++idx )
         EXPECT_EQ(results[idx],expected[idx]);
 
     NVStrings::destroy(tgts);
@@ -76,7 +76,7 @@ TEST(TestText, StringsCounts)
 
     NVText::strings_counts(*strs,*tgts,results.data().get());
     unsigned int expected[] = { 0,0, 0,1, 1,0, 0,0, 0,0, 0,0 };
-    for( int idx=0; idx < tstrs.size()*hstrs.size(); ++idx )
+    for( unsigned int idx=0; idx < tstrs.size()*hstrs.size(); ++idx )
         EXPECT_EQ(results[idx],expected[idx]);
 
     NVStrings::destroy(tgts);
@@ -93,7 +93,7 @@ TEST(TestText, TokensCounts)
 
     NVText::tokens_counts(*strs,*tgts," ",results.data().get());
     unsigned int expected[] = { 0,1, 1,1, 1,0, 0,0, 0,0, 0,0 };
-    for( int idx=0; idx < tstrs.size()*hstrs.size(); ++idx )
+    for( unsigned int idx=0; idx < tstrs.size()*hstrs.size(); ++idx )
         EXPECT_EQ(results[idx],expected[idx]);
 
     NVStrings::destroy(tgts);
@@ -118,7 +118,7 @@ TEST(TestText, EditDistance)
         NVStrings* tgts = NVStrings::create_from_array(htgts.data(),htgts.size());
         NVText::edit_distance(NVText::levenshtein,*strs,*tgts,results.data().get());
         unsigned int expected[] = { 1,3,2,1,3,0,0 };
-        for( int idx=0; idx < hstrs.size(); ++idx )
+        for( unsigned int idx=0; idx < hstrs.size(); ++idx )
             EXPECT_EQ(results[idx],expected[idx]);
         NVStrings::destroy(tgts);
     }
@@ -156,7 +156,7 @@ TEST(TestText, PorterStemmerMeasure)
     thrust::device_vector<unsigned int> results(hstrs.size(),0);
     NVText::porter_stemmer_measure(*strs, nullptr, nullptr, results.data().get());
     unsigned int expected[] = { 3, 0, 2, 1, 1, 0, 1 };
-    for( int idx=0; idx < hstrs.size(); ++idx )
+    for( unsigned int idx=0; idx < hstrs.size(); ++idx )
         EXPECT_EQ(results[idx],expected[idx]);
 
     NVStrings::destroy(strs);

@@ -21,8 +21,10 @@
 #include <thrust/for_each.h>
 #include <rmm/rmm.h>
 #include <rmm/thrust_rmm_allocator.h>
+
 #include "NVStrings.h"
-#include "NVStringsImpl.h"
+
+#include "./NVStringsImpl.h"
 #include "../custring_view.cuh"
 #include "../regex/regex.cuh"
 #include "../unicode/is_flags.h"
@@ -118,7 +120,7 @@ NVStrings* NVStrings::replace_re( std::vector<const char*>& patterns, NVStrings&
     // compile regex's into device objects
     rmm::device_vector<dreprog*> progs;
     int regex_insts = 0;
-    for( int idx=0; idx < patterns.size(); ++idx )
+    for( int idx=0; idx < (int)patterns.size(); ++idx )
     {
         const char* pattern = patterns[idx];
         if( !pattern )

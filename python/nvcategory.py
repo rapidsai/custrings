@@ -1,6 +1,5 @@
-
-import pyniNVCategory
 import nvstrings as nvs
+import pyniNVCategory
 
 
 def to_device(strs):
@@ -68,8 +67,9 @@ def from_offsets(sbuf, obuf, scount, nbuf=None, ncount=0, bdevmem=False):
     ['a', 'e', 'l', 'p'] [0, 3, 3, 2, 1]
 
     """
-    rtn = pyniNVCategory.n_createFromOffsets(sbuf, obuf, scount, nbuf, ncount,
-                                             bdevmem)
+    rtn = pyniNVCategory.n_createFromOffsets(
+        sbuf, obuf, scount, nbuf, ncount, bdevmem
+    )
     if rtn is not None:
         rtn = nvcategory(rtn)
     return rtn
@@ -169,6 +169,7 @@ class nvcategory:
     and a mapping of indexes (values).
 
     """
+
     #
     m_cptr = 0
 
@@ -187,7 +188,8 @@ class nvcategory:
 
     def __repr__(self):
         return "<nvcategory[{}] keys={},values={}>".format(
-                self.keys_type(), self.keys_size(), self.size())
+            self.keys_type(), self.keys_size(), self.size()
+        )
 
     def get_cpointer(self):
         """
@@ -575,8 +577,9 @@ class nvcategory:
         [1.0, 1.5, 1.0]
 
         """
-        return pyniNVCategory.n_gather_numbers(self.m_cptr,
-                                               indexes, narr, nulls)
+        return pyniNVCategory.n_gather_numbers(
+            self.m_cptr, indexes, narr, nulls
+        )
 
     def gather_and_remap(self, indexes, count=0):
         """

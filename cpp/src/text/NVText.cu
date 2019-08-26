@@ -23,8 +23,10 @@
 #include <thrust/unique.h>
 #include <rmm/rmm.h>
 #include <rmm/thrust_rmm_allocator.h>
+
 #include "NVStrings.h"
 #include "NVText.h"
+
 #include "../custring_view.cuh"
 #include "../custring.cuh"
 #include "../util.h"

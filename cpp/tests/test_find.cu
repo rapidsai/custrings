@@ -15,7 +15,7 @@ TEST(TestFind, Compare)
     strs->compare("thesé",results.data().get());
 
     int expected[] = { -44,0,-1,-51,-165,-1 };
-    for( int idx=0; idx<hstrs.size(); ++idx )
+    for( unsigned int idx=0; idx<hstrs.size(); ++idx )
         EXPECT_EQ(results[idx],expected[idx]);
 
     NVStrings::destroy(strs);
@@ -30,14 +30,14 @@ TEST(TestFind, Find)
     strs->find("é",0,-1,results.data().get());
     {
         int expected[] = { 1,4,-2,-1,1,-1 };
-        for( int idx=0; idx < hstrs.size(); ++idx )
+        for( unsigned int idx=0; idx < hstrs.size(); ++idx )
             EXPECT_EQ(results[idx],expected[idx]);
     }
 
     strs->rfind("l",0,-1,results.data().get());
     {
         int expected[] = { 3,-1,-2,-1,-1,-1 };
-        for( int idx=0; idx < hstrs.size(); ++idx )
+        for( unsigned int idx=0; idx < hstrs.size(); ++idx )
             EXPECT_EQ(results[idx],expected[idx]);
     }
     NVStrings::destroy(strs);
@@ -53,7 +53,7 @@ TEST(TestFind, Match)
     strs->match_strings(*strs2,results.data().get());
     {
         bool expected[] = { false, true, false, false, true, true };
-        for( int idx=0; idx < hstrs.size(); ++idx )
+        for( unsigned int idx=0; idx < hstrs.size(); ++idx )
             EXPECT_EQ(results[idx],expected[idx]);
     }
     NVStrings::destroy(strs);
@@ -68,7 +68,7 @@ TEST(TestFind, Contains)
     strs->contains("s",results.data().get());
 
     bool expected[] = { false, true, false, false, true, false };
-    for( int idx=0; idx<hstrs.size(); ++idx )
+    for( unsigned int idx=0; idx<hstrs.size(); ++idx )
         EXPECT_EQ(results[idx],expected[idx]);
 
     NVStrings::destroy(strs);
@@ -82,7 +82,7 @@ TEST(TestFind, FindFrom)
     strs->find_from("s",from.data().get(),nullptr,results.data().get());
     {
         int expected[] = { -1,3,-2,-1,5,-1 };
-        for( int idx=0; idx < hstrs.size(); ++idx )
+        for( unsigned int idx=0; idx < hstrs.size(); ++idx )
             EXPECT_EQ(results[idx],expected[idx]);
     }
 
@@ -100,7 +100,7 @@ TEST(TestFind, FindMultiple)
     strs->find_multiple(*strs2,results.data().get());
     {
         int expected[] = { 1,-1, 4,2, -2,-2, -1,-1, 1,-1, -1,-1 };
-        for( int idx=0; idx < hstrs.size()*hstrs2.size(); ++idx )
+        for( unsigned int idx=0; idx < hstrs.size()*hstrs2.size(); ++idx )
             EXPECT_EQ(results[idx],expected[idx]);
     }
 
@@ -116,13 +116,13 @@ TEST(TestFind, StartsEnds)
     {
         strs->endswith("E",results.data().get());
         bool expected[] = { false, false, false, true, false, false };
-        for( int idx=0; idx<hstrs.size(); ++idx )
+        for( unsigned int idx=0; idx<hstrs.size(); ++idx )
             EXPECT_EQ(results[idx],expected[idx]);
     }
     {
         strs->startswith("t",results.data().get());
         bool expected[] = { false, true, false, false, true, false };
-        for( int idx=0; idx<hstrs.size(); ++idx )
+        for( unsigned int idx=0; idx<hstrs.size(); ++idx )
             EXPECT_EQ(results[idx],expected[idx]);
     }
 
