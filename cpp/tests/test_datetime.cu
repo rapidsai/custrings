@@ -17,7 +17,7 @@ TEST(TestTimestamp, ToTimestamp)
         thrust::device_vector<unsigned long> results(hstrs.size(),0);
         strs->timestamp2long("%Y-%m-%dT%H:%M:%SZ", NVStrings::seconds, results.data().get());
         int expected[] = { 131246625, 1563399277, 0,0 };
-        for( int idx=0; idx < hstrs.size(); ++idx )
+        for( unsigned int idx=0; idx < hstrs.size(); ++idx )
             EXPECT_EQ(results[idx],expected[idx]);
         NVStrings::destroy(strs);
     }
@@ -28,7 +28,7 @@ TEST(TestTimestamp, ToTimestamp)
         thrust::device_vector<unsigned long> results(hstrs.size(),0);
         strs->timestamp2long("%m-%d-%Y", NVStrings::days, results.data().get());
         int expected[] = { 4744, 18094 };
-        for( int idx=0; idx < hstrs.size(); ++idx )
+        for( unsigned int idx=0; idx < hstrs.size(); ++idx )
             EXPECT_EQ(results[idx],expected[idx]);
         NVStrings::destroy(strs);
     }

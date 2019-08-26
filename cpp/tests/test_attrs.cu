@@ -17,7 +17,7 @@ TEST(TestAttrs, CharCounts)
     strs->len(lengths.data().get());
 
     int expected[] = { 5, 5, -1, 7, 12, 0, 4, 3, 4, 3, 2, 2, 4, 10, 2, 5};
-    for( int idx=0; idx<hstrs.size(); ++idx )
+    for( unsigned int idx=0; idx<hstrs.size(); ++idx )
         EXPECT_EQ(lengths[idx],expected[idx]);
 
     NVStrings::destroy(strs);
@@ -31,7 +31,7 @@ TEST(TestAttrs, ByteCounts)
     strs->byte_count(lengths.data().get());
 
     int expected[] = { 6, 6, -1, 7, 13, 0, 4, 3, 4, 4, 3, 3, 6, 10, 2, 5};
-    for( int idx=0; idx<hstrs.size(); ++idx )
+    for( unsigned int idx=0; idx<hstrs.size(); ++idx )
         EXPECT_EQ(lengths[idx],expected[idx]);
 
     NVStrings::destroy(strs);
@@ -47,7 +47,7 @@ TEST(TestAttrs, IsAlpha)
         bool expected[] = { true, true, false, false, false, false,
                             false, false, false, true, true, true, false,
                             true, true, false };
-        for( int idx=0; idx < hstrs.size(); ++idx )
+        for( unsigned int idx=0; idx < hstrs.size(); ++idx )
             EXPECT_EQ(results[idx],expected[idx]);
     }
 
@@ -56,7 +56,7 @@ TEST(TestAttrs, IsAlpha)
         bool expected[] = { true, true, false, false, false, false,
                             false, false, false, false, false, false, false,
                             false, true, false };
-        for( int idx=0; idx < hstrs.size(); ++idx )
+        for( unsigned int idx=0; idx < hstrs.size(); ++idx )
             EXPECT_EQ(results[idx],expected[idx]);
     }
 
@@ -65,7 +65,7 @@ TEST(TestAttrs, IsAlpha)
         bool expected[] = { false, false, false, false, false, false,
                             false, false, false, false, false, false, false,
                             false, false, true };
-        for( int idx=0; idx < hstrs.size(); ++idx )
+        for( unsigned int idx=0; idx < hstrs.size(); ++idx )
             EXPECT_EQ(results[idx],expected[idx]);
     }
 
@@ -82,7 +82,7 @@ TEST(TestAttrs, IsNumeric)
         bool expected[] = { false, false, false, false, false, false,
                             false, false, false, false, false, true, false,
                             true, false, false };
-        for( int idx=0; idx < hstrs.size(); ++idx )
+        for( unsigned int idx=0; idx < hstrs.size(); ++idx )
             EXPECT_EQ(results[idx],expected[idx]);
     }
 
@@ -91,7 +91,7 @@ TEST(TestAttrs, IsNumeric)
         bool expected[] = { false, false, false, false, false, false,
                             false, false, false, false, false, false, false,
                             true, false, false };
-        for( int idx=0; idx < hstrs.size(); ++idx )
+        for( unsigned int idx=0; idx < hstrs.size(); ++idx )
             EXPECT_EQ(results[idx],expected[idx]);
     }
 
@@ -100,7 +100,7 @@ TEST(TestAttrs, IsNumeric)
         bool expected[] = { false, false, false, false, false, false,
                             false, false, false, true, false, true, false,
                             true, false, false };
-        for( int idx=0; idx < hstrs.size(); ++idx )
+        for( unsigned int idx=0; idx < hstrs.size(); ++idx )
             EXPECT_EQ(results[idx],expected[idx]);
     }
 
@@ -118,7 +118,7 @@ TEST(TestAttrs, IsSpace)
         bool expected[] = { false, false, false, false, false, false,
                             false, false, false, false, false, false, false,
                             false, false, true };
-        for( int idx=0; idx < hstrs.size(); ++idx )
+        for( unsigned int idx=0; idx < hstrs.size(); ++idx )
             EXPECT_EQ(results[idx],expected[idx]);
     }
 
@@ -127,7 +127,7 @@ TEST(TestAttrs, IsSpace)
         bool expected[] = { false, false, true, false, false, true,
                             false, false, false, false, false, false, false,
                             false, false, false };
-        for( int idx=0; idx < hstrs.size(); ++idx )
+        for( unsigned int idx=0; idx < hstrs.size(); ++idx )
             EXPECT_EQ(results[idx],expected[idx]);
     }
 
@@ -144,7 +144,7 @@ TEST(TestAttrs, IsUpperLower)
         bool expected[] = { false, false, false, true, false, false,
                             true, true, true, true, false, true, true,
                             true, false, true };
-        for( int idx=0; idx < hstrs.size(); ++idx )
+        for( unsigned int idx=0; idx < hstrs.size(); ++idx )
             EXPECT_EQ(results[idx],expected[idx]);
     }
 
@@ -153,7 +153,7 @@ TEST(TestAttrs, IsUpperLower)
         bool expected[] = { false, true, false, false, true, false,
                             true, true, true, true, true, true, true,
                             true, true, true };
-        for( int idx=0; idx < hstrs.size(); ++idx )
+        for( unsigned int idx=0; idx < hstrs.size(); ++idx )
             EXPECT_EQ(results[idx],expected[idx]);
     }
 

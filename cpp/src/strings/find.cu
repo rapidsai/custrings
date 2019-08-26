@@ -21,8 +21,10 @@
 #include <thrust/count.h>
 #include <rmm/rmm.h>
 #include <rmm/thrust_rmm_allocator.h>
+
 #include "NVStrings.h"
-#include "NVStringsImpl.h"
+
+#include "./NVStringsImpl.h"
 #include "../custring_view.cuh"
 #include "../util.h"
 

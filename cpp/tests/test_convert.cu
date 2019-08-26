@@ -16,7 +16,7 @@ TEST(TestConvert, Hash)
     strs->hash(results.data().get());
     unsigned int expected[] = { 126208335, 0, 3771471008, 2967174367, 1378466566,
                                 3184694146, 1257683291 };
-    for( int idx=0; idx < hstrs.size(); ++idx )
+    for( unsigned int idx=0; idx < hstrs.size(); ++idx )
         EXPECT_EQ(results[idx],expected[idx]);
 
     NVStrings::destroy(strs);
@@ -35,7 +35,7 @@ TEST(TestConvert, ToInteger)
         int expected[] = { 1234, 0,
             -876, 543, 0, 0, 0,
             0, 0, 0, 123, 456, -1 };
-        for( int idx=0; idx < hstrs.size(); ++idx )
+        for( unsigned int idx=0; idx < hstrs.size(); ++idx )
             EXPECT_EQ(results[idx],expected[idx]);
     }
 
@@ -45,7 +45,7 @@ TEST(TestConvert, ToInteger)
         long expected[] = { 1234, 0,
             -876, 543, 0, 0, 0,
             0, 0, 0, 123, 456, -1 };
-        for( int idx=0; idx < hstrs.size(); ++idx )
+        for( unsigned int idx=0; idx < hstrs.size(); ++idx )
             EXPECT_EQ(results[idx],expected[idx]);
     }
 
@@ -83,7 +83,7 @@ TEST(TestConvert, Hex)
     strs->htoi(results.data().get());
     unsigned int expected[] = { 4660, 0,
         10010351, 421, 51966, 195278 };
-    for( int idx=0; idx < hstrs.size(); ++idx )
+    for( unsigned int idx=0; idx < hstrs.size(); ++idx )
         EXPECT_EQ(results[idx],expected[idx]);
     NVStrings::destroy(strs);
 }
@@ -105,7 +105,7 @@ TEST(TestConvert, ToFloat)
             -876.0, 543.2, -0.12, 0.25, -0.002,
             0, nanval, 0, 123.0, 456.0, -178000.0,
             -122.3364486694336, infval };
-        for( int idx=0; idx < hstrs.size(); ++idx )
+        for( unsigned int idx=0; idx < hstrs.size(); ++idx )
         {
             float fval1 = results[idx];
             float fval2 = expected[idx];
@@ -125,7 +125,7 @@ TEST(TestConvert, ToFloat)
             -876.0, 543.2, -0.12, 0.25, -0.002,
             0, nanval, 0, 123.0, 456.0, -178000.0,
             -122.3364478212345, infval };
-        for( int idx=0; idx < hstrs.size(); ++idx )
+        for( unsigned int idx=0; idx < hstrs.size(); ++idx )
         {
             double fval1 = results[idx];
             double fval2 = expected[idx];
@@ -168,7 +168,7 @@ TEST(TestConvert, ToBool)
     thrust::device_vector<bool> results(hstrs.size(),0);
     strs->to_bools(results.data().get(), "true");
     bool expected[] = { false, false, false, true, false, false };
-    for( int idx=0; idx < hstrs.size(); ++idx )
+    for( unsigned int idx=0; idx < hstrs.size(); ++idx )
         EXPECT_EQ(results[idx],expected[idx]);
     NVStrings::destroy(strs);
 }
@@ -191,7 +191,7 @@ TEST(TestConvert, ToIPv4)
     thrust::device_vector<unsigned int> results(hstrs.size(),0);
     strs->ip2int(results.data().get());
     unsigned int expected[] = { 0,0,0, 698875905, 2130706433, 700776449 };
-    for( int idx=0; idx < hstrs.size(); ++idx )
+    for( unsigned int idx=0; idx < hstrs.size(); ++idx )
         EXPECT_EQ(results[idx],expected[idx]);
     NVStrings::destroy(strs);
 }

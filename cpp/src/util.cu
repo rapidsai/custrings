@@ -20,9 +20,11 @@
 #include <thrust/host_vector.h>
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
+
 #include "NVStrings.h"
-#include "util.h"
-#include "custring_view.cuh"
+
+#include "./util.h"
+#include "./custring_view.cuh"
 
 //
 custring_view* custring_from_host( const char* str )

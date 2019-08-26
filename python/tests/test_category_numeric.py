@@ -1,7 +1,8 @@
 # Copyright (c) 2019, NVIDIA CORPORATION.
 
-import nvcategory
 import numpy as np
+
+import nvcategory
 from utils import assert_eq
 
 
@@ -67,7 +68,7 @@ def test_gather_numbers():
     nbrs = np.empty([idxs.size], dtype=narr.dtype)
     cat.gather_numbers(idxs, nbrs)
     got = nbrs.tolist()
-    expected = [1., 1.5, 1.]
+    expected = [1.0, 1.5, 1.0]
     assert_eq(got, expected)
 
 
@@ -82,8 +83,7 @@ def util_check_cat(ncat, dtype):
 
 
 def test_merge_category():
-    cat1 = nvcategory.from_numbers(
-        np.array([4, 1, 2, 3, 2, 1, 4, 1, 1]))
+    cat1 = nvcategory.from_numbers(np.array([4, 1, 2, 3, 2, 1, 4, 1, 1]))
     cat2 = nvcategory.from_numbers(np.array([2, 4, 3, 0]))
     ncat = cat1.merge_and_remap(cat2)
 
@@ -169,7 +169,7 @@ def test_gather_and_remap():
 
 def test_nulls():
     narr = np.array([4, 1, 2, 3, 2, 1, 4, 1, 1])
-    bitmask = np.array([1+2+8+32+64+128, 1], dtype=np.int8)
+    bitmask = np.array([1 + 2 + 8 + 32 + 64 + 128, 1], dtype=np.int8)
     cat = nvcategory.from_numbers(narr, bitmask)
 
     (got_keys, got_values) = util_check_cat(cat, narr.dtype)
