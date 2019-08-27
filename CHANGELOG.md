@@ -2,6 +2,8 @@
 
 ## New Features
 
+- PR #416 Added documentation on supported timestamp specifiers
+
 ## Improvement
 
 - PR #411 Format changes for merge with cudf repo
