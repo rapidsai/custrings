@@ -645,16 +645,25 @@ void NVStrings::compute_statistics(StringsStatistics& stats)
     rmm::device_vector<size_t> values(count,0);
     size_t* d_values = values.data().get();
 
+    // count strings
+    stats.total_nulls = thrust::count_if(execpol->on(0), d_strings, d_strings + count,
+        [] __device__ (custring_view* dstr) { return dstr==nullptr; });
+    stats.total_empty = thrust::count_if(execpol->on(0), d_strings, d_strings + count,
+        [] __device__ (custring_view* dstr) { return dstr && dstr->empty(); });
+
     // bytes
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
         [d_strings, d_values] __device__ (unsigned int idx) {
             custring_view* dstr = d_strings[idx];
             d_values[idx] = dstr ? dstr->size() : 0;
         });
-    stats.bytes_max = *thrust::max_element(execpol->on(0), values.begin(), values.end());
-    stats.bytes_min = *thrust::min_element(execpol->on(0), values.begin(), values.end());
-    stats.total_bytes = thrust::reduce(execpol->on(0), values.begin(), values.end());
-    stats.bytes_avg = stats.total_bytes / count;
+    {
+        auto nend = thrust::remove(execpol->on(0), values.begin(), values.end(), 0L );
+        stats.bytes_max = *thrust::max_element(execpol->on(0), values.begin(), values.end());
+        stats.bytes_min = *thrust::min_element(execpol->on(0), values.begin(), values.end());
+        stats.total_bytes = thrust::reduce(execpol->on(0), values.begin(), values.end());
+        stats.bytes_avg = stats.total_bytes / count;
+    }
 
     // chars
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
@@ -662,10 +671,13 @@ void NVStrings::compute_statistics(StringsStatistics& stats)
             custring_view* dstr = d_strings[idx];
             d_values[idx] = dstr ? dstr->chars_count() : 0;
         });
-    stats.chars_max = *thrust::max_element(execpol->on(0), values.begin(), values.end());
-    stats.chars_min = *thrust::min_element(execpol->on(0), values.begin(), values.end());
-    stats.total_chars = thrust::reduce(execpol->on(0), values.begin(), values.end());
-    stats.chars_avg = stats.total_bytes / count;
+    {
+        auto nend = thrust::remove(execpol->on(0), values.begin(), values.end(), 0L );
+        stats.chars_max = *thrust::max_element(execpol->on(0), values.begin(), values.end());
+        stats.chars_min = *thrust::min_element(execpol->on(0), values.begin(), values.end());
+        stats.total_chars = thrust::reduce(execpol->on(0), values.begin(), values.end());
+        stats.chars_avg = stats.total_bytes / count;
+    }
 
     // memory
     thrust::for_each_n(execpol->on(0), thrust::make_counting_iterator<unsigned int>(0), count,
@@ -673,10 +685,13 @@ void NVStrings::compute_statistics(StringsStatistics& stats)
             custring_view* dstr = d_strings[idx];
             d_values[idx] = dstr ? dstr->alloc_size() : 0;
         });
-    stats.mem_max = *thrust::max_element(execpol->on(0), values.begin(), values.end());
-    stats.mem_min = *thrust::min_element(execpol->on(0), values.begin(), values.end());
-    size_t mem_total = thrust::reduce(execpol->on(0), values.begin(), values.end());
-    stats.mem_avg = mem_total / count;
+    {
+        auto nend = thrust::remove(execpol->on(0), values.begin(), values.end(), 0L );
+        stats.mem_max = *thrust::max_element(execpol->on(0), values.begin(), values.end());
+        stats.mem_min = *thrust::min_element(execpol->on(0), values.begin(), values.end());
+        size_t mem_total = thrust::reduce(execpol->on(0), values.begin(), values.end());
+        stats.mem_avg = mem_total / count;
+    }
 
     // attrs
     unsigned char* d_flags = get_unicode_flags();
@@ -697,11 +712,6 @@ void NVStrings::compute_statistics(StringsStatistics& stats)
         statistics_attrs(d_strings, d_flags, d_values, 64));
     stats.lowercase_count = thrust::reduce(execpol->on(0), values.begin(), values.end());
 
-    // count strings
-    stats.total_nulls = thrust::count_if(execpol->on(0), d_strings, d_strings + count,
-        [] __device__ (custring_view* dstr) { return dstr==0; });
-    stats.total_empty = thrust::count_if(execpol->on(0), d_strings, d_strings + count,
-        [] __device__ (custring_view* dstr) { return dstr && dstr->empty(); });
     // unique strings
     {
         // make a copy of the pointers so we can sort them
