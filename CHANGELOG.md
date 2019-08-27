@@ -2,7 +2,7 @@
 
 ## New Features
 
-- PR #394 Added documentation on supported timestamp specifiers
+- PR #416 Added documentation on supported timestamp specifiers
 
 ## Improvement
 
