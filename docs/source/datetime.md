@@ -1,11 +1,11 @@
 # nvstrings Timestamp Conversion Features
 
-The nvstrings currently supports converting timestamps to and from integer values
+nvstrings currently supports converting timestamps to and from integer values
 in specific units. The timestamp format is parsed using specifiers based on the
 [strftime and strptime documentation](https://docs.python.org/3.7/library/datetime.html#strftime-and-strptime-behavior).
 
-This document details the supported specifiers and behaviour in the nvstrings
-`int2timestamp` and `timestamp2int` methods. The specifiers are required for both parsing and formating strings during conversion.
+This document details supported specifiers and behaviour in `nvstrings.int2timestamp` and `nvstrings.timestamp2int` methods.
+The specifiers are required for both parsing and formatting strings during conversion.
 
 The following specifiers are supported as described below.
 
