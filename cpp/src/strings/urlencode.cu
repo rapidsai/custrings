@@ -92,7 +92,7 @@ struct url_encoder
             {
                 unsigned char char_bytes[4]; // holds utf-8 bytes
                 unsigned int char_width = custring_view::Char_to_char(ch,(char*)char_bytes);
-                nbytes += char_width * 3; // '%' plus 2 hex chars -- per byte: é is %C3%A9
+                nbytes += char_width * 3; // '%' plus 2 hex chars per byte (example: é is %C3%A9)
                 for( unsigned int chidx=0; !bcompute_size_only && (chidx < char_width); chidx++ )
                 {
                     copy_and_incr(optr,(char*)"%",1);     // add percent '%'
@@ -189,22 +189,15 @@ struct url_decoder
         while( sptr < send )
         {
             char ch = *sptr++;
-            if( ch != '%' )
+            if( (ch == '%') && ((sptr+1) < send) )
             {
-                ++nbytes;
-                ++nchars;
-                if( !bcompute_size_only )
-                    copy_and_incr(optr, &ch, 1);
-            }
-            else if( sptr+1 < send )
-            {
-                ++nbytes;
                 ch = *sptr++;
-                nchars += (ch & 0xC0 != 0x80);
                 ch = hex_to_byte( ch, *sptr++ );
-                if( !bcompute_size_only )
-                    copy_and_incr(optr, &ch, 1);
             }
+            ++nbytes;
+            nchars += int((((unsigned char)(ch)) & 0xC0) != 0x80); // utf8 ext byte
+            if( !bcompute_size_only )
+                copy_and_incr(optr, &ch, 1);
         }
         if( bcompute_size_only )
         {
