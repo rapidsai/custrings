@@ -8,6 +8,7 @@ Welcome to nvstrings documentation!
    api.rst
    unicode.md
    regex.md
+   datetime.md
 
 Indices and tables
 ==================
