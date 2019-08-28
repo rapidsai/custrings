@@ -2,9 +2,13 @@
 
 ## New Features
 
+- PR #416 Added documentation on supported timestamp specifiers
+
 ## Improvement
+- PR #403 Remove driver install from ci scripts
 
 - PR #411 Format changes for merge with cudf repo
+- PR #415 Refactor NVText to improve compile time and logic reuse
 
 ## Bug Fixes
 

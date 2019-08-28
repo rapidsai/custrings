@@ -177,6 +177,10 @@ add_library(NVCategory SHARED
 
 add_library(NVText SHARED
             src/text/NVText.cu
+            src/text/edit_distance.cu
+            src/text/ngram.cu
+            src/text/stemmer.cu
+            src/text/tokens.cu
             src/util.cu)
 
 ###################################################################################################
