@@ -2,13 +2,18 @@
 
 ## New Features
 
+- PR #416 Added documentation on supported timestamp specifiers
+
 ## Improvement
+- PR #403 Remove driver install from ci scripts
 
 - PR #411 Format changes for merge with cudf repo
+- PR #415 Refactor NVText to improve compile time and logic reuse
 
 ## Bug Fixes
 
 - PR #412 Fixed bug in compare when used with non-ascii character
+- PR #414 Fixed memory leaks in urldecode() and insert()
 
 # cuStrings/nvStrings 0.9.0 (21 Aug 2019)
 
