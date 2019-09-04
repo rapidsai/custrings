@@ -32,19 +32,12 @@ class NVText
 public:
 
     /**
-     * @brief Tokenize all the strings into a single instance. Delimiter is whitespace.
-     * @param strs Strings to tokenize.
-     * @return Just the tokens. No empty or null strings.
-     */
-    static NVStrings* tokenize(NVStrings& strs);
-
-    /**
      * @brief Tokenize all the strings into a single instance.
      * @param strs Strings to tokenize.
-     * @param delimiter String or character used to identify tokens.
+     * @param delimiter String or character used to identify tokens. Default is whitespace.
      * @return Just the tokens. No empty or null strings.
      */
-    static NVStrings* tokenize(NVStrings& strs, const char* delimiter);
+    static NVStrings* tokenize(NVStrings& strs, const char* delimiter=nullptr);
 
     /**
      * @brief Tokenize all the strings into a single instance using multiple delimiters.
@@ -60,7 +53,7 @@ public:
      * @param delimiter String or character used to identify tokens.
      * @return Unique tokens only. These are also sorted.
      */
-    static NVStrings* unique_tokens(NVStrings& strs, const char* delimiter = " ");
+    static NVStrings* unique_tokens(NVStrings& strs, const char* delimiter=nullptr);
 
     /**
      * @brief Computes the number of tokens in each string.
@@ -170,4 +163,12 @@ public:
      */
     static unsigned int porter_stemmer_measure(NVStrings& strs, const char* vowels, const char* y_char, unsigned int* results, bool devmem=true );
 
+     /**
+      * @brief Creates a new strings instance duplicating each string by its associated count value.
+      * @param strs Strings to scatter.
+      * @param counts[in] Number of times to repeat each corresponding string. Must have the same elements as strs.
+      * @param devmem Indicates if counts array is in device memory.
+      * @return New strings instance with appropriate scattered elements.
+      */
+     static NVStrings* scatter_count( NVStrings& strs, unsigned int* counts, bool devmem=true );
 };
