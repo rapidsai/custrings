@@ -12,6 +12,7 @@
 
 ## Bug Fixes
 
+- PR #412 Fixed bug in compare when used with non-ascii character
 - PR #414 Fixed memory leaks in urldecode() and insert()
 
 # cuStrings/nvStrings 0.9.0 (21 Aug 2019)
