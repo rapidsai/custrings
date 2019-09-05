@@ -3815,16 +3815,16 @@ static PyObject* n_get_info( PyObject* self, PyObject* args )
         unsigned int chr = stats.char_counts[idx].first;
         unsigned int num = stats.char_counts[idx].second;
         unsigned char out[5] = {0,0,0,0,0};
-        unsigned char* ptr = out + ((chr & 0xF0000000)==0xF0000000) + ((chr & 0xFFE00000)==0x00E00000) + ((chr & 0xFFFFC000)==0x0000C000);
-        //printf("%p,%p,%x,%d\n",out,ptr,(chr & 0xFFFF),(int)((chr & 0xFFFFC000)==0x0000C00000));
-        unsigned int cvt = chr;
-        while( cvt > 0 )
+        unsigned int chwidth = 1;
+        chwidth += (int)((chr & (unsigned)0x0000FF00) > 0);
+        chwidth += (int)((chr & (unsigned)0x00FF0000) > 0);
+        chwidth += (int)((chr & (unsigned)0xFF000000) > 0);
+        for(unsigned int idx = 0; idx < chwidth; ++idx)
         {
-            *ptr-- = (unsigned char)(cvt & 255);
-            cvt = cvt >> 8;
+            out[chwidth - idx - 1] = (char)chr & 0xFF;
+            chr = chr >> 8;
         }
         PyDict_SetItemString(pyhist,(const char*)out,PyLong_FromLong(num));
-        //printf("    [%s] 0x%04x = %u\n",out,chr,num);
     }
 
     PyDict_SetItemString(pydict,"chars_histogram",pyhist);
