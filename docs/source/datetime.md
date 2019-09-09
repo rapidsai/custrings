@@ -19,10 +19,12 @@ The following specifiers are supported as described below.
 | %I | 12-hour of the day: 01-12 |
 | %M | Minute of the hour: 00-59|
 | %S | Second of the minute: 00-59 |
-| %f | 6-digit microsecond: 000000-999999 |
+| %f | variable digit count sub-second value: 000-999, 000000-999999, or 000000000-999999999 |
 | %z | UTC offset with format ±HHMM[SS[.ffffff]]. Example +0500 |
 | %j | Day of the year: 001-366 |
 | %p | Only 'AM', 'PM' or 'am', 'pm' are recognized |
+
+The `%f` operator changes behavior based on the time unit being used. Millisecond parsing requires 3 digits and nanosecond parsing requires 9 digits -- all other unit types require 6 digits.
 
 Other specifiers are not currently supported.
 
