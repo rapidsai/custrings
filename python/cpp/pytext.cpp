@@ -530,17 +530,16 @@ static PyObject* n_edit_distance_matrix( PyObject* self, PyObject* args )
 
     // or fill in python list with host memory
     PyObject* ret = PyList_New(count);
-    PyObject* tmp = PyList_New(count);
 
-    std::vector<unsigned int> v(count);
-    std::vector<std::vector<unsigned int>> rtn(count, v);
+    std::vector<unsigned int> rtn(count*count);
     Py_BEGIN_ALLOW_THREADS
     NVText::edit_distance_matrix(NVText::levenshtein, *strs, rtn.data(),false);
     Py_END_ALLOW_THREADS
     for(unsigned int row=0; row < count; row++)
     {
+        PyObject* tmp = PyList_New(count);
         for(unsigned int idx=0; idx < count; idx++)
-            PyList_SetItem(tmp, idx, PyLong_FromLong((long)rtn[row][idx]));
+            PyList_SetItem(tmp, idx, PyLong_FromLong((long)rtn[row*count+idx]));
 
         PyList_SetItem(ret, row, tmp);
     }

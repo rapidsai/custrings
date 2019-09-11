@@ -307,9 +307,9 @@ def edit_distance_matrix(strs, algo=0, devptr=0):
     >>> s = nvstrings.to_device(["honda","hyundai","suzuki"])
     >>> n = nvtext.edit_distance_matrix(s)
     >>> print(n)
-    [[0, 3, 11],
-     [3, 0, *],
-     [11, *, 0]]
+    [[0, 3, 6],
+     [3, 0, 5],
+     [6, 5, 0]]
 
     """
     rtn = pyniNVText.n_edit_distance_matrix(strs, algo, devptr)
