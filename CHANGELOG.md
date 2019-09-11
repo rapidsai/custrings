@@ -3,6 +3,7 @@
 ## New Features
 
 - PR #416 Added documentation on supported timestamp specifiers
+- PR #419 Added `edit_distance_matrix()` function to calculate pairwise edit distance for each string on a given nvstrings object.  
 
 ## Improvement
 
