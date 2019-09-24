@@ -19,6 +19,15 @@ def test_slice_from():
     assert_eq(got, expected)
 
 
+def test_slice_negative_start():
+    strs = nvstrings.to_device(
+        ["a", "b"]
+    )
+    got = strs[slice(-3, None, None)]
+    expected = ["a", "b"]
+    assert_eq(got, expected)
+
+
 @pytest.mark.parametrize("start", [2, 2, 2, 2])
 @pytest.mark.parametrize("stop", [8, 15, 8, 8])
 @pytest.mark.parametrize("step", [None, None, 2, 5])
